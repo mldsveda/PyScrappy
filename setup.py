@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="PyScrappy",
-    version="0.0.2",
+    version="0.0.3",
     author="Vedant Tibrewal, Vedaant Singh",
     author_email="mlds93363@gmail.com",
     description="This package is made for automatic web scraping to make the whole process of scraping easy and simple.",
@@ -20,7 +20,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.6",
-    py_modules=["PyScrappy"],
+    py_modules=["PyScrappy", "alibaba", "flipkart", "image", "instagram", "snapdeal", "wikipedia", "youtube"],
     package_dir={"": "src"},
     install_requires=[
         'selenium',
