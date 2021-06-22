@@ -6,14 +6,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="PyScrappy",
-    version="0.0.1",
+    version="0.0.2",
     author="Vedant Tibrewal, Vedaant Singh",
     author_email="mlds93363@gmail.com",
-    description="This project is made for automatic web scraping to make the whole process of scraping easy and simple.",
+    description="This package is made for automatic web scraping to make the whole process of scraping easy and simple.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    # url="https://github.com/pypa/sampleproject",
-    keywords=['Scrapping', 'Flipkart', 'Snapdeal', 'Wikipedia', 'Image Scrapper', 'YouTube', 'Scrapper'],
+    url="https://github.com/mldsveda/PyScrappy",
+    keywords=['Scrapping', 'Flipkart', 'Snapdeal', 'Wikipedia', 'Image Scrapper', 'YouTube', 'Scrapper', 'Instagram', 'Alibaba', 'Web Scraping'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
