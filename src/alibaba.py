@@ -18,96 +18,66 @@ import os
 
 usr_agent = {
 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
-'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8',
 'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
 'Accept-Encoding': 'none',
 'Accept-Language': 'en-US,en;q=0.8',
 'Connection': 'keep-alive',
 }
 
-def scrappi(n_pages):
+def scrappi(product_name, n_pages):
 
-    # Url input
-    url=str(input("Enter the desired Alibaba URL: \n"))
-    urls=requests.get(url)
+        ali = "https://www.alibaba.com/trade/search?fsb=y&IndexArea=product_en&CatId=&SearchText="+product_name
+        url = requests.get(ali)
+        soup = BeautifulSoup(url.text,"lxml")
+        
+        if n_pages == 0:
+            print("Enter a valid number of Pages")
+            return scrappi(product_name, n_pages=int(input("Enter a Page Number: ")))
+            
+        initial_url = str(ali)
+        lst_of_urls = []
+        for i in range(1, n_pages+1):
+            x = initial_url + '&page=' + str(i)
+            lst_of_urls.append(x)
+        
+        def Card_Style(soup):
 
-    initial_url =str(url)
-    lst_of_urls = []
-    for i in range(0, n_pages):
-        x = initial_url + '&page=' + str(i)
-        lst_of_urls.append(x)
-    #print(lst_of_urls)
+            lst=[]
+            cnt = soup.find_all("div", {"class": "m-gallery-product-item-v2"})
+            for i in range(len(cnt)):
+                
+                try: name = cnt[i].find("p", {"class": "elements-title-normal__content"}).text
+                except: name = "None"
 
-    def alibaba(soup):
-        #x = "Same"
-        lst = []
-        urls=requests.get(url)
-        soup=BeautifulSoup(urls.text,"lxml")
-        Main=soup.find_all("div",class_="app-organic-search__list")
-        try:
-            # For Card Style
-            if len(Main[0].find("div",class_="m-gallery-product-item-v2"))>=1:
-                #print("Card Style Container\n")
-                cnt=soup.find_all("div",{"class":"m-gallery-product-item-v2"})
-                #print(len(cnt))
-                #ad=soup.find("div",{"class":"_2tfzpE"})
-                for i in range(len(cnt)):
-                    try:
-                        name = cnt[i].find("p",{"class":"elements-title-normal__content"}).text
-                        # Capitalizing the First letter
-                        name = name.capitalize()
-                        # Discounted Price
-                        #Price = cnt[i].find("span",{"class":"elements-offer-price-normal__price"}).text
-                        # Removing the ₹
-                        #Price = re.sub('[₹]', '', Price)
-                        # Original Price
-                        Priceo = cnt[i].find("span",{"class":"element-offer-minorder-normal__value"}).text
-                        oprice = Priceo[0]
-                        # Removing the ₹
-                        #oprice = re.sub('[₹]', '', oprice)
-                        # Description of the Product
-                        #Description = cnt[i].find("div",{"class":"_3Djpdu"}).text
-                        # Appending in a list
-                        lst.append([name, oprice])
-                    except:
-                        lst.append([name, oprice])
-                        #pass
-                        #print("Not Exist")
-        except:
-            # For Rectangle Style
-            if len(Main[0].find("div",class_="_2kHMtA"))>=1:
-                #print("Rectangular Style Container\n")
-                cnt=soup.find_all("div",{"class":"_2kHMtA"})
-                ad=soup.find("div",{"class":"_2tfzpE"})
-                for i in range(len(cnt)):
-                    try:
-                        name=cnt[i].find("div",{"class":"_4rR01T"}).text
-                        # Capitalizing the First letter
-                        name = name.capitalize()
-                        # Discounted Price
-                        Price = cnt[i].find("div",{"class":"_30jeq3 _1_WHN1"}).text
-                        # Removing the ₹
-                        #Price = re.sub('[₹]', '', Price)
-                        # Original Price
-                        Priceo=cnt[i].find("div",{"class":"_3I9_wc _27UcVY"}).text.split()
-                        oprice=Priceo[0]
-                        # Removing the ₹
-                        #oprice = re.sub('[₹]', '', oprice)
-                        # Description of the Product
-#                         Description=cnt[i].find("li",{"class":"rgWa7D"}).text
-                        # Appending in a list and making it 2D
-                        lst.append([name, Price, oprice])
-                    except:
-                        #lst.append(x)
-                        pass
-                        #print("Not Exist")
-        return lst
+                try: 
+                    Price = cnt[i].find("p", {"class": "elements-offer-price-normal medium"})['title']
+                    Price = '$' + str(Price).replace('$', '')
+                except: Price = "None"
 
-    x = []
-    for i in lst_of_urls:
-        abc = alibaba(i)
-        for j in abc:
-            x.append(j)
+                try: n_item = cnt[i].find("span", {"class": "element-offer-minorder-normal__value"}).text
+                except: n_item = "None"
 
-    df = pd.DataFrame(x, columns = ['Name', 'Number of Items'])
-    return df
+                try: Description = cnt[i].find("div", {"class": "offer-tag-list"}).text
+                except: Description = "None"
+                    
+                try: rating = cnt[i].find("span",{"class":"seb-supplier-review__score"}).text
+                except: rating = "None"
+                    
+                lst.append([name, Price, n_item, Description, rating])
+
+            return lst
+        
+        def alibaba(soup):
+            if len(soup.find_all("div",class_="m-gallery-product-item-v2"))>=1: return Card_Style(soup)
+
+        x = []
+        for i in lst_of_urls:
+            url = requests.get(i)
+            soup = BeautifulSoup(url.text,"lxml")
+            abc = alibaba(soup)
+            if abc:
+                for j in abc: x.append(j)
+
+        df = pd.DataFrame(x, columns =['Name', 'Price', 'Number of Items', 'Description', 'Ratings'])
+        return df

@@ -26,12 +26,14 @@ usr_agent = {
 }
 
 
-def insta_details(link, n_pages):
+def account(insta_handle, n_pages):
     driver = webdriver.Chrome(ChromeDriverManager().install())
-    driver.get(link)
+    driver.get("https://www.instagram.com/"+insta_handle+"/")
+    
     for _ in range(n_pages):
         driver.find_element_by_tag_name('body').send_keys(Keys.END)
         time.sleep(3)
+        
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
     main = soup.find_all('section', {"class": "zwlfE"})
@@ -39,7 +41,6 @@ def insta_details(link, n_pages):
 
     for details in main:
         title = details.find('h1', {"class": "rhpdm"})
-        #posts = details.find('li', {"class": "Y8-fY"})
         info = details.find_all('span', {"class": "g47SY"})
         data = details.find('div', {"class": "-vDIg"}).find_all('span')
         posts = info[0].text
@@ -55,20 +56,17 @@ def insta_details(link, n_pages):
         print()
         break
 
-    u = []
+    post_url = []
     for i in main2:
         url = i.find_all('div', {"class": "v1Nh3 kIKUG _bz0w"})
         for x in url:
-            a = 'https://www.instagram.com/'+x.a['href']
-            u.append(a)
-
-    # driver = webdriver.Chrome(ChromeDriverManager().install())
+            u = 'https://www.instagram.com/'+x.a['href']
+            post_url.append(u)
     
     def func(a):
         driver.get(a)
-        for _ in range(1):
-            driver.find_element_by_tag_name('body').send_keys(Keys.END)
-            time.sleep(3)
+        driver.find_element_by_tag_name('body').send_keys(Keys.END)
+        time.sleep(3)
         html = driver.page_source
         soup = BeautifulSoup(html, "html.parser")
         main = soup.find_all('div', {"class": "C4VMK"})
@@ -77,7 +75,45 @@ def insta_details(link, n_pages):
             return title.text
             
     caption =[]
-    for i in u:
+    for i in post_url:
+        caption.append(func(i))
+
+    df = pd.DataFrame({'Captions': caption})
+    return df
+
+def hashtag(hashtag, n_posts):
+    driver = webdriver.Chrome(ChromeDriverManager().install())
+    hashtag = hashtag.replace('#', '')
+    driver.get("https://www.instagram.com/explore/tags/"+hashtag+"/")
+    
+    for _ in range(int(n_posts//3)):
+        driver.find_element_by_tag_name('body').send_keys(Keys.END)
+        time.sleep(3)
+        
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+    main = soup.find_all('div', {"class": "EZdmt"})
+
+    post_url = []
+    for i in main:
+        url = i.find_all('div', {"class": "v1Nh3 kIKUG _bz0w"})
+        for x in url:
+            u = 'https://www.instagram.com'+x.a['href']
+            post_url.append(u)
+    
+    def func(a):
+        driver.get(a)
+        driver.find_element_by_tag_name('body').send_keys(Keys.END)
+        time.sleep(3)
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+        main = soup.find_all('div', {"class": "C4VMK"})
+        for details in main:
+            title = details.find('span', {"class": ""})
+            return title.text
+            
+    caption =[]
+    for i in post_url:
         caption.append(func(i))
 
     df = pd.DataFrame({'Captions': caption})

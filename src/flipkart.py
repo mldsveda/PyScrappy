@@ -25,88 +25,122 @@ usr_agent = {
 'Connection': 'keep-alive',
 }
 
-def scrappi(n_pages):
-    # Url input
-    url=str(input("Enter the desired Fipkart URL: \n"))
-    urls=requests.get(url)
+def scrappi(product_name, n_pages):
 
-    initial_url =str(url)
+    flip = "https://www.flipkart.com/search?q="+product_name
+    url = requests.get(flip)
+    soup = BeautifulSoup(url.text,"lxml")
+    
+    if n_pages == 0:
+        Page = soup.find("div",class_="_2MImiq").find("span", class_="").text
+        c = Page.split()
+        i=((c[3].replace(',','')))
+        print("Enter valid number of Pages between 1 and {}".format(i))
+        return scrappi(product_name, n_pages=int(input("Enter a Page Number: ")))
+        
+    initial_url = str(flip)
     lst_of_urls = []
-    for i in range(0, n_pages):
+    for i in range(1, n_pages+1):
         x = initial_url + '&page=' + str(i)
         lst_of_urls.append(x)
-    #print(lst_of_urls)
-
-    def flipkart(soup):
-        #x = "Same"
+    
+    def rectangle(soup):
+        
         lst = []
-        urls = requests.get(url)
-        soup = BeautifulSoup(urls.text,"lxml")
-        Main = soup.find_all("div",class_="_13oc-S")
-        try:
-            # For Card Style
-            if len(Main[0].find("div",class_="_4ddWXP"))>=1:
-                #print("Card Style Container\n")
-                cnt=soup.find_all("div",{"class":"_4ddWXP"})
-                #print(len(cnt))
-                #ad=soup.find("div",{"class":"_2tfzpE"})
-                for i in range(len(cnt)):
-                    try:
-                        name = cnt[i].find("a",{"class":"s1Q9rs"}).text
-                        # Capitalizing the First letter
-                        name = name.capitalize()
-                        # Discounted Price
-                        Price = cnt[i].find("div",{"class":"_30jeq3"}).text
-                        # Removing the ₹
-                        #Price = re.sub('[₹]', '', Price)
-                        # Original Price
-                        Priceo = cnt[i].find("div",{"class":"_3I9_wc"}).text.split()
-                        oprice = Priceo[0]
-                        # Removing the ₹
-                        #oprice = re.sub('[₹]', '', oprice)
-                        # Description of the Product
-                        Description = cnt[i].find("div",{"class":"_3Djpdu"}).text
-                        # Appending in a list
-                        lst.append([name, Price, oprice, Description])
-                    except:
-                        lst.append([name, Price, oprice, Description])
-                        #pass
-                        #print("Not Exist")
-        except:
-            # For Rectangle Style
-            if len(Main[0].find("div",class_="_2kHMtA"))>=1:
-                #print("Rectangular Style Container\n")
-                cnt=soup.find_all("div",{"class":"_2kHMtA"})
-                ad=soup.find("div",{"class":"_2tfzpE"})
-                for i in range(len(cnt)):
-                    try:
-                        name=cnt[i].find("div",{"class":"_4rR01T"}).text
-                        # Capitalizing the First letter
-                        name = name.capitalize()
-                        # Discounted Price
-                        Price = cnt[i].find("div",{"class":"_30jeq3 _1_WHN1"}).text
-                        # Removing the ₹
-                        #Price = re.sub('[₹]', '', Price)
-                        # Original Price
-                        Priceo=cnt[i].find("div",{"class":"_3I9_wc _27UcVY"}).text.split()
-                        oprice=Priceo[0]
-                        # Removing the ₹
-                        #oprice = re.sub('[₹]', '', oprice)
-                        # Description of the Product
-                        Description=cnt[i].find("li",{"class":"rgWa7D"}).text
-                        # Appending in a list and making it 2D
-                        lst.append([name, Price, oprice, Description])
-                    except:
-                        #lst.append(x)
-                        pass
-                        #print("Not Exist")
+        cnt = soup.find_all("div", {"class": "_2kHMtA"})
+        for i in range(len(cnt)):
+            
+            try: name = cnt[i].find("div", {"class": "_4rR01T"}).text  
+            except: name = "None"
+
+            try: Price = cnt[i].find("div", {"class":"_30jeq3 _1_WHN1"}).text
+            except: Price = "None"
+
+            try:
+                Priceo = cnt[i].find("div", {"class": "_3I9_wc _27UcVY"}).text.split()
+                oprice = Priceo[0]
+            except: oprice = "None"
+                
+            try: Description = cnt[i].find("li", {"class": "rgWa7D"}).text
+            except: Description = "None"
+
+            try: rating=cnt[i].find("div",{"class":"_3LWZlK"}).text
+            except: rating="None"
+                
+            lst.append([name, Price, oprice, Description, rating])
+
         return lst
+    
+    def Card_Style(soup):
+
+        lst=[]
+        cnt = soup.find_all("div", {"class": "_4ddWXP"})
+        for i in range(len(cnt)):
+            
+            try: name = cnt[i].find("a", {"class": "s1Q9rs"}).text
+            except: name = "None"
+
+            try: Price = cnt[i].find("div", {"class": "_30jeq3"}).text
+            except: Price = "None"
+
+            try:
+                Priceo = cnt[i].find("div", {"class": "_3I9_wc"}).text.split()
+                oprice = Priceo[0]
+
+            except: oprice = "None"
+
+            try: Description = cnt[i].find("div", {"class": "_3Djpdu"}).text
+            except: Description = "None"
+                
+            try: rating=cnt[i].find("div",{"class":"_3LWZlK"}).text
+            except: rating="None"
+                
+            lst.append([name, Price, oprice, Description, rating])
+
+        return lst
+    
+    def OtherStyle(soup):
+
+        lst=[]
+        cnt = soup.find_all("div", {"class": "_1xHGtK _373qXS"})
+        for i in range(len(cnt)):
+            
+            try: name = cnt[i].find("div", {"class": "_2WkVRV"}).text
+            except: name = "None"
+
+            try: Price = cnt[i].find("div", {"class": "_30jeq3"}).text
+            except: Price = "None"
+
+            try:
+                Priceo = cnt[i].find("div", {"class": "_3I9_wc"}).text.split()
+                oprice = Priceo[0]
+            except: oprice = "None"
+
+            try: Description = cnt[i].find("a", {"class": "IRpwTa"}).text
+            except: Description = "None"
+                
+            try: rating=cnt[i].find("div",{"class":"_3LWZlK"}).text
+            except: rating="None"
+
+            lst.append([name, Price, oprice, Description, rating])
+            
+        return lst
+    
+    def flipkart(soup):
+        if len(soup.find_all("div",class_="_4ddWXP"))>=1:
+            return Card_Style(soup)
+        elif len(soup.find_all("div",class_="_2kHMtA"))>=1:
+            return rectangle(soup)
+        elif len(soup.find_all("div", {"class": "_1xHGtK _373qXS"}))>=1:
+            return OtherStyle(soup)
 
     x = []
     for i in lst_of_urls:
-        abc = flipkart(i)
-        for j in abc:
-            x.append(j)
+        url = requests.get(i)
+        soup = BeautifulSoup(url.text,"lxml")
+        abc = flipkart(soup)
+        if abc: 
+            for j in abc: x.append(j)
 
-    df = pd.DataFrame(x, columns =['Name', 'Price', 'Original Price', 'Description'])
+    df = pd.DataFrame(x, columns =['Name', 'Price', 'Original Price', 'Description', 'Rating'])
     return df
