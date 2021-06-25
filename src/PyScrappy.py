@@ -1,91 +1,106 @@
+############## Flipkart Scrapper ############## 
 
-def flipkart_scrapper(n_pages):
+def flipkart_scrapper(product_name, n_pages):
 
     """
 
-    Flipkart Scrapper: Helps in scrapping Flikart data ('Name', 'Price', 'Original Price', 'Description').
+    Flipkart Scrapper: Helps in scrapping Flikart data ('Name', 'Price', 'Original Price', 'Description', 'Rating').
     return type: DataFrame
 
     Parameters
     ------------
-    n_pages: The number of pages that it will scrape at a single run
+    product_name: Enter the name of the desired product, which you want to scrape the data of
+        Type: str
+
+    n_pages: Enter the number of pages that you want to scrape
         Type: int
 
     Note
     ------
-    A prompt will ask you to enter a "Flipkart" url. Make sure you add a valid one.
-    Currently supports card and rectangular style.
+    Both the arguments are a compulsion. 
+    If n_pages == 0: A prompt will ask you to enter a valid page number and the scrapper will re-run. 
     
     Example
     ---------
-    >>>  flipkart_scrapper(3)
-    out: Enter the desired Fipkart URL: https://www.flipkart.com/skjngvd?cSJNdvk=sdv
-         Name   Price   Original Price  Description
-         abc    ₹340    ₹440            Product
-         aec    ₹140    ₹240            Product
+    >>>  flipkart_scrapper("Product Name", 3) 
+    out: Name   Price   Original Price  Description Rating
+         abc    ₹340    ₹440            Product     4.2
+         aec    ₹140    ₹240            Product     4.7
 
     """
 
     import flipkart 
-    return flipkart.scrappi(n_pages)
+    return flipkart.scrappi(product_name, n_pages)
 
-def snapdeal_scrapper(n_pages):
+############## Snapdeal Scrapper ##############
+
+def snapdeal_scrapper(product_name, n_pages):
 
     """
 
-    Snapdeal Scrapper: Helps in scrapping Snapdeal data ('Name', 'Original Price', 'Discounted Price').
+    Snapdeal Scrapper: Helps in scrapping Snapdeal data ('Name', 'Price', 'Original Price', 'Number of Ratings').
     return type: DataFrame
 
     Parameters
     ------------
-    n_pages: The number of pages that it will scrape at a single run
+    product_name: Enter the name of the desired product, which you want to scrape the data of
+        Type: str
+
+    n_pages: Enter the number of pages that you want to scrape
         Type: int
 
     Note
     ------
-    A prompt will ask you to enter a "Snapdeal" url. Make sure you add a valid one.
+    Both the arguments are a compulsion. 
+    If n_pages == 0: A prompt will ask you to enter a valid page number and the scrapper will re-run.
     
     Example
     ---------
-    >>>  snapdeal_scrapper(3)
-    out: Enter the desired Snapdeal URL: https://www.snapdeal.com/skjngvd?cSJNdvk=sdv
-         Name   Original Price   Discounted Price
-         abc    ₹440             ₹340
-         aec    ₹240             ₹140
+    >>>  snapdeal_scrapper('product', 3)
+    out: Name   Price   Original Price   Number of Ratings
+         abc    ₹340    ₹440             40
+         aec    ₹140    ₹240             34
 
     """
 
     import snapdeal
-    return snapdeal.scrappi(n_pages)
+    return snapdeal.scrappi(product_name, n_pages)
 
-def alibaba_scrapper(n_pages):
+############## Alibaba Scrapper ##############
+
+def alibaba_scrapper(product_name, n_pages):
 
     """
 
-    Alibaba Scrapper: Helps in scrapping Alibaba data ('Name', 'Number of Items').
+    Alibaba Scrapper: Helps in scrapping Alibaba data ('Name', 'Number of Items', 'Description', 'Ratings').
     return type: DataFrame
 
     Parameters
     ------------
-    n_pages: The number of pages that it will scrape at a single run
+    product_name: Enter the name of desired product
+        Type: str
+
+    n_pages: Enter the number of pages that you want to scrape
         Type: int
 
     Note
     ------
-    A prompt will ask you to enter a "Alibaba" url. Make sure you add a valid one.
-    
+    Both the arguments are a compulsion. 
+    If n_pages == 0: A prompt will ask you to enter a valid page number and the scrapper will re-run.
+
     Example
     ---------
-    >>>  alibabal_scrapper(3)
-    out: Enter the desired Alibaba URL: https://www.alibaba.com/skjngvd?cSJNdvk=sdv
-         Name   Number of Items
-         abc    440             
-         aec    240             
+    >>>  alibabal_scrapper('product', 3)
+    out: Name   Number of Items   Description   Ratings
+         abc    440               product a     3.5
+         aec    240               product b     4.5
 
     """
 
     import alibaba
-    return alibaba.scrappi(n_pages)
+    return alibaba.scrappi(product_name, n_pages)
+
+############## Image Scrapper ##############
 
 def image_scrapper(data_name, n_images=10, img_format='jpg', folder_name='images'):
 
@@ -130,6 +145,8 @@ def image_scrapper(data_name, n_images=10, img_format='jpg', folder_name='images
     import image
     return image.scrappi(data_name, n_images=0, img_format='jpg', folder_name='images')
 
+############## YouTube Scrapper ##############
+
 def youtube_scrapper(video_sec_url, n_pages):
 
     """
@@ -161,7 +178,9 @@ def youtube_scrapper(video_sec_url, n_pages):
     import youtube
     return youtube.scrappi(video_sec_url, n_pages=3)
 
-class wikipedia_scrapper():
+############## Wikipedia Scrapper ##############
+
+class WikipediaScrapper():
 
     """
 
@@ -181,6 +200,8 @@ class wikipedia_scrapper():
     >>> obj = PyScrappy.wikipedia_scrapper()
 
     """
+
+############## Wikipedia Paragraph Scrapper ##############
 
     def para_scrapper(self, word):
 
@@ -207,6 +228,9 @@ class wikipedia_scrapper():
 
         import wikipedia
         return wikipedia.para(word)
+
+############## Wikipedia Header Scrapper ##############
+
     def header_scrapper(self, word):
 
         """
@@ -232,6 +256,9 @@ class wikipedia_scrapper():
 
         import wikipedia
         return wikipedia.header(word)
+
+############## Wikipedia Text Scrapper ##############
+
     def text_scrapper(self, word):
 
         """
@@ -257,38 +284,265 @@ class wikipedia_scrapper():
         import wikipedia
         return wikipedia.text(word)
 
-def instagram_scrapper(url, n_pages):
+############## Instagram Scrapper ##############
+
+class InstagramScrapper():
 
     """
 
     Instagram Scrapper: Helps in scrapping instagram data (name, posts, followers, following, bio, captions)
-    return type: DataFrame (for captions)
+        1. Details and post captions based on Insta handle 
+        2. Post captions based on #hashtags
 
-    Parameters
-    ------------
-    url: Enter the desired profile URL (Public Profile)
-        Type: str
-
-    n_pages: The number of pages that it will scrape at a single run.
-        Type: int
+    Type: class
 
     Note
     ------
-    Make sure the Instagram account is public, after certain number of runs, Instagram will ask you for your Instagram ID and PASSWORD, kindly enter it to continue.
-    
+    Create an object of this class to procced further.
+
     Example
     ---------
-    >>>  instagram_scrapper('https://www.instagram.com/Public_account_name', 3)
-    out: Name: abc
-         Posts: 50
-         Followers: 128
-         Following: 150
-         Bio: Hello World!!
-
-         Captions
-         Hello World !!! My first picture.
+    >>> obj = PyScrappy.instagram_scrapper()
 
     """
 
-    import instagram
-    return instagram.insta_details(url, n_pages)
+############## Instagram account Scrapper ##############
+
+    def account_scrapper(insta_handle, n_pages):
+
+        """
+
+        Instagram account Scrapper: Helps in scrapping instagram data (name, posts, followers, following, bio, captions)
+        return type: DataFrame (for captions)
+
+        Parameters
+        ------------
+        insta_handle: Enter the desired Insta handle/username
+            Type: str
+
+        n_pages: Enter the number of pages that you want to scrape
+            Type: int
+
+        Note
+        ------
+        Make sure the Instagram account is public, after certain number of runs, Instagram will ask you for your Instagram ID and PASSWORD, kindly enter it to continue.
+        
+        Example
+        ---------
+        >>>  obj.account_scrapper('Public_account_name', 3)
+        out: Name: abc
+             Posts: 50
+             Followers: 128
+             Following: 150
+             Bio: Hello World!!
+
+            Captions
+            Hello World !!! My first picture.
+            Hello World !!! My first program....
+
+        """
+
+        import instagram
+        return instagram.account(insta_handle, n_pages)
+
+############## Instagram hashtag Scrapper ##############
+
+    def hashtag_scrapper(hashtag, n_posts):
+
+        """
+
+        Instagram hashtag Scrapper: Helps in scrapping instagram data (captions)
+        return type: DataFrame
+
+        Parameters
+        ------------
+        hashtag: Enter the desired hashtag
+            Type: str
+
+        n_posts: Enter the number of posts that you want to scrape
+            Type: int
+
+        Note
+        ------
+        After certain number of runs, Instagram will ask you for your Instagram ID and PASSWORD, kindly enter it to continue.
+        
+        Example
+        ---------
+        >>>  obj.hashtag_scrapper('#python', 3)
+        out: Captions
+             Hello World !!! My first picture. #python
+             Hello World !!! My first program. #python
+             This is scrapping package. #python
+
+        """
+
+        import instagram
+        return instagram.hashtag(hashtag, n_posts)
+
+############## News Scrapper ##############
+
+def news_scrapper(n_pages, genre=''):
+
+    """
+
+    News Scrapper: Helps in scrapping News (Headlines, Time, Date, News)
+    return type: DataFrame
+
+    Parameters
+    ------------
+    n_pages: Enter the number of pages that it will scrape at a single run.
+        Type: int
+
+    genre: Enter the news genre
+        Type: str
+        Default: '' (None)
+        Values accepted: 
+        'national', 'business', 'sports', 'world', 'politics', 'technology', 'startup', 'entertainment', 
+        'miscellaneous', 'hatke', 'science', 'automobile'
+
+    Note
+    ------
+    Kindly press on the LOAD MORE button once the chrome web-driver pops up, for a seamless process of scrapping 
+    
+    Example
+    ---------
+    >>>  news_scrapper(3, 'hatke')
+    out: Headlines      Time        Date                    News
+         New Package    08:19 pm    25 Jun 2021,Sunday      PyScrappy is a new package...
+         New Scrapper   08:19 am    25 Jun 2020,Wednesday   PyScrappy is a new Scrapper...
+
+    """
+
+    import news
+    return news.scrappi(n_pages, genre)
+
+############## stock Scrapper ##############
+
+class StockScrapper():
+
+    """
+
+    Stock Scrapper: Helps in scrapping stock data
+        1. Financial data of the stock
+        2. Profile data of the stock
+        3. Historical data of the stock
+
+    Type: class
+
+    Note
+    ------
+    Create an object of this class to procced further.
+
+    Example
+    ---------
+    >>> obj = PyScrappy.StockScrapper()
+
+    """
+
+############## Financial details scrapper ##############
+
+    def financial_data_scrapper(stock_code):
+
+        """
+
+        Financial data scrapper: Helps in scrapping the financial data of the stock
+        return type: list
+
+        Parameters
+        ------------
+        stock_code: Enter the desired stock code
+            Type: str
+
+        Note
+        ------
+        Make sure you enter a valid stock code.
+        
+        Example
+        ---------
+        >>>  x = obj.financial_data_scrapper('STOCK_CODE')
+        >>>  print(x)
+        out: [{'researchDevelopment': 18752000000,
+                'incomeBeforeTax': 67091000000,
+                'netIncome': 57411000000,
+                'sellingGeneralAdministrative': 19916000000, 
+                ..............................
+                .......................
+                ..................
+             ]
+
+        """
+
+        import stock
+        return stock.stock_financial(stock_code)
+
+############## Profile details scrapper ##############
+
+    def profile_data_scrapper(stock_code):
+
+        """
+
+        Profile data scrapper: Helps in scrapping the Profile data of the stock
+        return type: None
+
+        Parameters
+        ------------
+        stock_code: Enter the desired stock code
+            Type: str
+
+        Note
+        ------
+        Make sure you enter a valid stock code.
+        
+        Example
+        ---------
+        >>>  obj.profile_data_scrapper('STOCK_CODE')
+        out: About the Company Officers:
+             ------------------------------
+             Python
+             Programing language
+             ..........
+             About the Company:
+             ----------------------
+             Python is an interpreted high-level general-purpose programming language..........
+
+        """
+
+        import stock
+        return stock.stock_profile(stock_code)
+
+############## Profile details scrapper ##############
+
+    def historical_data_scrapper(stock_code, stock_range, stock_interval):
+
+        """
+
+        Historical data scrapper: Helps in scrapping the Historical data of the stock ('Date', 'Open', 'High', 'Low', 'Close', 'Adjusted Close', 'Volume')
+        return type: Dataframe
+
+        Parameters
+        ------------
+        stock_code: Enter the desired stock code
+            Type: str
+
+        stock_range: Enter the range/time period of the stock
+            Type: str
+            Accepted values: '1d', '5d', '1wk', '3wk', '3mo', '6mo', '1y', '5y', 'Max' (or any value in 'd', 'wk', 'mo', 'y' format) 
+
+        stock_interval: Enter the time period interval of the data
+            Type: str
+            Accepted values: 'Daily', 'Weekly', 'Monthly'
+
+        Note
+        ------
+        Make sure you enter a valid stock code, time period and time interval 
+        
+        Example
+        ---------
+        >>>  obj.historical_data_scrapper('STOCK_CODE', '1y', '1d')
+        out: Date       Open    High    Low     Close   Adjusted Close  Volume
+             2021-03-12 123.30  132.4   110.7   120.23  120.1           13247543
+             2021-07-12 123.30  132.4   110.7   120.23  120.1           132473435
+        """
+
+        import stock
+        return stock.stock_history(stock_code, stock_range, stock_interval)
