@@ -47,4 +47,6 @@
 
 Learn more about the package [here](^https://vedaantsingh706.medium.com/web-scraping-in-python-using-the-all-new-pyscrappy-5c136ed6906b^) 
 
+### This Package has been created only for Research and Educational purposes.
+
 ## Enjoy!!
