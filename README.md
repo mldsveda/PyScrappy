@@ -45,7 +45,7 @@
 ## Note 
 - We have tried to implement all the functionality, it might have some bugs as well. In casse of any bugs feel free to contact us or please try to contribute by solving the bug.
 
-Learn more about the package [![here](https://vedaantsingh706.medium.com/web-scraping-in-python-using-the-all-new-pyscrappy-5c136ed6906b)
+Learn more about the package [[here](https://vedaantsingh706.medium.com/web-scraping-in-python-using-the-all-new-pyscrappy-5c136ed6906b/)
 
 ### This Package has been created only for Research and Educational purposes.
 
