@@ -28,9 +28,6 @@ setuptools.setup(
         'beautifulsoup4',
         'requests',
         'pandas',
-        'io',
-        'csv',
-        'json'
     ],
     packages=setuptools.find_packages(where="src")
 )
