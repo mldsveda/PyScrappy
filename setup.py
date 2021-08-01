@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="PyScrappy",
-    version="0.0.4",
+    version="0.1.0",
     author="Vedant Tibrewal, Vedaant Singh",
     author_email="mlds93363@gmail.com",
     description="This package is made for automatic web scraping to make the whole process of scraping easy and simple.",
