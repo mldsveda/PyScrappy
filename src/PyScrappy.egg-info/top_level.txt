@@ -1,0 +1,10 @@
+PyScrappy
+alibaba
+flipkart
+image
+instagram
+news
+snapdeal
+stock
+wikipedia
+youtube
