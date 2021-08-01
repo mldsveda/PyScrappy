@@ -176,7 +176,7 @@ def youtube_scrapper(video_sec_url, n_pages):
     """
 
     import youtube
-    return youtube.scrappi(video_sec_url, n_pages = n_pages)
+    return youtube.scrappi(video_sec_url, n_pages=3)
 
 ############## Wikipedia Scrapper ##############
 
@@ -441,7 +441,7 @@ class StockScrapper():
 
 ############## Financial details scrapper ##############
 
-    def financial_data_scrapper(self, stock_code):
+    def financial_data_scrapper(stock_code):
 
         """
 
@@ -477,7 +477,7 @@ class StockScrapper():
 
 ############## Profile details scrapper ##############
 
-    def profile_data_scrapper(self, stock_code):
+    def profile_data_scrapper(stock_code):
 
         """
 
@@ -512,7 +512,7 @@ class StockScrapper():
 
 ############## Profile details scrapper ##############
 
-    def historical_data_scrapper(self, stock_code, stock_range, stock_interval):
+    def historical_data_scrapper(stock_code, stock_range, stock_interval):
 
         """
 
