@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="PyScrappy.png">
+  ![](https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png)
   <hr>
   <br>
 </div>
