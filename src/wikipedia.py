@@ -1,37 +1,18 @@
-import urllib.request
-try:
-    from webdriver_manager.chrome import ChromeDriverManager
-    from selenium.webdriver.common.keys import Keys
-    from selenium import webdriver
-except:
-    print("<--- Please install the below packages  --->")
-    print("--pip install selenium")
-    print("--pip install webdriver-manager")
+from urllib.request import urlopen
 from bs4 import BeautifulSoup
-from datetime import datetime
-import pandas as pd
-import requests
-import time
-import json
 import re
-import os 
 
 usr_agent = {
-'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
-'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
-'Accept-Encoding': 'none',
-'Accept-Language': 'en-US,en;q=0.8',
-'Connection': 'keep-alive',
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+    'Accept-Encoding': 'none',
+    'Accept-Language': 'en-US,en;q=0.8',
+    'Connection': 'keep-alive',
 }
 
-
-#     url = "https://en.wikipedia.org/wiki/"+text
-#     page = urllib.request.urlopen(url)
-#     soup = BeautifulSoup(page, "lxml")
 def para(word):
     word=word.replace(' ', '_')
-    from urllib.request import urlopen
     # Specify url of the web page
     source = urlopen('https://en.wikipedia.org/wiki/'+str(word)).read()
     # Make a soup 
@@ -45,7 +26,6 @@ def para(word):
 
 def header(word):
     word=word.replace(' ', '_')
-    from urllib.request import urlopen
     # Specify url of the web page
     source = urlopen('https://en.wikipedia.org/wiki/'+str(word)).read()
     soup = BeautifulSoup(source, "lxml")
@@ -58,7 +38,6 @@ def header(word):
 
 def text(word):
     word=word.replace(' ', '_')
-    from urllib.request import urlopen
     # Specify url of the web page
     source = urlopen('https://en.wikipedia.org/wiki/'+str(word)).read()
     soup = BeautifulSoup(source, "lxml")
