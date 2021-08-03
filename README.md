@@ -10,7 +10,6 @@
 
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/) 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
-[![Conda Latest Release](https://anaconda.org/conda-forge/pandas/badges/version.svg)](https://anaconda.org/anaconda/pandas/)
 
 [![Package Status](https://img.shields.io/pypi/status/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
 [![License](https://img.shields.io/pypi/l/PyScrappy.svg)](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
