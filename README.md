@@ -44,7 +44,6 @@ Binary installers for the latest released version are available at the [Python
 Package Index (PyPI)](https://pypi.org/project/PyScrappy/).
 
 ```sh
-# or PyPI
 pip install PyScrappy
 ```
 
