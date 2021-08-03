@@ -1,7 +1,9 @@
-![](https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png)
-<div>
+<div style="text-align: center;">
+  <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png">
+  <br/>
   <hr>
 </div>
+
 ## PyScrappy: powerful Python data scraping toolkit
 
 [![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)    
