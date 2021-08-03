@@ -1,7 +1,7 @@
-<div style="text-align: center;">
+<div align = "center">
   <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png">
-  <br/>
   <hr>
+  <br/>
 </div>
 
 ## PyScrappy: powerful Python data scraping toolkit
