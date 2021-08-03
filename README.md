@@ -1,6 +1,7 @@
 ![](https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png)
-
-
+<div>
+  <hr>
+</div>
 ## PyScrappy: powerful Python data scraping toolkit
 
 [![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)    
