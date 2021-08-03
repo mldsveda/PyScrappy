@@ -1,8 +1,5 @@
-<div align="center">
-  ![](https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png)
-  <hr>
-  <br>
-</div>
+![](https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png)
+
 
 ## PyScrappy: powerful Python data scraping toolkit
 
