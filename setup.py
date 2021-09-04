@@ -26,6 +26,7 @@ setuptools.setup(
         'selenium',
         'webdriver-manager',
         'beautifulsoup4',
+        'lxml',
         'requests',
         'pandas',
     ],
