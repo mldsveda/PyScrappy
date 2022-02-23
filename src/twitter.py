@@ -35,7 +35,7 @@ def scrappi(hashtag, n_pages):
     new_ls = []
     temp_set = set()
     for _ in range(n_pages):
-        for card in driver.find_elements_by_xpath('//div[@data-testid="tweet"]'): 
+        for card in driver.find_elements_by_xpath('//article[@data-testid="tweet"]'): 
             ls = twitter(card)
             check = ''.join(ls) 
             if check not in temp_set:
