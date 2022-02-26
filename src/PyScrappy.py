@@ -5,8 +5,9 @@ class ECommerceScrapper():
 
     ECommerece Scrapper: Helps in scrapping data from E-Comm websites
         1. Alibaba
-        2. Flipkart
-        3. Snapdeal
+        2. Amazon
+        3. Flipkart
+        4. Snapdeal
 
     Type: class
 
@@ -54,6 +55,40 @@ class ECommerceScrapper():
         return alibaba.scrappi(product_name, n_pages)
 
 
+    ############## Amazon Scrapper ##############
+    def amazon_scrapper(self, product_name, n_pages):
+
+        """
+
+        Amazon Scrapper: Helps in scrapping amazon data ('Description', 'Rating', 'Votes', 'Offer Price', 'Actual Price').
+        return type: DataFrame
+
+        Parameters
+        ------------
+        product_name: Enter the name of desired product
+            Type: str
+
+        n_pages: Enter the number of pages that you want to scrape
+            Type: int
+
+        Note
+        ------
+        Both the arguments are a compulsion. 
+        If n_pages == 0: A prompt will ask you to enter a valid page number and the scrapper will re-run.
+
+        Example
+        ---------
+        >>>  obj.amazon_scrapper('product', 3)
+        out: Name   Number of Items   Description   Ratings
+             abc    440               product a     3.5
+             aec    240               product b     4.5
+
+        """
+
+        import amazon
+        return amazon.scrappi(product_name, n_pages)
+
+
     ############## Flipkart Scrapper ############## 
     def flipkart_scrapper(self, product_name, n_pages):
 
@@ -79,8 +114,8 @@ class ECommerceScrapper():
         ---------
         >>>  obj.flipkart_scrapper("Product Name", 3) 
         out: Name   Price   Original Price  Description Rating
-            abc    ₹340    ₹440            Product     4.2
-            aec    ₹140    ₹240            Product     4.7
+             abc    ₹340    ₹440            Product     4.2
+             aec    ₹140    ₹240            Product     4.7
 
         """
 
@@ -113,8 +148,8 @@ class ECommerceScrapper():
         ---------
         >>>  obj.snapdeal_scrapper('product', 3)
         out: Name   Price   Original Price   Number of Ratings
-            abc    ₹340    ₹440             40
-            aec    ₹140    ₹240             34
+             abc    ₹340    ₹440             40
+             aec    ₹140    ₹240             34
 
         """
 
@@ -216,7 +251,7 @@ def image_scrapper(data_name, n_images=10, img_format='jpg', folder_name='images
 
     """
 
-    Image Scrapper: Helps in scrapping images from "Google", "Yahoo", "Bing".
+    Image Scrapper: Helps in scrapping images from "Google", "Yahoo", "Bing".
                     Downloads it to the desired folder.
 
     Parameters
@@ -254,6 +289,75 @@ def image_scrapper(data_name, n_images=10, img_format='jpg', folder_name='images
 
     import image
     return image.scrappi(data_name, n_images, img_format, folder_name)
+
+########################################################################################################################
+
+############## IMDB Scrapper ##############
+def imdb_scrapper(genre, n_pages):
+
+    """
+
+    IMDB Scrapper: Helps in scrapping movies from IMDB.
+    return type: DataFrame
+
+    Parameters
+    ------------
+    genre: Enter the genre of the movie
+        Type: str
+
+    n_pages: Enter the number of pages that it will scrape at a single run.
+        Type: int
+
+    Note
+    ------
+    both the parameters are compulsory.
+
+    Example
+    ---------
+    >>>  imdb_scrapper('action', 4)
+    out: Title  Year    Certificate     Runtime     Genre   Rating  Description    Stars   Directors   Votes
+         asd    2022        UA          49min       action  3.9     about the..     asd     dfgv        23
+         scr    2022        15+         89min       action  4.9     about the..     add     dfgv        23
+    """
+
+    import imdb
+    return imdb.scrappi(genre, n_pages)
+
+########################################################################################################################
+
+############## LinkedIn Scrapper ##############
+def linkedin_scrapper(job_title, n_pages):
+
+    """
+
+    LinkedIn Scrapper: Helps in scrapping job related data from LinkedIn (Job Title, Company Name, Location, Salary, Benefits, Date)
+    return type: DataFrame
+
+    Parameters
+    ------------
+    job_title: Enter the job title or type.
+        Type: str
+
+    n_pages: Enter the number of pages that it will scrape at a single run.
+        Type: int
+
+    Note
+    ------
+    Both the parameters is a compulsion
+
+    Example
+    ---------
+    >>>  linkedin_scrapper('python', 1)
+    out: Job Title      Company Name    Location    Salary      Benefits                Date
+         abc            PyScrappy       US          2300        Actively Hiring +1      1 day ago
+         abc            PyScrappy       US          2300        Actively Hiring +1      1 day ago
+         ...
+         ..
+
+    """
+    
+    import linkedin
+    return linkedin.scrappi(job_title, n_pages)
 
 ########################################################################################################################
 
@@ -529,6 +633,39 @@ class SongScrapper():
 
         import soundcloud
         return soundcloud.soundcloud_tracks(track_name, n_pages)
+
+
+    ############## Spotify Scrapper ##############
+    def spotify_scrapper(self, track_name, n_pages):
+
+        """
+
+        Spotify Scrapper: Helps in scrapping data from spotify ('Id', 'Title', 'Singers', 'Album', 'Duration')
+        return type: DataFrame
+
+        Parameters
+        ------------
+        track_name: Enter the name of desired track/song/music/artist/bodcast
+            Type: str
+
+        n_pages: The number of pages that it will scrape at a single run
+            Type: int
+
+        Note
+        ------
+        Make sure to enter a valid name
+        
+        Example
+        ---------
+        >>>  obj.spotify_scrapper('pop', 3)
+        out: Id     Title   Singers     Album   Duration
+             1      abc     abc         abc     2:30
+             2      def     def         def     2:30
+
+        """
+
+        import spotify
+        return spotify.scrappi(track_name, n_pages)
 
 ########################################################################################################################
 

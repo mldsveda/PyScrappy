@@ -6,21 +6,21 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="PyScrappy",
-    version="0.0.9",
+    version="0.1.0",
     author="Vedant Tibrewal, Vedaant Singh",
     author_email="mlds93363@gmail.com",
     description="Powerful web scraping tool.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mldsveda/PyScrappy",
-    keywords=['PyScrappy', 'Scraping', 'E-Commerce', 'Wikipedia', 'Image Scrapper', 'YouTube', 'Scrapy', 'Twitter', 'Social Media', 'Web Scraping', 'News', 'Stocks', 'Songs', 'Food', 'Instagram'],
+    keywords=['PyScrappy', 'Scraping', 'E-Commerce', 'Wikipedia', 'Image Scrapper', 'YouTube', 'Scrapy', 'Twitter', 'Social Media', 'Web Scraping', 'News', 'Stocks', 'Songs', 'Food', 'Instagram', 'Movies'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.6",
-    py_modules=["PyScrappy", "alibaba", "flipkart", "image", "instagram", "news", "snapdeal", "soundcloud", "stock", "swiggy", "twitter", "wikipedia", "youtube", "zomato"],
+    py_modules=["PyScrappy", "alibaba", "amazon", "flipkart", "image", "imdb", "instagram", "news", "snapdeal", "soundcloud", "spotify", "stock", "swiggy", "twitter", "wikipedia", "youtube", "zomato"],
     package_dir={"": "src"},
     install_requires=[
         'selenium',
