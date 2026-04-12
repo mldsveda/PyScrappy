@@ -1,82 +1,223 @@
-<div align = "center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png">
   <hr>
-  <br/>
 </div>
 
-## PyScrappy: powerful Python data scraping toolkit
+## PyScrappy: robust, all-in-one Python web scraping toolkit
 
-[![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)
-
-[![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
 
-[![Package Status](https://img.shields.io/pypi/status/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
-[![License](https://img.shields.io/pypi/l/PyScrappy.svg)](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
-![](https://img.shields.io/pypi/dm/PyScrappy)
+PyScrappy is a Python toolkit for web scraping that works out of the box. Point it at any URL and get structured data back — or use built-in scrapers for Wikipedia, IMDB, Yahoo Finance, news feeds, and more.
 
-![](https://komarev.com/ghpvc/?username=mldsveda&style=flat-square)
-![stars](https://img.shields.io/github/stars/mldsveda/PyScrappy?style=social)
-![forks](https://img.shields.io/github/forks/mldsveda/PyScrappy?style=social)
+### Key features
 
-[![](https://img.shields.io/badge/pyscrappy-official%20documentation-blue)](https://pyscrappy.netlify.app/)
+- **Generic scraper** — give it any URL, get back structured text, links, images, tables, and metadata
+- **Auto-pagination** — automatically follows "next page" links
+- **JS rendering** — optional Playwright backend for JavaScript-heavy sites
+- **Custom selectors** — pass CSS selectors to extract exactly what you need
+- **Built-in scrapers** — Wikipedia, IMDB, Yahoo Finance, news (RSS), image search, Amazon, LinkedIn
+- **Clean API** — every scraper returns a `ScrapeResult` with `.to_dataframe()` and `.to_json()`
+- **Retry & rate-limiting** — built-in exponential backoff and per-domain rate limiting
+- **Type-safe** — full type hints, `py.typed` marker
 
-## What is it?
-
-**PyScrappy** is a Python package that provides a fast, flexible, and exhaustive way to scrape data from various different sources. Being an
-easy and intuitive library. It aims to be the fundamental high-level building block for scraping **data** in Python. Additionally, it has the broader goal of becoming **the most powerful and flexible open source data scraping tool available**.
-
-## Main Features
-
-Here are just a few of the things that PyScrappy does well:
-
-- Easy scraping of [**Data**](https://medium.com/analytics-vidhya/web-scraping-in-python-using-the-all-new-pyscrappy-5c136ed6906b) available on the internet
-- Returns a [**DataFrame**](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html) for further analysis and research purposes.
-- Automatic [**Data Scraping**](https://medium.com/analytics-vidhya/web-scraping-in-python-using-the-all-new-pyscrappy-5c136ed6906b): Other than a few user input parameters the whole process of scraping the data is automatic.
-- Powerful, flexible
-
-## Where to get it
-
-The source code is currently hosted on GitHub at:
-https://github.com/mldsveda/PyScrappy
-
-Binary installers for the latest released version are available at the [Python
-Package Index (PyPI)](https://pypi.org/project/PyScrappy/).
+## Installation
 
 ```sh
-pip install PyScrappy
+pip install pyscrappy
 ```
+
+**Optional extras:**
+
+```sh
+# Browser support (for JS-rendered pages)
+pip install 'pyscrappy[browser]'
+playwright install chromium
+
+# DataFrame support
+pip install 'pyscrappy[dataframe]'
+
+# Everything
+pip install 'pyscrappy[all]'
+```
+
+## Quick start
+
+### Scrape any URL (one-liner)
+
+```python
+from pyscrappy import scrape
+
+result = scrape("https://en.wikipedia.org/wiki/Web_scraping")
+print(result.data[0]["metadata"]["title"])
+print(result.data[0]["text"]["word_count"])
+```
+
+### Custom CSS selectors
+
+```python
+from pyscrappy import GenericScraper
+
+with GenericScraper() as gs:
+    result = gs.scrape(
+        url="https://news.ycombinator.com",
+        selectors={"title": ".titleline a", "score": ".score"},
+    )
+    for item in result.data:
+        print(item["title"], item.get("score", ""))
+```
+
+### Wikipedia
+
+```python
+from pyscrappy import WikipediaScraper
+
+with WikipediaScraper() as ws:
+    result = ws.scrape(query="Python (programming language)", mode="summary")
+    print(result.data[0]["text"])
+```
+
+### Stock data
+
+```python
+from pyscrappy import StockScraper
+
+with StockScraper() as ss:
+    result = ss.scrape(symbol="AAPL", mode="history", period="1mo")
+    df = result.to_dataframe()
+    print(df.head())
+```
+
+### IMDB
+
+```python
+from pyscrappy import IMDBScraper
+
+with IMDBScraper() as scraper:
+    result = scraper.scrape(genre="sci-fi", max_pages=2)
+    df = result.to_dataframe()
+    print(df[["title", "year", "rating"]])
+```
+
+### News (RSS feeds)
+
+```python
+from pyscrappy import NewsScraper
+
+with NewsScraper() as ns:
+    result = ns.scrape(feed_url="https://rss.nytimes.com/services/xml/rss/nyt/World.xml")
+    for article in result.data[:5]:
+        print(article["title"])
+```
+
+### Image search
+
+```python
+from pyscrappy import ImageSearchScraper
+
+with ImageSearchScraper() as iss:
+    result = iss.scrape(query="golden retriever", max_images=10, download_to="./dogs")
+```
+
+## Configuration
+
+```python
+from pyscrappy import ScraperConfig, GenericScraper
+
+config = ScraperConfig(
+    timeout=20.0,            # request timeout in seconds
+    max_retries=3,           # retry failed requests
+    rate_limit=2.0,          # seconds between requests per domain
+    proxy="http://...",      # HTTP/SOCKS proxy
+    headless=True,           # browser runs headless
+    render_js="auto",        # auto-detect if JS rendering is needed
+)
+
+with GenericScraper(config) as gs:
+    result = gs.scrape(url="https://example.com")
+```
+
+### YouTube
+
+```python
+from pyscrappy import YouTubeScraper
+
+with YouTubeScraper() as scraper:
+    result = scraper.scrape(query="python tutorial", max_results=10)
+    for video in result.data:
+        print(video["title"], video.get("views", ""))
+```
+
+### SoundCloud
+
+```python
+from pyscrappy import SoundCloudScraper
+
+with SoundCloudScraper() as scraper:
+    result = scraper.scrape(query="lo-fi beats", max_results=10)
+```
+
+### E-Commerce (Alibaba, Flipkart, Snapdeal)
+
+```python
+from pyscrappy import AlibabaScraper, FlipkartScraper, SnapdealScraper
+
+with FlipkartScraper() as scraper:
+    result = scraper.scrape(query="laptop", max_pages=2)
+    df = result.to_dataframe()
+```
+
+### Food Delivery (Swiggy, Zomato)
+
+```python
+from pyscrappy import SwiggyScraper, ZomatoScraper
+
+# These are JS-heavy — use render_js=True for best results
+with SwiggyScraper() as scraper:
+    result = scraper.scrape(city="bangalore", render_js=True)
+```
+
+## Built-in scrapers
+
+| Scraper | What it does | Needs browser? |
+|---------|-------------|----------------|
+| `GenericScraper` | Scrape any URL with auto-extraction | Optional |
+| **Data / Research** | | |
+| `WikipediaScraper` | Articles, sections, infoboxes | No |
+| `IMDBScraper` | Movies by genre, search, charts | No |
+| `StockScraper` | Quotes, history, profiles (Yahoo Finance) | No |
+| `NewsScraper` | RSS/Atom feeds, article extraction | No |
+| `ImageSearchScraper` | Image search + download | No |
+| `LinkedInJobsScraper` | Public job listings | No |
+| **E-Commerce** | | |
+| `AmazonScraper` | Product search | No |
+| `AlibabaScraper` | Product search | No |
+| `FlipkartScraper` | Product search | No |
+| `SnapdealScraper` | Product search | No |
+| **Social Media** | | |
+| `YouTubeScraper` | Video search, channel scraping | Optional |
+| `InstagramScraper` | Profiles, hashtag posts | Recommended |
+| `TwitterScraper` | Tweet search | Recommended |
+| **Music** | | |
+| `SpotifyScraper` | Track/playlist search | Recommended |
+| `SoundCloudScraper` | Track search | Optional |
+| **Food Delivery** | | |
+| `SwiggyScraper` | Restaurant listings | Recommended |
+| `ZomatoScraper` | Restaurant listings | Recommended |
 
 ## Dependencies
 
-- [selenium](https://www.selenium.dev/) - Selenium is a free (open-source) automated testing framework used to validate web applications across different browsers and platforms.
-- [webdriver-manger](https://github.com/bonigarcia/webdrivermanager) - WebDriverManager is an API that allows users to automate the handling of driver executables like chromedriver.exe, geckodriver.exe etc required by Selenium WebDriver API. Now let us see, how can we set path for driver executables for different browsers like Chrome, Firefox etc.
-- [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) - Beautiful Soup is a Python library for getting data out of HTML, XML, and other markup languages.
-- [pandas](https://pandas.pydata.org/) - Pandas is a fast, powerful, flexible and easy to use open source data analysis and manipulation tool, built on top of the Python programming language.
+**Required:** `httpx`, `beautifulsoup4`, `lxml`
+
+**Optional:** `playwright` (JS rendering), `pandas` (DataFrames)
 
 ## License
 
 [MIT](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
 
-## Getting Help
+## Contributing
 
-For usage questions, the best place to go to is [StackOverflow](https://stackoverflow.com/questions/tagged/pyscrappy).
-Further, general questions and discussions can also take place on GitHub in this [repository](https://github.com/mldsveda/PyScrappy).
+All contributions welcome. See [Issues](https://github.com/mldsveda/PyScrappy/issues).
 
-## Discussion and Development
-
-Most development discussions take place on GitHub in this [repository](https://github.com/mldsveda/PyScrappy).
-
-Also visit the official documentation of [PyScrappy](https://pyscrappy.netlify.app/) for more information.
-
-## Contributing to PyScrappy
-
-All contributions, bug reports, bug fixes, documentation improvements, enhancements, and ideas are welcome.
-
-If you are simply looking to start working with the PyScrappy codebase, navigate to the GitHub ["issues"](https://github.com/mldsveda/PyScrappy/issues) tab and start looking through interesting issues.
-
-## End Notes
-
-_Learn More about this package on [Medium](https://medium.com/analytics-vidhya/web-scraping-in-python-using-the-all-new-pyscrappy-5c136ed6906b)._
-
-### **_This package is solely made for educational and research purposes._**
+**This package is for educational and research purposes.**
