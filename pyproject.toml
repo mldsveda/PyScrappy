@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscrappy"
-version = "1.0.1"
+version = "1.0.2"
 description = "A robust, all-in-one Python web scraping toolkit"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "Vedant Tibrewal", email = "mlds93363@gmail.com" },
+    { name = "Vedant Tibrewal", email = "vtibrewal208@gmail.com" },
     { name = "Vedaant Singh" },
 ]
 keywords = [
