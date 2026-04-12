@@ -88,7 +88,9 @@ class HttpClient:
                     time.sleep(delay)
                     continue
 
-        raise NetworkError(f"Failed to fetch {url} after {self.config.max_retries} attempts") from last_exc
+        raise NetworkError(
+            f"Failed to fetch {url} after {self.config.max_retries} attempts"
+        ) from last_exc
 
     def get_raw(self, url: str, **kwargs: Any) -> httpx.Response:
         """Like :meth:`get` but does NOT raise on non-2xx status codes.

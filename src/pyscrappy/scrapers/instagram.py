@@ -15,7 +15,6 @@ import re
 from typing import Any
 
 from pyscrappy.core.base import BaseScraper
-from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
 
 
@@ -218,7 +217,10 @@ class InstagramScraper(BaseScraper):
             node = edge.get("node", {})
             caption_edges = node.get("edge_media_to_caption", {}).get("edges", [])
             posts.append({
-                "caption": caption_edges[0].get("node", {}).get("text", "") if caption_edges else "",
+                "caption": (
+                    caption_edges[0].get("node", {}).get("text", "")
+                    if caption_edges else ""
+                ),
                 "likes": node.get("edge_liked_by", {}).get("count"),
                 "comments": node.get("edge_media_to_comment", {}).get("count"),
                 "url": f"https://www.instagram.com/p/{node.get('shortcode', '')}/",

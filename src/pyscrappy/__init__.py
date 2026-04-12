@@ -99,10 +99,10 @@ __all__ = [
 
 def scrape(
     url: str,
-    selectors: dict[str, str] | None = None,
+    selectors: "dict[str, str] | None" = None,
     max_pages: int = 1,
     render_js: bool = False,
-    config: ScraperConfig | None = None,
+    config: "ScraperConfig | None" = None,
 ) -> ScrapeResult:
     """One-liner convenience function to scrape any URL.
 

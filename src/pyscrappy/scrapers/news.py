@@ -156,7 +156,6 @@ class NewsScraper(BaseScraper):
             return articles
 
         # Namespace handling for Atom
-        ns = {"atom": "http://www.w3.org/2005/Atom"}
 
         # RSS 2.0: <channel><item>
         for item in root.iter("item"):

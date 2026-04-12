@@ -88,7 +88,6 @@ class TextExtractor:
         }
 
     def _remove_noise(self, soup: BeautifulSoup) -> BeautifulSoup:
-        from copy import copy
 
         clean = BeautifulSoup(str(soup), "lxml")
         for tag in clean.find_all(self._NOISE_TAGS):

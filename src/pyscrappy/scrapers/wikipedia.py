@@ -6,7 +6,7 @@ import re
 from typing import Any
 from urllib.parse import quote
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import Tag
 
 from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.config import ScraperConfig
