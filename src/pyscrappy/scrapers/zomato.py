@@ -10,7 +10,6 @@ from urllib.parse import quote_plus
 from bs4 import Tag
 
 from pyscrappy.core.base import BaseScraper
-from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
 
 
@@ -72,7 +71,10 @@ class ZomatoScraper(BaseScraper):
         if not restaurants:
             errors.append(ScrapeError(
                 url=url,
-                message="No restaurants extracted. Zomato requires JS rendering — use render_js=True.",
+                message=(
+                    "No restaurants extracted. Zomato requires JS rendering"
+                    " — use render_js=True."
+                ),
             ))
 
         return ScrapeResult(
@@ -198,7 +200,10 @@ class ZomatoScraper(BaseScraper):
                     "rating": info.get("rating", {}).get("aggregate_rating")
                     if isinstance(info.get("rating"), dict)
                     else info.get("rating"),
-                    "price": info.get("average_cost_for_two") or info.get("cfo", {}).get("text", ""),
+                    "price": (
+                        info.get("average_cost_for_two")
+                        or info.get("cfo", {}).get("text", "")
+                    ),
                     "address": info.get("location", {}).get("address", "")
                     if isinstance(info.get("location"), dict) else "",
                     "url": f"https://www.zomato.com/restaurant/{info.get('id', '')}",

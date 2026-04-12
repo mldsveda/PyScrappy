@@ -14,7 +14,6 @@ import re
 from typing import Any
 
 from pyscrappy.core.base import BaseScraper
-from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
 
 
@@ -83,7 +82,11 @@ class TwitterScraper(BaseScraper):
         if not tweets:
             errors.append(ScrapeError(
                 url=url,
-                message="No tweets extracted. Twitter/X likely requires authentication. Use render_js=True with a logged-in browser session.",
+                message=(
+                    "No tweets extracted. Twitter/X likely requires"
+                    " authentication. Use render_js=True with a"
+                    " logged-in browser session."
+                ),
             ))
 
         return ScrapeResult(

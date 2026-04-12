@@ -8,7 +8,6 @@ from urllib.parse import quote_plus
 from bs4 import Tag
 
 from pyscrappy.core.base import BaseScraper
-from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
 
 
@@ -68,7 +67,10 @@ class SwiggyScraper(BaseScraper):
         if not restaurants:
             errors.append(ScrapeError(
                 url=url,
-                message="No restaurants extracted. Swiggy requires JS rendering — use render_js=True.",
+                message=(
+                    "No restaurants extracted. Swiggy requires JS rendering"
+                    " — use render_js=True."
+                ),
             ))
 
         return ScrapeResult(

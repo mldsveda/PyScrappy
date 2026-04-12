@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 from typing import Any
-from urllib.parse import quote_plus, urljoin
-
-from bs4 import Tag
+from urllib.parse import quote_plus
 
 from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.config import ScraperConfig
-from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
+from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
 
 logger = logging.getLogger("pyscrappy.image_search")
 

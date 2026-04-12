@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
-
 _NEXT_PATTERNS = re.compile(
     r"(^next$|^>$|^>>$|^›$|^»$|next\s*page|next\s*›|load\s*more)",
     re.IGNORECASE,
