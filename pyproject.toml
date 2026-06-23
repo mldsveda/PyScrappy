@@ -10,8 +10,8 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "Vedant Tibrewal" },
     { name = "Vedaant Singh" },
+    { name = "Vedant Tibrewal" },
 ]
 keywords = [
     "scraping", "web-scraping", "crawler", "data-extraction",
