@@ -159,14 +159,24 @@ class SoundCloudScraper(BaseScraper):
             return tracks
 
         for entry in hydration:
+            # SoundCloud's hydration array is heterogeneous — entries may be
+            # strings or other JSON values, not just dicts. Guard every access.
+            if not isinstance(entry, dict):
+                continue
             data = entry.get("data", {})
+            if not isinstance(data, dict):
+                continue
             # Look for search result collections
             collection = data.get("collection", [])
+            if not isinstance(collection, list):
+                continue
             for item in collection:
-                if item.get("kind") != "track":
+                if not isinstance(item, dict) or item.get("kind") != "track":
                     continue
 
-                user = item.get("user", {})
+                user = item.get("user") or {}
+                if not isinstance(user, dict):
+                    user = {}
                 tracks.append({
                     "title": item.get("title", ""),
                     "artist": user.get("username", ""),

@@ -78,15 +78,27 @@ class IMDBScraper(BaseScraper):
 
         soup = self.fetch_and_parse(url)
         movies: list[dict[str, Any]] = []
+        errors: list[ScrapeError] = []
 
         for item in soup.select("li.ipc-metadata-list-summary-item"):
             movie = self._parse_chart_item(item)
             if movie:
                 movies.append(movie)
 
+        if not movies:
+            errors.append(ScrapeError(
+                url=url,
+                message=(
+                    "No titles extracted. IMDB blocks automated traffic or has "
+                    "changed its chart markup; a proxy or residential IP is "
+                    "typically required."
+                ),
+            ))
+
         return ScrapeResult(
             data=movies,
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+            errors=errors,
         )
 
     def _scrape_search(
@@ -131,6 +143,16 @@ class IMDBScraper(BaseScraper):
                 movie = self._parse_search_item(item)
                 if movie:
                     movies.append(movie)
+
+        if not movies and not errors:
+            errors.append(ScrapeError(
+                url=visited[-1] if visited else "",
+                message=(
+                    "No titles extracted. IMDB blocks automated traffic or has "
+                    "changed its search markup; a proxy or residential IP is "
+                    "typically required."
+                ),
+            ))
 
         return ScrapeResult(
             data=movies,

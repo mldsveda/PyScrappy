@@ -62,6 +62,16 @@ class AlibabaScraper(BaseScraper):
                 break
             products.extend(page_products)
 
+        if not products and not errors:
+            errors.append(ScrapeError(
+                url=visited[-1] if visited else "",
+                message=(
+                    "No products extracted. Alibaba blocks automated traffic "
+                    "and renders results with JavaScript; a proxy or "
+                    "residential IP is typically required."
+                ),
+            ))
+
         return ScrapeResult(
             data=products,
             metadata=ScrapeMetadata(
