@@ -62,6 +62,16 @@ class FlipkartScraper(BaseScraper):
                 break
             products.extend(page_products)
 
+        if not products and not errors:
+            errors.append(ScrapeError(
+                url=visited[-1] if visited else "",
+                message=(
+                    "No products extracted. Flipkart serves a bot/CAPTCHA "
+                    "challenge to automated traffic; a proxy or residential IP "
+                    "is typically required."
+                ),
+            ))
+
         return ScrapeResult(
             data=products,
             metadata=ScrapeMetadata(

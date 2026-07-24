@@ -87,6 +87,21 @@ class AmazonScraper(BaseScraper):
                 break
             products.extend(page_products)
 
+        # Nothing extracted and no error recorded: the request "succeeded" but
+        # yielded no products — almost always anti-bot blocking or a layout
+        # change rather than a genuinely empty result. Say so, so callers aren't
+        # left with a silent empty result.
+        if not products and not errors:
+            errors.append(ScrapeError(
+                url=visited[-1] if visited else "",
+                message=(
+                    "No products extracted. Amazon aggressively blocks "
+                    "automated traffic — this usually means the request was "
+                    "served an anti-bot page. A proxy or residential IP is "
+                    "typically required."
+                ),
+            ))
+
         return ScrapeResult(
             data=products,
             metadata=ScrapeMetadata(

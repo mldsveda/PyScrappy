@@ -39,6 +39,9 @@ playwright install chromium
 # DataFrame support
 pip install 'pyscrappy[dataframe]'
 
+# MCP server (use PyScrappy's scrapers as AI-agent tools)
+pip install 'pyscrappy[mcp]'
+
 # Everything
 pip install 'pyscrappy[all]'
 ```
@@ -207,11 +210,65 @@ with SwiggyScraper() as scraper:
 | `SwiggyScraper` | Restaurant listings | Recommended |
 | `ZomatoScraper` | Restaurant listings | Recommended |
 
+## MCP server (use PyScrappy from an AI agent)
+
+PyScrappy ships an optional [Model Context Protocol](https://modelcontextprotocol.io)
+server, so an AI agent (e.g. Claude) can call PyScrappy's scrapers as tools and
+get structured web data back.
+
+```sh
+pip install 'pyscrappy[mcp]'
+```
+
+This installs a `pyscrappy-mcp` command (a stdio MCP server). You can also run it
+with `python -m pyscrappy.mcp`.
+
+### Register with Claude Code
+
+```sh
+claude mcp add pyscrappy pyscrappy-mcp
+```
+
+### Register with Claude Desktop
+
+Add to your `claude_desktop_config.json` and restart the app:
+
+```json
+{
+  "mcpServers": {
+    "pyscrappy": {
+      "command": "pyscrappy-mcp"
+    }
+  }
+}
+```
+
+> **Tip:** Claude Desktop does not inherit your shell `PATH`. If `pyscrappy-mcp`
+> is not found, use the absolute path to the command (e.g. the one printed by
+> `which pyscrappy-mcp`).
+
+### Available tools
+
+| Tool | Description |
+|------|-------------|
+| `scrape_url` | Scrape any URL — text, links, images, tables, metadata |
+| `scrape_wikipedia` | Fetch a Wikipedia article (`full` / `paragraphs` / `headers`) |
+| `scrape_stock` | Yahoo Finance quotes, history, and profiles |
+| `scrape_news` | RSS/Atom feeds, auto-discovered site feeds, or a single article |
+| `search_images` | Image search (returns URLs + metadata) |
+| `search_youtube` | YouTube video search |
+| `search_linkedin_jobs` | Public LinkedIn job listings |
+| `search_soundcloud` | SoundCloud track search (uses the browser backend) |
+| `scrape_zomato` | Restaurant listings by city |
+
+Once registered, just ask the agent naturally — e.g. *"use pyscrappy to get the
+latest headlines from bbc.co.uk and the AAPL stock quote."*
+
 ## Dependencies
 
 **Required:** `httpx`, `beautifulsoup4`, `lxml`
 
-**Optional:** `playwright` (JS rendering), `pandas` (DataFrames)
+**Optional:** `playwright` (JS rendering), `pandas` (DataFrames), `mcp` (MCP server)
 
 ## License
 

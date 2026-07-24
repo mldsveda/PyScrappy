@@ -5,7 +5,11 @@ import pyscrappy
 
 class TestPackageImports:
     def test_version(self):
-        assert pyscrappy.__version__ == "1.0.0"
+        # Assert a well-formed semver rather than a hardcoded value, so this
+        # test doesn't need updating on every release.
+        import re
+
+        assert re.fullmatch(r"\d+\.\d+\.\d+", pyscrappy.__version__)
 
     def test_core_exports(self):
         assert hasattr(pyscrappy, "ScraperConfig")
