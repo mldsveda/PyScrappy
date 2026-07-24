@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscrappy"
-version = "1.0.4"
+version = "1.1.0"
 description = "A robust, all-in-one Python web scraping toolkit"
 readme = "README.md"
 license = "MIT"
@@ -42,7 +42,11 @@ dependencies = [
 [project.optional-dependencies]
 browser = ["playwright>=1.40"]
 dataframe = ["pandas>=1.5"]
-all = ["playwright>=1.40", "pandas>=1.5"]
+mcp = ["mcp>=1.2", "anyio>=4.0"]
+all = ["playwright>=1.40", "pandas>=1.5", "mcp>=1.2", "anyio>=4.0"]
+
+[project.scripts]
+pyscrappy-mcp = "pyscrappy.mcp.server:main"
 
 [project.urls]
 Homepage = "https://github.com/mldsveda/PyScrappy"
