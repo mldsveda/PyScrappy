@@ -13,6 +13,7 @@ from mcp.server.fastmcp import FastMCP
 
 from pyscrappy import (
     ImageSearchScraper,
+    IMDBScraper,
     LinkedInJobsScraper,
     NewsScraper,
     ScrapeResult,
@@ -183,6 +184,23 @@ async def search_soundcloud(query: str, max_results: int = 20) -> str:
 
     result: ScrapeResult = await anyio.to_thread.run_sync(_do)
     return result.to_json()
+
+
+@mcp.tool()
+async def lookup_movie(query: str, max_pages: int = 1) -> str:
+    """Look up movie/TV data from IMDB (via the OMDb API).
+
+    Requires a free OMDb API key in the ``OMDB_API_KEY`` environment variable
+    (get one at https://www.omdbapi.com/apikey.aspx). If it's missing, the tool
+    returns an error explaining how to set it.
+
+    Args:
+        query: A title to search for (e.g. "inception"), or an IMDB id
+            (e.g. "tt1375666") for a direct lookup.
+        max_pages: Pages of search results to fetch, 10 per page (title search).
+    """
+    with IMDBScraper() as ims:
+        return await _run(ims.scrape, query=query, max_pages=max_pages)
 
 
 @mcp.tool()
