@@ -65,7 +65,7 @@ class BaseScraper(ABC):
         """Fetch a page's HTML, optionally rendering JavaScript."""
         if render_js:
             return self.browser.get_html(url, **kwargs)  # type: ignore[arg-type]
-        return self.http.get_html(url)
+        return self.http.get_html(url, **kwargs)
 
     def parse_html(self, html: str) -> BeautifulSoup:
         """Parse an HTML string into a BeautifulSoup tree."""

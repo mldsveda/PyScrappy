@@ -1,14 +1,10 @@
-"""Tests for e-commerce scrapers: Amazon, Flipkart, Alibaba, Snapdeal."""
+"""Tests for e-commerce scrapers: Amazon."""
 
 from unittest.mock import MagicMock
 
-import pytest
-from bs4 import BeautifulSoup
-
 from pyscrappy.scrapers.amazon import AmazonScraper
-from pyscrappy.scrapers.alibaba import AlibabaScraper
-from pyscrappy.scrapers.flipkart import FlipkartScraper
-from pyscrappy.scrapers.snapdeal import SnapdealScraper
+from pyscrappy.scrapers.ikea import IKEAScraper
+from pyscrappy.scrapers.newegg import NeweggScraper
 
 # --- Amazon ---
 
@@ -79,7 +75,7 @@ class TestAmazonScraper:
         mock_http.get_html.side_effect = [AMAZON_HTML, empty]
         scraper._http = mock_http
 
-        result = scraper.scrape(query="test", max_pages=2)
+        scraper.scrape(query="test", max_pages=2)
         calls = mock_http.get_html.call_args_list
         assert "page=1" in calls[0][0][0]
         assert "page=2" in calls[1][0][0]
@@ -96,154 +92,122 @@ class TestAmazonScraper:
         scraper.close()
 
 
-# --- Flipkart ---
+# --- Newegg ---
 
-FLIPKART_HTML = """
+NEWEGG_HTML = """
 <html><body>
-<div data-id="PROD123">
-    <a class="wjcEIp" title="Samsung Galaxy S24">Samsung Galaxy S24</a>
-    <a href="/samsung-galaxy-s24/p/itm123?pid=PROD123">Link</a>
-    <div class="Nx9bqj">₹79,999</div>
-    <div class="yRaY8j">₹89,999</div>
-    <div class="XQDdHH">4.5</div>
-    <ul class="G4BRas"><li>128GB Storage</li><li>8GB RAM</li></ul>
+<div class="item-cell">
+    <a class="item-title" href="https://www.newegg.com/p/ABC123?item=1">
+        ASUS ROG Strix Graphics Card
+    </a>
+    <li class="price-current">$669.99–</li>
+    <span class="item-rating" aria-label="rated 4.5 out of 5"></span>
+    <span class="item-rating-num">(123)</span>
+    <a class="item-img"><img src="https://img.newegg.com/gpu.jpg"></a>
 </div>
 </body></html>
 """
 
 
-class TestFlipkartScraper:
+class TestNeweggScraper:
     def test_name(self):
-        assert FlipkartScraper().name == "flipkart"
+        assert NeweggScraper().name == "newegg"
 
     def test_parse_results(self):
-        scraper = FlipkartScraper()
+        scraper = NeweggScraper()
         mock_http = MagicMock()
-        mock_http.get_html.return_value = FLIPKART_HTML
+        mock_http.get_html.return_value = NEWEGG_HTML
         scraper._http = mock_http
 
-        result = scraper.scrape(query="samsung galaxy")
-
+        result = scraper.scrape(query="graphics card")
         assert len(result.data) == 1
-        product = result.data[0]
-        assert product["name"] == "Samsung Galaxy S24"
-        assert product["price"] == "₹79,999"
-        assert product["original_price"] == "₹89,999"
-        assert product["rating"] == "4.5"
-        assert "128GB Storage" in product["description"]
+        p = result.data[0]
+        assert p["title"] == "ASUS ROG Strix Graphics Card"
+        assert p["price"] == "$669.99"
+        assert p["rating"] == "4.5"
+        assert p["review_count"] == "123"
+        assert p["image"] == "https://img.newegg.com/gpu.jpg"
         scraper.close()
 
-    def test_max_pages_validation(self):
-        scraper = FlipkartScraper()
-        with pytest.raises(ValueError, match="max_pages must be >= 1"):
-            scraper.scrape(query="test", max_pages=0)
-
-    def test_url_format(self):
-        scraper = FlipkartScraper()
+    def test_empty_reports_error(self):
+        scraper = NeweggScraper()
         mock_http = MagicMock()
         mock_http.get_html.return_value = "<html><body></body></html>"
         scraper._http = mock_http
 
-        scraper.scrape(query="laptop bag")
-        url = mock_http.get_html.call_args[0][0]
-        assert "flipkart.com/search" in url
-        assert "q=laptop+bag" in url
+        result = scraper.scrape(query="zzz")
+        assert result.data == []
+        assert result.errors
         scraper.close()
 
 
-# --- Alibaba ---
+# --- IKEA ---
 
-ALIBABA_HTML = """
-<html><body>
-<div class="organic-gallery-offer-outter">
-    <h2 class="title"><a title="Bluetooth Speaker Portable">Bluetooth Speaker</a></h2>
-    <a href="//www.alibaba.com/product/123">Link</a>
-    <div class="elements-offer-price-normal">$5.99 - $12.99</div>
-    <div class="element-offer-minorder-normal">100 Pieces</div>
-    <div class="seb-supplier-review__rating">4.8</div>
-    <div class="seb-supplier">Shenzhen Audio Co.</div>
-</div>
-</body></html>
+IKEA_JSON = """
+{
+  "searchResultPage": {
+    "products": {
+      "main": {
+        "items": [
+          {"product": {
+            "name": "LAGKAPTEN / ALEX",
+            "typeName": "Desk",
+            "id": "s99431982",
+            "salesPrice": {"numeral": 239.99, "prefix": "$"},
+            "pipUrl": "https://www.ikea.com/us/en/p/lagkapten-alex-desk-s99431982/",
+            "mainImageUrl": "https://www.ikea.com/img/desk.jpg",
+            "ratingValue": 4.5,
+            "ratingCount": 200
+          }}
+        ]
+      }
+    }
+  }
+}
 """
 
 
-class TestAlibabaScraper:
+class TestIKEAScraper:
     def test_name(self):
-        assert AlibabaScraper().name == "alibaba"
+        assert IKEAScraper().name == "ikea"
 
-    def test_parse_results(self):
-        scraper = AlibabaScraper()
+    def test_parse_products(self):
+        scraper = IKEAScraper()
         mock_http = MagicMock()
-        mock_http.get_html.return_value = ALIBABA_HTML
+        mock_http.get_html.return_value = IKEA_JSON
         scraper._http = mock_http
 
-        result = scraper.scrape(query="bluetooth speaker")
-
+        result = scraper.scrape(query="desk")
         assert len(result.data) == 1
-        product = result.data[0]
-        assert product["name"] == "Bluetooth Speaker"
-        assert product["price"] == "$5.99 - $12.99"
-        assert product["min_order"] == "100 Pieces"
-        assert product["rating"] == "4.8"
-        assert product["supplier"] == "Shenzhen Audio Co."
+        p = result.data[0]
+        assert p["name"] == "LAGKAPTEN / ALEX"
+        assert p["type"] == "Desk"
+        assert p["price"] == 239.99
+        assert p["currency"] == "$"
+        assert p["rating"] == 4.5
+        assert p["url"].endswith("s99431982/")
         scraper.close()
 
-    def test_max_pages_validation(self):
-        scraper = AlibabaScraper()
-        with pytest.raises(ValueError, match="max_pages must be >= 1"):
-            scraper.scrape(query="test", max_pages=0)
-
-    def test_url_protocol_fix(self):
-        scraper = AlibabaScraper()
-        soup = BeautifulSoup(ALIBABA_HTML, "lxml")
-        card = soup.select_one(".organic-gallery-offer-outter")
-        product = scraper._parse_card(card)
-        assert product["url"].startswith("https://")
-
-
-# --- Snapdeal ---
-
-SNAPDEAL_HTML = """
-<html><body>
-<div class="product-tuple-listing">
-    <p class="product-title">Boat Rockerz 450</p>
-    <a href="//www.snapdeal.com/product/boat-rockerz/123">Link</a>
-    <span class="product-price">Rs. 999</span>
-    <span class="product-desc-price">Rs. 2,999</span>
-    <div class="product-rating-count">4.2</div>
-</div>
-</body></html>
-"""
-
-
-class TestSnapdealScraper:
-    def test_name(self):
-        assert SnapdealScraper().name == "snapdeal"
-
-    def test_parse_results(self):
-        scraper = SnapdealScraper()
+    def test_empty_reports_error(self):
+        scraper = IKEAScraper()
         mock_http = MagicMock()
-        mock_http.get_html.return_value = SNAPDEAL_HTML
+        mock_http.get_html.return_value = (
+            '{"searchResultPage": {"products": {"main": {"items": []}}}}'
+        )
         scraper._http = mock_http
 
-        result = scraper.scrape(query="headphones")
-
-        assert len(result.data) == 1
-        product = result.data[0]
-        assert product["name"] == "Boat Rockerz 450"
-        assert product["price"] == "Rs. 999"
-        assert product["original_price"] == "Rs. 2,999"
-        assert product["rating"] == "4.2"
+        result = scraper.scrape(query="zzz")
+        assert result.data == []
+        assert result.errors
         scraper.close()
 
-    def test_max_pages_validation(self):
-        scraper = SnapdealScraper()
-        with pytest.raises(ValueError, match="max_pages must be >= 1"):
-            scraper.scrape(query="test", max_pages=0)
+    def test_bad_json_reports_error(self):
+        scraper = IKEAScraper()
+        mock_http = MagicMock()
+        mock_http.get_html.return_value = "not json"
+        scraper._http = mock_http
 
-    def test_url_protocol_fix(self):
-        scraper = SnapdealScraper()
-        soup = BeautifulSoup(SNAPDEAL_HTML, "lxml")
-        card = soup.select_one(".product-tuple-listing")
-        product = scraper._parse_card(card)
-        assert product["url"].startswith("https://")
+        result = scraper.scrape(query="desk")
+        assert result.data == []
+        assert result.errors
+        scraper.close()

@@ -37,15 +37,14 @@ from pyscrappy.core.exceptions import (
 )
 from pyscrappy.core.models import ScrapeResult
 from pyscrappy.generic.scraper import GenericScraper
-from pyscrappy.scrapers.alibaba import AlibabaScraper
 from pyscrappy.scrapers.amazon import AmazonScraper
-from pyscrappy.scrapers.flipkart import FlipkartScraper
+from pyscrappy.scrapers.ikea import IKEAScraper
 from pyscrappy.scrapers.image_search import ImageSearchScraper
 from pyscrappy.scrapers.imdb import IMDBScraper
 from pyscrappy.scrapers.instagram import InstagramScraper
 from pyscrappy.scrapers.linkedin import LinkedInJobsScraper
+from pyscrappy.scrapers.newegg import NeweggScraper
 from pyscrappy.scrapers.news import NewsScraper
-from pyscrappy.scrapers.snapdeal import SnapdealScraper
 from pyscrappy.scrapers.soundcloud import SoundCloudScraper
 from pyscrappy.scrapers.spotify import SpotifyScraper
 from pyscrappy.scrapers.stock import StockScraper
@@ -55,7 +54,7 @@ from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper
 from pyscrappy.scrapers.zomato import ZomatoScraper
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 __all__ = [
     # Core
@@ -71,10 +70,9 @@ __all__ = [
     # Generic
     "GenericScraper",
     # E-Commerce
-    "AlibabaScraper",
     "AmazonScraper",
-    "FlipkartScraper",
-    "SnapdealScraper",
+    "NeweggScraper",
+    "IKEAScraper",
     # Social Media
     "InstagramScraper",
     "TwitterScraper",
