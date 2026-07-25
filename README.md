@@ -143,11 +143,34 @@ config = ScraperConfig(
     proxy="http://...",      # HTTP/SOCKS proxy
     headless=True,           # browser runs headless
     render_js="auto",        # auto-detect if JS rendering is needed
+    cache_ttl=0,             # response cache TTL in seconds (0 = disabled)
 )
 
 with GenericScraper(config) as gs:
     result = gs.scrape(url="https://example.com")
 ```
+
+### Response caching
+
+Set `cache_ttl` to a positive number of seconds to cache successful GET
+responses. Repeated requests for the same URL (and query params) within the TTL
+are served from cache, skipping both the network and the rate limiter. Caching
+is **disabled by default** (`cache_ttl=0`).
+
+```python
+from pyscrappy import WikipediaScraper
+from pyscrappy import ScraperConfig
+
+config = ScraperConfig(cache_ttl=300)   # cache for 5 minutes
+
+with WikipediaScraper(config) as ws:
+    ws.scrape(query="Python")   # fetched over the network
+    ws.scrape(query="Python")   # served from cache
+```
+
+The cache is in memory and shared across scraper instances in the same process
+(so it also speeds up repeated calls through the MCP server), and is cleared
+when the process exits. Call `HttpClient.clear_cache()` to empty it manually.
 
 ### YouTube
 
@@ -169,13 +192,22 @@ with SoundCloudScraper() as scraper:
     result = scraper.scrape(query="lo-fi beats", max_results=10)
 ```
 
-### E-Commerce (Alibaba, Flipkart, Snapdeal)
+### E-Commerce (Amazon, Newegg, IKEA)
 
 ```python
-from pyscrappy import AlibabaScraper, FlipkartScraper, SnapdealScraper
+from pyscrappy import AmazonScraper, NeweggScraper, IKEAScraper
 
-with FlipkartScraper() as scraper:
+# Amazon — general marketplace
+with AmazonScraper() as scraper:
     result = scraper.scrape(query="laptop", max_pages=2)
+
+# Newegg — electronics / computer hardware
+with NeweggScraper() as scraper:
+    result = scraper.scrape(query="graphics card", max_pages=2)
+
+# IKEA — furniture / home (uses IKEA's JSON search API)
+with IKEAScraper() as scraper:
+    result = scraper.scrape(query="desk", max_results=24)
     df = result.to_dataframe()
 ```
 
@@ -203,9 +235,8 @@ with SwiggyScraper() as scraper:
 | `LinkedInJobsScraper` | Public job listings | No |
 | **E-Commerce** | | |
 | `AmazonScraper` | Product search | No |
-| `AlibabaScraper` | Product search | No |
-| `FlipkartScraper` | Product search | No |
-| `SnapdealScraper` | Product search | No |
+| `NeweggScraper` | Electronics / computer hardware search | No |
+| `IKEAScraper` | Furniture / home search (JSON API) | No |
 | **Social Media** | | |
 | `YouTubeScraper` | Video search, channel scraping | Optional |
 | `InstagramScraper` | Profiles, hashtag posts | Recommended |

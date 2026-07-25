@@ -1,6 +1,6 @@
 """Tests for pyscrappy.core.http."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -238,4 +238,70 @@ class TestHttpClientBuildClient:
         result = client._ensure_client()
         assert result is not None
         assert client._client is result
+        client.close()
+
+
+class TestHttpClientCaching:
+    @pytest.fixture(autouse=True)
+    def _clear_shared_cache(self):
+        # The response cache is process-wide, so isolate each test.
+        HttpClient.clear_cache()
+        yield
+        HttpClient.clear_cache()
+
+    def _mock_client(self, config):
+        client = HttpClient(config)
+        resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        resp.text = "<html>OK</html>"
+        resp.raise_for_status = MagicMock()
+        mock_httpx = MagicMock()
+        mock_httpx.get.return_value = resp
+        client._client = mock_httpx
+        return client, mock_httpx
+
+    def test_disabled_by_default(self):
+        client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0))
+        for _ in range(3):
+            client.get("https://example.com")
+        assert mock_httpx.get.call_count == 3  # no caching
+        client.close()
+
+    def test_cache_hit_skips_network(self):
+        client, mock_httpx = self._mock_client(
+            ScraperConfig(rate_limit=0, cache_ttl=60)
+        )
+        for _ in range(3):
+            client.get("https://example.com")
+        assert mock_httpx.get.call_count == 1  # only first hit the network
+        client.close()
+
+    def test_params_are_part_of_key(self):
+        client, mock_httpx = self._mock_client(
+            ScraperConfig(rate_limit=0, cache_ttl=60)
+        )
+        client.get("https://api.example.com", params={"q": "a"})
+        client.get("https://api.example.com", params={"q": "a"})  # cached
+        client.get("https://api.example.com", params={"q": "b"})  # new key
+        assert mock_httpx.get.call_count == 2
+        client.close()
+
+    def test_clear_cache_forces_refetch(self):
+        client, mock_httpx = self._mock_client(
+            ScraperConfig(rate_limit=0, cache_ttl=60)
+        )
+        client.get("https://example.com")
+        client.clear_cache()
+        client.get("https://example.com")
+        assert mock_httpx.get.call_count == 2
+        client.close()
+
+    def test_non_2xx_not_cached(self):
+        # get_raw bypasses caching entirely; only successful get() responses cache
+        client, mock_httpx = self._mock_client(
+            ScraperConfig(rate_limit=0, cache_ttl=60)
+        )
+        client.get_raw("https://example.com")
+        client.get_raw("https://example.com")
+        assert mock_httpx.get.call_count == 2
         client.close()

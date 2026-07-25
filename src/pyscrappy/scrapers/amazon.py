@@ -1,10 +1,10 @@
-"""Amazon product search scraper (experimental).
+"""Amazon product search scraper.
 
-.. warning::
-
-    Amazon aggressively blocks automated scraping. This scraper may break
-    frequently and should be used with appropriate rate limiting and proxies.
-    Consider using the official Amazon Product Advertising API for production use.
+Amazon blocks bare HTTP requests, so this scraper sends a browser-like header
+set (including a ``Referer``) that gets past that from most IPs without proxies.
+It works reliably for varied queries at a sane request rate; hammering the same
+query rapidly can still trigger Amazon's IP-based rate limiting, so keep the
+configured ``rate_limit`` in place (and caching helps with repeat queries).
 """
 
 from __future__ import annotations
@@ -20,11 +20,10 @@ from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
 
 
 class AmazonScraper(BaseScraper):
-    """Search Amazon products (experimental).
+    """Search Amazon products.
 
-    .. warning::
-        This scraper targets Amazon's HTML and may break at any time.
-        Use with proxies and generous rate limits.
+    Uses a browser-like header set to get past Amazon's bot block. Reliable for
+    varied queries; keep a sane ``rate_limit`` to avoid IP throttling.
 
     Usage::
 
@@ -34,6 +33,19 @@ class AmazonScraper(BaseScraper):
     """
 
     name = "amazon"
+
+    # Amazon blocks bare requests (503 / "discuss automated access" page).
+    # Sending a fuller, browser-like header set — crucially including a Referer —
+    # gets past that from most IPs without proxies.
+    _HEADERS = {
+        "Accept-Language": "en-GB,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "image/avif,image/webp,*/*;q=0.8"
+        ),
+        "Referer": "https://www.google.com/",
+    }
 
     def __init__(
         self,
@@ -69,7 +81,7 @@ class AmazonScraper(BaseScraper):
             visited.append(url)
 
             try:
-                soup = self.fetch_and_parse(url)
+                soup = self.fetch_and_parse(url, headers=self._HEADERS)
             except Exception as exc:
                 errors.append(ScrapeError(url=url, message=str(exc)))
                 break

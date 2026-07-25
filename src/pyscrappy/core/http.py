@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
 import time
 from typing import Any
 
@@ -13,6 +14,14 @@ from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
 
 logger = logging.getLogger("pyscrappy.http")
+
+# Process-wide response cache, shared across all HttpClient instances. This lets
+# caching survive the short-lived scraper instances that callers (e.g. the MCP
+# server) create per request. Entries are (monotonic timestamp, response). Only
+# populated when a client's config.cache_ttl > 0; guarded by a lock because
+# scrapers may run in worker threads.
+_SHARED_CACHE: dict[str, tuple[float, httpx.Response]] = {}
+_CACHE_LOCK = threading.Lock()
 
 
 class HttpClient:
@@ -47,14 +56,30 @@ class HttpClient:
     # -- public API --
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Perform a GET request with retries and rate-limiting."""
+        """Perform a GET request with retries and rate-limiting.
+
+        When ``config.cache_ttl > 0``, a successful response is cached in memory
+        and returned for repeat requests within the TTL, skipping both the
+        network and the rate limiter.
+        """
+        cache_key = self._cache_key(url, kwargs.get("params"))
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            logger.debug("Cache hit for %s", url)
+            return cached
+
         client = self._ensure_client()
         self._rate_limit(url)
+
+        # Merge any caller-supplied headers on top of a rotated User-Agent,
+        # so scrapers can add site-specific headers (e.g. Referer) without
+        # colliding with the headers kwarg httpx expects.
+        extra_headers = kwargs.pop("headers", None) or {}
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
-                headers = {"User-Agent": self._pick_ua()}
+                headers = {"User-Agent": self._pick_ua(), **extra_headers}
                 resp = client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
                 if resp.status_code == 429:
@@ -66,6 +91,7 @@ class HttpClient:
                     raise RateLimitError(f"Rate-limited by {url} after {attempt} attempts")
 
                 resp.raise_for_status()
+                self._cache_put(cache_key, resp)
                 return resp
 
             except httpx.HTTPStatusError as exc:
@@ -100,7 +126,8 @@ class HttpClient:
         """
         client = self._ensure_client()
         self._rate_limit(url)
-        headers = {"User-Agent": self._pick_ua()}
+        extra_headers = kwargs.pop("headers", None) or {}
+        headers = {"User-Agent": self._pick_ua(), **extra_headers}
         return client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
     def get_html(self, url: str, **kwargs: Any) -> str:
@@ -126,6 +153,42 @@ class HttpClient:
 
     def _pick_ua(self) -> str:
         return random.choice(self.config.user_agents)
+
+    # -- caching --
+
+    def _cache_key(self, url: str, params: Any) -> str:
+        """Build a cache key from the URL and any query params."""
+        if not params:
+            return url
+        try:
+            items = sorted((str(k), str(v)) for k, v in dict(params).items())
+        except (TypeError, ValueError):
+            return url
+        return url + "?" + "&".join(f"{k}={v}" for k, v in items)
+
+    def _cache_get(self, key: str) -> httpx.Response | None:
+        if self.config.cache_ttl <= 0:
+            return None
+        with _CACHE_LOCK:
+            entry = _SHARED_CACHE.get(key)
+            if entry is None:
+                return None
+            ts, resp = entry
+            if time.monotonic() - ts > self.config.cache_ttl:
+                del _SHARED_CACHE[key]  # expired
+                return None
+            return resp
+
+    def _cache_put(self, key: str, resp: httpx.Response) -> None:
+        if self.config.cache_ttl > 0:
+            with _CACHE_LOCK:
+                _SHARED_CACHE[key] = (time.monotonic(), resp)
+
+    @staticmethod
+    def clear_cache() -> None:
+        """Empty the process-wide response cache."""
+        with _CACHE_LOCK:
+            _SHARED_CACHE.clear()
 
     def _rate_limit(self, url: str) -> None:
         from urllib.parse import urlparse

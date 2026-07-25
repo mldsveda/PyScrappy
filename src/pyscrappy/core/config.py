@@ -34,6 +34,9 @@ class ScraperConfig:
             ``"auto"`` attempts a plain HTTP fetch first, then falls back to a browser.
         headless: Run browser in headless mode (no visible window).
         verify_ssl: Whether to verify SSL certificates.
+        cache_ttl: Seconds to cache successful GET responses in memory. ``0``
+            (the default) disables caching. When set, repeated requests for the
+            same URL within the TTL skip the network and the rate limiter.
     """
 
     timeout: float = 30.0
@@ -45,3 +48,4 @@ class ScraperConfig:
     render_js: bool | Literal["auto"] = False
     headless: bool = True
     verify_ssl: bool = True
+    cache_ttl: float = 0.0

@@ -28,10 +28,7 @@ class TestPackageImports:
 
     def test_scraper_exports(self):
         scrapers = [
-            "AlibabaScraper",
             "AmazonScraper",
-            "FlipkartScraper",
-            "SnapdealScraper",
             "InstagramScraper",
             "TwitterScraper",
             "YouTubeScraper",
