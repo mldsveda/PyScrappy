@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscrappy"
-version = "1.1.2"
+version = "1.1.3"
 description = "A robust, all-in-one Python web scraping toolkit"
 readme = "README.md"
 license = "MIT"
@@ -75,6 +75,13 @@ select = ["E", "F", "I", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Integration tests hit the live network and are opt-in. They're excluded from
+# the default run (they're slow and can be rate-limited); run them explicitly
+# with:  pytest -m integration
+markers = [
+    "integration: live tests that make real network requests (deselected by default)",
+]
+addopts = "-m 'not integration'"
 
 [tool.mypy]
 python_version = "3.9"

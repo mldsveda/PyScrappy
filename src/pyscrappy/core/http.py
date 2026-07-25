@@ -7,9 +7,11 @@ import random
 import threading
 import time
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
+from pyscrappy.core import scraper_api
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
 
@@ -67,6 +69,20 @@ class HttpClient:
         if cached is not None:
             logger.debug("Cache hit for %s", url)
             return cached
+
+        # Route through a scraping-API service if configured, so blocked sites
+        # come back unblocked. Any caller params are folded into the *target*
+        # URL first, then the whole URL is handed to the service endpoint.
+        if scraper_api.is_configured(self.config.scraper_api):
+            caller_params = kwargs.pop("params", None)
+            if caller_params:
+                sep = "&" if "?" in url else "?"
+                url = url + sep + urlencode(caller_params)
+            endpoint, api_params = scraper_api.build_request(
+                url, self.config.scraper_api or {}
+            )
+            url = endpoint
+            kwargs["params"] = api_params
 
         client = self._ensure_client()
         self._rate_limit(url)
@@ -138,8 +154,9 @@ class HttpClient:
 
     def _build_client(self) -> httpx.Client:
         transport_kwargs: dict[str, Any] = {}
-        if self.config.proxy:
-            transport_kwargs["proxy"] = self.config.proxy
+        proxy = self.config.pick_proxy()
+        if proxy:
+            transport_kwargs["proxy"] = proxy
         return httpx.Client(
             timeout=self.config.timeout,
             verify=self.config.verify_ssl,

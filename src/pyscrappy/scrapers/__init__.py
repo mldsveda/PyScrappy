@@ -9,7 +9,6 @@ from pyscrappy.scrapers.news import NewsScraper
 from pyscrappy.scrapers.soundcloud import SoundCloudScraper
 from pyscrappy.scrapers.spotify import SpotifyScraper
 from pyscrappy.scrapers.stock import StockScraper
-from pyscrappy.scrapers.swiggy import SwiggyScraper
 from pyscrappy.scrapers.twitter import TwitterScraper
 from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper
@@ -27,7 +26,6 @@ __all__ = [
     "SoundCloudScraper",
     "SpotifyScraper",
     "StockScraper",
-    "SwiggyScraper",
     "TwitterScraper",
     "WikipediaScraper",
     "YouTubeScraper",

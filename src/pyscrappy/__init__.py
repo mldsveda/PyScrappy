@@ -26,6 +26,7 @@ Quick start::
         result = ss.scrape(symbol="AAPL", mode="history", period="1mo")
 """
 
+from pyscrappy.concurrent import scrape_all, scrape_many
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import (
     BrowserNotInstalledError,
@@ -48,13 +49,12 @@ from pyscrappy.scrapers.news import NewsScraper
 from pyscrappy.scrapers.soundcloud import SoundCloudScraper
 from pyscrappy.scrapers.spotify import SpotifyScraper
 from pyscrappy.scrapers.stock import StockScraper
-from pyscrappy.scrapers.swiggy import SwiggyScraper
 from pyscrappy.scrapers.twitter import TwitterScraper
 from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper
 from pyscrappy.scrapers.zomato import ZomatoScraper
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 
 __all__ = [
     # Core
@@ -81,7 +81,6 @@ __all__ = [
     "SoundCloudScraper",
     "SpotifyScraper",
     # Food Delivery
-    "SwiggyScraper",
     "ZomatoScraper",
     # Data / Research
     "IMDBScraper",
@@ -92,6 +91,8 @@ __all__ = [
     "WikipediaScraper",
     # Convenience
     "scrape",
+    "scrape_many",
+    "scrape_all",
 ]
 
 

@@ -34,7 +34,6 @@ class TestPackageImports:
             "YouTubeScraper",
             "SoundCloudScraper",
             "SpotifyScraper",
-            "SwiggyScraper",
             "ZomatoScraper",
             "IMDBScraper",
             "ImageSearchScraper",

@@ -140,7 +140,8 @@ config = ScraperConfig(
     timeout=20.0,            # request timeout in seconds
     max_retries=3,           # retry failed requests
     rate_limit=2.0,          # seconds between requests per domain
-    proxy="http://...",      # HTTP/SOCKS proxy
+    proxy="http://...",      # proxy URL, or a list to rotate through
+    scraper_api=None,        # route via a scraping-API service (see below)
     headless=True,           # browser runs headless
     render_js="auto",        # auto-detect if JS rendering is needed
     cache_ttl=0,             # response cache TTL in seconds (0 = disabled)
@@ -148,6 +149,59 @@ config = ScraperConfig(
 
 with GenericScraper(config) as gs:
     result = gs.scrape(url="https://example.com")
+```
+
+### Proxies and blocked sites
+
+Some sites (e.g. eBay, Instagram, Twitter/X, Spotify) block direct automated
+requests. PyScrappy supports two ways to get through them.
+
+**A proxy** (or a rotating list) — applies to both the HTTP and browser backends:
+
+```python
+from pyscrappy import ScraperConfig, AmazonScraper
+
+# Single proxy
+config = ScraperConfig(proxy="http://user:pass@host:port")
+
+# Rotating list (one picked per request)
+config = ScraperConfig(proxy=["http://p1:8080", "http://p2:8080"])
+```
+
+**A scraping-API service** (ScraperAPI, ScrapeOps, ScrapingBee) — routes requests
+through the service, which handles proxies and anti-bot challenges for you:
+
+```python
+config = ScraperConfig(scraper_api={
+    "provider": "scraperapi",   # or "scrapeops", "scrapingbee"
+    "api_key": "YOUR_KEY",
+    "render_js": True,           # optional
+})
+
+# Now any scraper works through the service, unchanged:
+with AmazonScraper(config) as scraper:
+    result = scraper.scrape(query="laptop")
+```
+
+This is the reliable way to use the scrapers marked "needs proxy" below.
+
+### Concurrent scraping
+
+Scraping is I/O-bound, so running several scrapes at once parallelizes the
+network waits. `scrape_many` runs one scraper over many inputs; `scrape_all`
+runs a mix of scrapers together. Both preserve input order.
+
+```python
+from pyscrappy import scrape_many, scrape_all, AmazonScraper, WikipediaScraper, NewsScraper
+
+# One scraper, many queries, concurrently:
+results = scrape_many(AmazonScraper, [{"query": "laptop"}, {"query": "phone"}])
+
+# Different scrapers at once:
+results = scrape_all([
+    lambda: WikipediaScraper().scrape(query="Python"),
+    lambda: NewsScraper().scrape(feed_url="https://rss.nytimes.com/services/xml/rss/nyt/World.xml"),
+])
 ```
 
 ### Response caching
@@ -211,14 +265,13 @@ with IKEAScraper() as scraper:
     df = result.to_dataframe()
 ```
 
-### Food Delivery (Swiggy, Zomato)
+### Food Delivery (Zomato)
 
 ```python
-from pyscrappy import SwiggyScraper, ZomatoScraper
+from pyscrappy import ZomatoScraper
 
-# These are JS-heavy — use render_js=True for best results
-with SwiggyScraper() as scraper:
-    result = scraper.scrape(city="bangalore", render_js=True)
+with ZomatoScraper() as scraper:
+    result = scraper.scrape(city="bangalore", max_results=20)
 ```
 
 ## Built-in scrapers
@@ -239,13 +292,12 @@ with SwiggyScraper() as scraper:
 | `IKEAScraper` | Furniture / home search (JSON API) | No |
 | **Social Media** | | |
 | `YouTubeScraper` | Video search, channel scraping | Optional |
-| `InstagramScraper` | Profiles, hashtag posts | Recommended |
-| `TwitterScraper` | Tweet search | Recommended |
+| `InstagramScraper` | Profiles, hashtag posts (blocked; needs proxy) | Recommended |
+| `TwitterScraper` | Tweet search (blocked; needs proxy) | Recommended |
 | **Music** | | |
-| `SpotifyScraper` | Track/playlist search | Recommended |
+| `SpotifyScraper` | Track/playlist search (blocked; needs proxy) | Recommended |
 | `SoundCloudScraper` | Track search | Optional |
 | **Food Delivery** | | |
-| `SwiggyScraper` | Restaurant listings | Recommended |
 | `ZomatoScraper` | Restaurant listings | Recommended |
 
 ## MCP server (use PyScrappy from an AI agent)
