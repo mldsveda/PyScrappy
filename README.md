@@ -93,15 +93,22 @@ with StockScraper() as ss:
     print(df.head())
 ```
 
-### IMDB
+### IMDB (via OMDb API)
+
+IMDB's own pages are protected by an anti-bot challenge, so PyScrappy fetches IMDB
+data through the free [OMDb API](https://www.omdbapi.com/). Set an OMDb API key in
+the `OMDB_API_KEY` environment variable (or pass `api_key=...`).
 
 ```python
 from pyscrappy import IMDBScraper
 
-with IMDBScraper() as scraper:
-    result = scraper.scrape(genre="sci-fi", max_pages=2)
+with IMDBScraper() as scraper:      # reads OMDB_API_KEY from the environment
+    # Search by title
+    result = scraper.scrape(query="inception")
+    # ...or look up a specific IMDB id
+    result = scraper.scrape(query="tt1375666")
     df = result.to_dataframe()
-    print(df[["title", "year", "rating"]])
+    print(df[["title", "year", "rating", "genre"]])
 ```
 
 ### News (RSS feeds)
@@ -189,7 +196,7 @@ with SwiggyScraper() as scraper:
 | `GenericScraper` | Scrape any URL with auto-extraction | Optional |
 | **Data / Research** | | |
 | `WikipediaScraper` | Articles, sections, infoboxes | No |
-| `IMDBScraper` | Movies by genre, search, charts | No |
+| `IMDBScraper` | Movie/TV info by title or id (via OMDb API; needs `OMDB_API_KEY`) | No |
 | `StockScraper` | Quotes, history, profiles (Yahoo Finance) | No |
 | `NewsScraper` | RSS/Atom feeds, article extraction | No |
 | `ImageSearchScraper` | Image search + download | No |
@@ -259,9 +266,24 @@ Add to your `claude_desktop_config.json` and restart the app:
 | `search_youtube` | YouTube video search |
 | `search_linkedin_jobs` | Public LinkedIn job listings |
 | `search_soundcloud` | SoundCloud track search (uses the browser backend) |
+| `lookup_movie` | Movie/TV info from IMDB by title or id (via OMDb; needs `OMDB_API_KEY`) |
 | `scrape_zomato` | Restaurant listings by city |
 
-Once registered, just ask the agent naturally — e.g. *"use pyscrappy to get the
+The `lookup_movie` tool needs a free [OMDb](https://www.omdbapi.com/apikey.aspx) API
+key. Pass it to the server through your MCP client config, e.g. for Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "pyscrappy": {
+      "command": "pyscrappy-mcp",
+      "env": { "OMDB_API_KEY": "your-key" }
+    }
+  }
+}
+```
+
+Once registered, just ask the agent naturally, e.g. *"use pyscrappy to get the
 latest headlines from bbc.co.uk and the AAPL stock quote."*
 
 ## Dependencies

@@ -1,46 +1,52 @@
-"""IMDB scraper — search movies by genre, title, or get top charts."""
+"""IMDB data via the OMDb API.
+
+IMDB's own pages are protected by AWS WAF (a "Human Verification" challenge that
+returns an empty ``202`` to any non-browser client), so they cannot be scraped
+directly without CAPTCHA-solving or residential-proxy infrastructure. Instead we
+fetch the same data through the free `OMDb API <https://www.omdbapi.com>`_, which
+serves IMDB-sourced data as clean JSON.
+
+Set an OMDb API key (free tier available) in the ``OMDB_API_KEY`` environment
+variable, or pass ``api_key`` to the constructor.
+"""
 
 from __future__ import annotations
 
+import os
+import re
 from typing import Any
-from urllib.parse import urlencode
-
-from bs4 import Tag
 
 from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.models import ScrapeError, ScrapeMetadata, ScrapeResult
 
-_IMDB_BASE = "https://www.imdb.com"
-
-_VALID_GENRES = {
-    "action", "adventure", "animation", "biography", "comedy", "crime",
-    "documentary", "drama", "family", "fantasy", "film-noir", "history",
-    "horror", "music", "musical", "mystery", "romance", "sci-fi",
-    "sport", "thriller", "war", "western",
-}
+_OMDB_BASE = "https://www.omdbapi.com/"
+_IMDB_ID_RE = re.compile(r"^tt\d+$")
 
 
 class IMDBScraper(BaseScraper):
-    """Scrape movie data from IMDB.
+    """Fetch movie data from IMDB via the OMDb API.
 
     Usage::
 
+        # Needs an OMDb API key: export OMDB_API_KEY=... (free at omdbapi.com)
         with IMDBScraper() as scraper:
-            # Search by genre
-            result = scraper.scrape(genre="sci-fi", max_pages=3)
-
-            # Search by title
+            # Search by title (returns matches, enriched with details)
             result = scraper.scrape(query="inception")
 
-            # Top 250
-            result = scraper.scrape(chart="top250")
+            # Look up a specific IMDB id
+            result = scraper.scrape(query="tt1375666")
     """
 
     name = "imdb"
 
-    def __init__(self, config: ScraperConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: ScraperConfig | None = None,
+        api_key: str | None = None,
+    ) -> None:
         super().__init__(config)
+        self.api_key = api_key or os.environ.get("OMDB_API_KEY")
 
     def scrape(  # type: ignore[override]
         self,
@@ -49,197 +55,149 @@ class IMDBScraper(BaseScraper):
         chart: str | None = None,
         max_pages: int = 1,
     ) -> ScrapeResult:
-        """Scrape movies from IMDB.
+        """Fetch movie data from IMDB (via OMDb).
 
         Args:
-            genre: A genre name (e.g. ``"sci-fi"``, ``"comedy"``).
-            query: Free-text title search.
-            chart: Chart name — ``"top250"`` or ``"popular"``.
-            max_pages: Pages to scrape (genre/query search only).
+            query: A title search term (e.g. ``"inception"``) or an IMDB id
+                (e.g. ``"tt1375666"``).
+            genre: Not supported — OMDb has no genre-browse endpoint.
+            chart: Not supported — OMDb has no chart endpoint.
+            max_pages: Pages of search results to fetch (10 results per page).
 
         Returns:
             ScrapeResult with movie data.
         """
-        if chart:
-            return self._scrape_chart(chart)
-        if genre:
-            return self._scrape_search(genre=genre, max_pages=max_pages)
-        if query:
-            return self._scrape_search(query=query, max_pages=max_pages)
-        raise ValueError("Provide at least one of: genre, query, or chart")
+        if genre or chart:
+            unsupported = "genre" if genre else "chart"
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(scraper=self.name),
+                errors=[ScrapeError(
+                    url=_OMDB_BASE,
+                    message=(
+                        f"{unsupported!r} browsing is not supported. IMDB data "
+                        "is served via the OMDb API, which supports title "
+                        "search and id lookup only. Use query=<title> or "
+                        "query=<imdb id, e.g. tt1375666>."
+                    ),
+                )],
+            )
 
-    def _scrape_chart(self, chart: str) -> ScrapeResult:
-        if chart == "top250":
-            url = f"{_IMDB_BASE}/chart/top/"
-        elif chart == "popular":
-            url = f"{_IMDB_BASE}/chart/moviemeter/"
-        else:
-            raise ValueError(f"Unknown chart: {chart!r}. Use 'top250' or 'popular'.")
+        if not query:
+            raise ValueError("Provide query=<title or IMDB id>.")
 
-        soup = self.fetch_and_parse(url)
-        movies: list[dict[str, Any]] = []
+        if not self.api_key:
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(scraper=self.name),
+                errors=[ScrapeError(
+                    url=_OMDB_BASE,
+                    message=(
+                        "No OMDb API key. Set the OMDB_API_KEY environment "
+                        "variable or pass api_key=... to IMDBScraper. Get a "
+                        "free key at https://www.omdbapi.com/apikey.aspx"
+                    ),
+                )],
+            )
+
+        if _IMDB_ID_RE.match(query.strip()):
+            return self._lookup_by_id(query.strip())
+        return self._search_by_title(query, max_pages)
+
+    def _get(self, params: dict[str, str]) -> dict[str, Any]:
+        """Call OMDb and return the parsed JSON object."""
+        params = {**params, "apikey": self.api_key or ""}
+        import json
+
+        raw = self.http.get_html(_OMDB_BASE, params=params)
+        return json.loads(raw)
+
+    def _lookup_by_id(self, imdb_id: str) -> ScrapeResult:
         errors: list[ScrapeError] = []
+        payload = self._get({"i": imdb_id, "plot": "full"})
 
-        for item in soup.select("li.ipc-metadata-list-summary-item"):
-            movie = self._parse_chart_item(item)
-            if movie:
-                movies.append(movie)
-
-        if not movies:
+        if payload.get("Response") == "True":
+            data = [self._normalise(payload)]
+        else:
+            data = []
             errors.append(ScrapeError(
-                url=url,
-                message=(
-                    "No titles extracted. IMDB blocks automated traffic or has "
-                    "changed its chart markup; a proxy or residential IP is "
-                    "typically required."
-                ),
+                url=_OMDB_BASE,
+                message=f"OMDb: {payload.get('Error', 'not found')} (id={imdb_id})",
             ))
 
         return ScrapeResult(
-            data=movies,
-            metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+            data=data,
+            metadata=ScrapeMetadata(source_urls=[_OMDB_BASE], scraper=self.name),
             errors=errors,
         )
 
-    def _scrape_search(
-        self,
-        genre: str | None = None,
-        query: str | None = None,
-        max_pages: int = 1,
-    ) -> ScrapeResult:
+    def _search_by_title(self, query: str, max_pages: int) -> ScrapeResult:
         movies: list[dict[str, Any]] = []
         errors: list[ScrapeError] = []
-        visited: list[str] = []
-
-        params: dict[str, str] = {}
-        if genre:
-            genre = genre.lower()
-            if genre not in _VALID_GENRES:
-                raise ValueError(
-                    f"Unknown genre: {genre!r}. Valid: {sorted(_VALID_GENRES)}"
-                )
-            params["genres"] = genre
-            params["title_type"] = "feature"
-        if query:
-            params["title"] = query
-
-        base_url = f"{_IMDB_BASE}/search/title/?" + urlencode(params)
 
         for page in range(1, max_pages + 1):
-            url = base_url if page == 1 else f"{base_url}&start={1 + (page - 1) * 50}"
-            visited.append(url)
+            payload = self._get({"s": query, "page": str(page)})
 
-            try:
-                soup = self.fetch_and_parse(url)
-            except Exception as exc:
-                errors.append(ScrapeError(url=url, message=str(exc)))
+            if payload.get("Response") != "True":
+                # OMDb returns "Movie not found!" / "Too many results." as errors.
+                if page == 1:
+                    errors.append(ScrapeError(
+                        url=_OMDB_BASE,
+                        message=f"OMDb: {payload.get('Error', 'no results')}",
+                    ))
                 break
 
-            items = soup.select(".lister-item-content, .ipc-metadata-list-summary-item")
-            if not items:
+            results = payload.get("Search", [])
+            if not results:
                 break
 
-            for item in items:
-                movie = self._parse_search_item(item)
-                if movie:
-                    movies.append(movie)
-
-        if not movies and not errors:
-            errors.append(ScrapeError(
-                url=visited[-1] if visited else "",
-                message=(
-                    "No titles extracted. IMDB blocks automated traffic or has "
-                    "changed its search markup; a proxy or residential IP is "
-                    "typically required."
-                ),
-            ))
+            # Enrich each search hit with full details (genre, rating, plot…).
+            for hit in results:
+                imdb_id = hit.get("imdbID")
+                if not imdb_id:
+                    movies.append(self._normalise(hit))
+                    continue
+                details = self._get({"i": imdb_id})
+                movies.append(self._normalise(
+                    details if details.get("Response") == "True" else hit
+                ))
 
         return ScrapeResult(
             data=movies,
-            metadata=ScrapeMetadata(
-                source_urls=visited,
-                total_pages=len(visited),
-                scraper=self.name,
-            ),
+            metadata=ScrapeMetadata(source_urls=[_OMDB_BASE], scraper=self.name),
             errors=errors,
         )
 
-    def _parse_chart_item(self, item: Tag) -> dict[str, Any] | None:
-        movie: dict[str, Any] = {}
+    @staticmethod
+    def _normalise(item: dict[str, Any]) -> dict[str, Any]:
+        """Map OMDb's PascalCase fields to PyScrappy's lower-case schema.
 
-        # Title + link
-        title_el = item.select_one("h3.ipc-title__text")
-        if title_el:
-            movie["title"] = title_el.get_text(strip=True)
-        link = item.select_one("a.ipc-title-link-wrapper")
-        if link:
-            movie["url"] = _IMDB_BASE + str(link.get("href", "")).split("?")[0]
+        OMDb uses ``"N/A"`` for missing values; convert those to ``None``.
+        """
+        def val(key: str) -> Any:
+            v = item.get(key)
+            return None if v in (None, "N/A", "") else v
 
-        # Metadata spans (year, runtime, rating)
-        meta_items = item.select("span.cli-title-metadata-item")
-        if len(meta_items) >= 1:
-            movie["year"] = meta_items[0].get_text(strip=True)
-        if len(meta_items) >= 2:
-            movie["runtime"] = meta_items[1].get_text(strip=True)
-        if len(meta_items) >= 3:
-            movie["certificate"] = meta_items[2].get_text(strip=True)
-
-        # Rating
-        rating_el = item.select_one("span.ipc-rating-star--rating")
-        if rating_el:
-            movie["rating"] = rating_el.get_text(strip=True)
-
-        # Vote count
-        vote_el = item.select_one("span.ipc-rating-star--voteCount")
-        if vote_el:
-            movie["votes"] = vote_el.get_text(strip=True).strip("()")
-
-        return movie if movie.get("title") else None
-
-    def _parse_search_item(self, item: Tag) -> dict[str, Any] | None:
-        movie: dict[str, Any] = {}
-
-        # Try modern IMDB layout first
-        title_el = item.select_one("h3.ipc-title__text, h3.lister-item-header a")
-        if title_el:
-            movie["title"] = title_el.get_text(strip=True)
-
-        # Link
-        link = item.select_one("a.ipc-title-link-wrapper, h3.lister-item-header a")
-        if link:
-            href = str(link.get("href", ""))
-            movie["url"] = _IMDB_BASE + href.split("?")[0] if href.startswith("/") else href
-
-        # Year
-        year_el = item.select_one(
-            "span.lister-item-year, span.cli-title-metadata-item"
-        )
-        if year_el:
-            movie["year"] = year_el.get_text(strip=True).strip("()")
-
-        # Rating
-        rating_el = item.select_one(
-            "div.ratings-imdb-rating strong, span.ipc-rating-star--rating"
-        )
-        if rating_el:
-            movie["rating"] = rating_el.get_text(strip=True)
-
-        # Description
-        desc_els = item.select("p.text-muted")
-        for el in desc_els:
-            text = el.get_text(strip=True)
-            if len(text) > 50:
-                movie["description"] = text
-                break
-
-        # Genre
-        genre_el = item.select_one("span.genre")
-        if genre_el:
-            movie["genre"] = genre_el.get_text(strip=True)
-
-        # Runtime
-        runtime_el = item.select_one("span.runtime")
-        if runtime_el:
-            movie["runtime"] = runtime_el.get_text(strip=True)
-
-        return movie if movie.get("title") else None
+        movie = {
+            "title": val("Title"),
+            "year": val("Year"),
+            "imdb_id": val("imdbID"),
+            "type": val("Type"),
+            "rated": val("Rated"),
+            "released": val("Released"),
+            "runtime": val("Runtime"),
+            "genre": val("Genre"),
+            "director": val("Director"),
+            "writer": val("Writer"),
+            "actors": val("Actors"),
+            "plot": val("Plot"),
+            "language": val("Language"),
+            "country": val("Country"),
+            "rating": val("imdbRating"),
+            "votes": val("imdbVotes"),
+            "poster": val("Poster"),
+        }
+        if movie["imdb_id"]:
+            movie["url"] = f"https://www.imdb.com/title/{movie['imdb_id']}/"
+        # Drop keys that weren't present at all (e.g. search-only results).
+        return {k: v for k, v in movie.items() if v is not None}
