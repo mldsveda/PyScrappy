@@ -17,15 +17,23 @@ from pydantic import BaseModel, Field
 
 from pyscrappy import (
     AmazonScraper,
+    CryptoScraper,
+    CurrencyScraper,
+    DictionaryScraper,
+    GitHubScraper,
+    HackerNewsScraper,
     IKEAScraper,
     ImageSearchScraper,
     IMDBScraper,
     LinkedInJobsScraper,
     NeweggScraper,
     NewsScraper,
+    OpenLibraryScraper,
     ScrapeResult,
     SoundCloudScraper,
     StockScraper,
+    UberEatsScraper,
+    WeatherScraper,
     WikipediaScraper,
     YouTubeScraper,
     ZomatoScraper,
@@ -209,6 +217,125 @@ async def search_linkedin_jobs(
 
 
 @mcp.tool()
+async def get_crypto(
+    query: str | None = None, max_results: int = 20, vs_currency: str = "usd"
+) -> ScrapeToolResult:
+    """Get cryptocurrency market data (price, market cap, 24h change).
+
+    Args:
+        query: Comma-separated coins (e.g. "bitcoin, ethereum"). Omit for top coins.
+        max_results: Max coins to return (default 20).
+        vs_currency: Fiat currency for prices, e.g. "usd", "eur" (default "usd").
+    """
+    with CryptoScraper(_config()) as c:
+        return await _run(
+            c.scrape, query=query, max_results=max_results, vs_currency=vs_currency
+        )
+
+
+@mcp.tool()
+async def convert_currency(
+    base: str = "USD", to: str | None = None, amount: float = 1.0
+) -> ScrapeToolResult:
+    """Get currency exchange rates and convert an amount.
+
+    Args:
+        base: Base currency code, e.g. "USD".
+        to: Comma-separated target codes (e.g. "EUR,GBP"). Omit for all rates.
+        amount: Amount of base currency to convert (default 1).
+    """
+    with CurrencyScraper(_config()) as c:
+        return await _run(c.scrape, base=base, to=to, amount=amount)
+
+
+@mcp.tool()
+async def define_word(word: str) -> ScrapeToolResult:
+    """Look up a word's definitions, part of speech, and examples (English).
+
+    Args:
+        word: The word to define.
+    """
+    with DictionaryScraper(_config()) as d:
+        return await _run(d.scrape, word=word)
+
+
+@mcp.tool()
+async def search_github(
+    query: str, max_results: int = 20, sort: str = "best-match"
+) -> ScrapeToolResult:
+    """Search GitHub repositories (name, owner, stars, description, language).
+
+    Args:
+        query: Search query, e.g. "web scraping language:python".
+        max_results: Max repositories to return (default 20).
+        sort: "best-match" (default), "stars", "forks", or "updated".
+    """
+    with GitHubScraper(_config()) as gh:
+        return await _run(gh.scrape, query=query, max_results=max_results, sort=sort)
+
+
+@mcp.tool()
+async def search_hackernews(
+    query: str, max_results: int = 20, by: str = "relevance"
+) -> ScrapeToolResult:
+    """Search Hacker News stories (title, url, points, author, comments).
+
+    Args:
+        query: Search query.
+        max_results: Max stories to return (default 20).
+        by: "relevance" (default) or "date" (most recent first).
+    """
+    with HackerNewsScraper(_config()) as hn:
+        return await _run(hn.scrape, query=query, max_results=max_results, by=by)
+
+
+@mcp.tool()
+async def search_books(query: str, max_results: int = 20) -> ScrapeToolResult:
+    """Search books via Open Library (title, author, year, editions).
+
+    Args:
+        query: Title, author, or free-text search.
+        max_results: Max books to return (default 20).
+    """
+    with OpenLibraryScraper(_config()) as ol:
+        return await _run(ol.scrape, query=query, max_results=max_results)
+
+
+@mcp.tool()
+async def get_weather(location: str) -> ScrapeToolResult:
+    """Get current weather for a place (temperature, humidity, wind, condition).
+
+    Args:
+        location: Place name, e.g. "London" or "Tokyo, Japan".
+    """
+    with WeatherScraper(_config()) as w:
+        return await _run(w.scrape, location=location)
+
+
+@mcp.tool()
+async def search_ubereats(city: str, max_results: int = 30) -> ScrapeToolResult:
+    """List Uber Eats restaurants delivering in a city (name, ETA, fee, url).
+
+    Args:
+        city: City name, e.g. "London".
+        max_results: Maximum restaurants to return (default 30).
+    """
+    with UberEatsScraper(_config()) as ue:
+        return await _run(ue.scrape, city=city, max_results=max_results)
+
+
+@mcp.tool()
+async def get_ubereats_menu(store_url: str) -> ScrapeToolResult:
+    """Get an Uber Eats restaurant's menu (items, prices) from its store URL.
+
+    Args:
+        store_url: A store URL from a search_ubereats result's "url" field.
+    """
+    with UberEatsScraper(_config()) as ue:
+        return await _run(ue.get_menu, store_url)
+
+
+@mcp.tool()
 async def search_amazon(query: str, max_pages: int = 1) -> ScrapeToolResult:
     """Search Amazon products and return title, price, rating, and image.
 
@@ -233,14 +360,20 @@ async def search_newegg(query: str, max_pages: int = 1) -> ScrapeToolResult:
 
 
 @mcp.tool()
-async def search_ikea(query: str, max_results: int = 24) -> ScrapeToolResult:
+async def search_ikea(
+    query: str, max_results: int = 24, country: str = "us", lang: str = "en"
+) -> ScrapeToolResult:
     """Search IKEA furniture and home products (name, type, price, rating).
+
+    Prices and availability are per-country: pass the country's IKEA store code.
 
     Args:
         query: Product search query, e.g. "desk" or "bookshelf".
         max_results: Maximum number of products to return (default 24).
+        country: IKEA store country code, e.g. "us", "gb", "de" (default "us").
+        lang: Language code for that store, e.g. "en", "de" (default "en").
     """
-    with IKEAScraper(_config()) as ik:
+    with IKEAScraper(_config(), country=country, lang=lang) as ik:
         return await _run(ik.scrape, query=query, max_results=max_results)
 
 

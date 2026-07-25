@@ -29,13 +29,20 @@ import pytest
 
 from pyscrappy import (
     AmazonScraper,
+    CryptoScraper,
+    CurrencyScraper,
+    DictionaryScraper,
+    GitHubScraper,
+    HackerNewsScraper,
     IKEAScraper,
     ImageSearchScraper,
     IMDBScraper,
     LinkedInJobsScraper,
     NeweggScraper,
     NewsScraper,
+    OpenLibraryScraper,
     StockScraper,
+    WeatherScraper,
     WikipediaScraper,
     YouTubeScraper,
     ZomatoScraper,
@@ -140,6 +147,43 @@ class TestLiveEcommerce:
     def test_ikea(self):
         with IKEAScraper() as s:
             result = s.scrape(query="desk", max_results=5)
+        assert_scraped(result)
+
+
+class TestLiveApis:
+    def test_github(self):
+        with GitHubScraper() as s:
+            result = s.scrape(query="web scraping", max_results=5)
+        assert_scraped(result)
+
+    def test_hackernews(self):
+        with HackerNewsScraper() as s:
+            result = s.scrape(query="python", max_results=5)
+        assert_scraped(result)
+
+    def test_open_library(self):
+        with OpenLibraryScraper() as s:
+            result = s.scrape(query="dune", max_results=5)
+        assert_scraped(result)
+
+    def test_weather(self):
+        with WeatherScraper() as s:
+            result = s.scrape(location="London")
+        assert_scraped(result)
+
+    def test_crypto(self):
+        with CryptoScraper() as s:
+            result = s.scrape(query="bitcoin, ethereum")
+        assert_scraped(result)
+
+    def test_currency(self):
+        with CurrencyScraper() as s:
+            result = s.scrape(base="USD", to="EUR,GBP")
+        assert_scraped(result)
+
+    def test_dictionary(self):
+        with DictionaryScraper() as s:
+            result = s.scrape(word="serendipity")
         assert_scraped(result)
 
 

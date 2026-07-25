@@ -146,6 +146,45 @@ class HttpClient:
         headers = {"User-Agent": self._pick_ua(), **extra_headers}
         return client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
+    def post_json(self, url: str, **kwargs: Any) -> str:
+        """POST a request (JSON body via ``json=``) and return the response text.
+
+        Retries on 5xx like :meth:`get`, and carries the session's cookies.
+        """
+        client = self._ensure_client()
+        self._rate_limit(url)
+        extra_headers = kwargs.pop("headers", None) or {}
+
+        last_exc: Exception | None = None
+        for attempt in range(1, self.config.max_retries + 1):
+            try:
+                headers = {"User-Agent": self._pick_ua(), **extra_headers}
+                resp = client.post(
+                    url, headers=headers, follow_redirects=True, **kwargs
+                )
+                if resp.status_code >= 500 and attempt < self.config.max_retries:
+                    time.sleep(self.config.retry_delay * (2 ** (attempt - 1)))
+                    continue
+                resp.raise_for_status()
+                return resp.text
+            except httpx.HTTPStatusError as exc:
+                raise NetworkError(
+                    f"HTTP {exc.response.status_code} from {url}"
+                ) from exc
+            except httpx.RequestError as exc:
+                last_exc = exc
+                if attempt < self.config.max_retries:
+                    time.sleep(self.config.retry_delay * (2 ** (attempt - 1)))
+                    continue
+
+        raise NetworkError(
+            f"Failed to POST {url} after {self.config.max_retries} attempts"
+        ) from last_exc
+
+    def set_cookie(self, name: str, value: str, domain: str) -> None:
+        """Set a cookie on the underlying session (used before a request)."""
+        self._ensure_client().cookies.set(name, value, domain=domain)
+
     def get_html(self, url: str, **kwargs: Any) -> str:
         """Fetch a URL and return the response body as text."""
         return self.get(url, **kwargs).text
