@@ -41,8 +41,12 @@ class BrowserManager:
             raise BrowserNotInstalledError()
 
         self._pw = sync_playwright().start()
+        launch_kwargs: dict[str, Any] = {"headless": self.config.headless}
+        proxy = self.config.pick_proxy()
+        if proxy:
+            launch_kwargs["proxy"] = {"server": proxy}
         try:
-            self._browser = self._pw.chromium.launch(headless=self.config.headless)
+            self._browser = self._pw.chromium.launch(**launch_kwargs)
         except Exception as exc:
             self._pw.stop()
             self._pw = None

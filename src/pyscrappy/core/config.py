@@ -29,7 +29,15 @@ class ScraperConfig:
         retry_delay: Base delay between retries in seconds (exponential backoff).
         rate_limit: Minimum seconds between requests to the same domain.
         user_agents: List of User-Agent strings to rotate through.
-        proxy: HTTP/SOCKS proxy URL, e.g. ``"http://user:pass@host:port"``.
+        proxy: A proxy URL, e.g. ``"http://user:pass@host:port"``, or a list of
+            proxy URLs to rotate through (one is picked at random per request).
+            Applies to both the HTTP client and the browser backend.
+        scraper_api: Optional scraping-API service to route requests through in
+            order to bypass anti-bot protection on blocked sites. A dict like
+            ``{"provider": "scraperapi", "api_key": "..."}``. Supported providers:
+            ``"scraperapi"``, ``"scrapeops"``, ``"scrapingbee"``. When set, HTTP
+            requests are sent to the service with the target URL and the service
+            returns unblocked HTML. Ignored by the browser backend.
         render_js: Whether to use a browser for JS rendering.
             ``"auto"`` attempts a plain HTTP fetch first, then falls back to a browser.
         headless: Run browser in headless mode (no visible window).
@@ -44,8 +52,19 @@ class ScraperConfig:
     retry_delay: float = 1.0
     rate_limit: float = 1.0
     user_agents: list[str] = field(default_factory=lambda: list(_DEFAULT_USER_AGENTS))
-    proxy: str | None = None
+    proxy: str | list[str] | None = None
+    scraper_api: dict[str, str] | None = None
     render_js: bool | Literal["auto"] = False
     headless: bool = True
     verify_ssl: bool = True
     cache_ttl: float = 0.0
+
+    def pick_proxy(self) -> str | None:
+        """Return a single proxy URL (rotating if a list was configured)."""
+        import random
+
+        if not self.proxy:
+            return None
+        if isinstance(self.proxy, str):
+            return self.proxy
+        return random.choice(self.proxy) if self.proxy else None
