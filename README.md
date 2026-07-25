@@ -18,7 +18,10 @@ PyScrappy is a Python toolkit for web scraping that works out of the box. Point 
 - **Auto-pagination** — automatically follows "next page" links
 - **JS rendering** — optional Playwright backend for JavaScript-heavy sites
 - **Custom selectors** — pass CSS selectors to extract exactly what you need
-- **Built-in scrapers** — Wikipedia, IMDB, Yahoo Finance, news (RSS), image search, Amazon, LinkedIn
+- **20+ built-in scrapers** — Wikipedia, IMDB, stocks, news, GitHub, Hacker News, books, weather, Amazon/Newegg/IKEA, LinkedIn, YouTube, Uber Eats, and more
+- **MCP server** — expose the scrapers as tools for AI agents (Claude, Cursor, local LLMs, …)
+- **Concurrent scraping** — `scrape_many` / `scrape_all` run scrapes in parallel
+- **Proxy & scraping-API support** — route through a proxy or ScraperAPI/ScrapeOps for blocked sites
 - **Clean API** — every scraper returns a `ScrapeResult` with `.to_dataframe()` and `.to_json()`
 - **Retry & rate-limiting** — built-in exponential backoff and per-domain rate limiting
 - **Type-safe** — full type hints, `py.typed` marker
@@ -259,46 +262,64 @@ with AmazonScraper() as scraper:
 with NeweggScraper() as scraper:
     result = scraper.scrape(query="graphics card", max_pages=2)
 
-# IKEA — furniture / home (uses IKEA's JSON search API)
-with IKEAScraper() as scraper:
+# IKEA — furniture / home (uses IKEA's JSON search API).
+# Prices and products are per-country: pass the store's country/lang.
+with IKEAScraper(country="gb", lang="en") as scraper:   # or "us"/"en", "de"/"de", …
     result = scraper.scrape(query="desk", max_results=24)
     df = result.to_dataframe()
 ```
 
-### Food Delivery (Zomato)
+### Food Delivery (Zomato, Uber Eats)
 
 ```python
-from pyscrappy import ZomatoScraper
+from pyscrappy import ZomatoScraper, UberEatsScraper
 
 with ZomatoScraper() as scraper:
     result = scraper.scrape(city="bangalore", max_results=20)
+
+# Uber Eats: restaurants by city (any country Uber Eats operates in),
+# then the full menu of any restaurant. Pass the country's locale.
+with UberEatsScraper(locale="gb") as scraper:
+    result = scraper.scrape(city="London", max_results=30)
+    store = result.data[0]
+    menu = scraper.get_menu(store["url"])   # items with prices
 ```
 
 ## Built-in scrapers
 
-| Scraper | What it does | Needs browser? |
-|---------|-------------|----------------|
-| `GenericScraper` | Scrape any URL with auto-extraction | Optional |
-| **Data / Research** | | |
-| `WikipediaScraper` | Articles, sections, infoboxes | No |
-| `IMDBScraper` | Movie/TV info by title or id (via OMDb API; needs `OMDB_API_KEY`) | No |
-| `StockScraper` | Quotes, history, profiles (Yahoo Finance) | No |
-| `NewsScraper` | RSS/Atom feeds, article extraction | No |
-| `ImageSearchScraper` | Image search + download | No |
-| `LinkedInJobsScraper` | Public job listings | No |
-| **E-Commerce** | | |
-| `AmazonScraper` | Product search | No |
-| `NeweggScraper` | Electronics / computer hardware search | No |
-| `IKEAScraper` | Furniture / home search (JSON API) | No |
-| **Social Media** | | |
-| `YouTubeScraper` | Video search, channel scraping | Optional |
-| `InstagramScraper` | Profiles, hashtag posts (blocked; needs proxy) | Recommended |
-| `TwitterScraper` | Tweet search (blocked; needs proxy) | Recommended |
-| **Music** | | |
-| `SpotifyScraper` | Track/playlist search (blocked; needs proxy) | Recommended |
-| `SoundCloudScraper` | Track search | Optional |
-| **Food Delivery** | | |
-| `ZomatoScraper` | Restaurant listings | Recommended |
+Every scraper that works without a proxy is also exposed as an [MCP tool](#mcp-server-use-pyscrappy-from-an-ai-agent) (last column).
+
+| Scraper | What it does | Browser? | MCP tool |
+|---------|-------------|----------|----------|
+| `GenericScraper` | Scrape any URL with auto-extraction | Optional | `scrape_url` |
+| **Data / Research** | | | |
+| `WikipediaScraper` | Articles, sections, infoboxes | No | `scrape_wikipedia` |
+| `IMDBScraper` | Movie/TV info by title or id (via OMDb API; needs `OMDB_API_KEY`) | No | `lookup_movie` |
+| `StockScraper` | Quotes, history, profiles (Yahoo Finance) | No | `scrape_stock` |
+| `NewsScraper` | RSS/Atom feeds, article extraction | No | `scrape_news` |
+| `ImageSearchScraper` | Image search + download | No | `search_images` |
+| `LinkedInJobsScraper` | Public job listings | No | `search_linkedin_jobs` |
+| `GitHubScraper` | Repository search (stars, language, …) via GitHub API | No | `search_github` |
+| `HackerNewsScraper` | Story search (points, comments) via HN API | No | `search_hackernews` |
+| `OpenLibraryScraper` | Book search (title, author, year) via Open Library | No | `search_books` |
+| `WeatherScraper` | Current weather by place, via Open-Meteo (no key) | No | `get_weather` |
+| `CryptoScraper` | Crypto prices / market cap via CoinGecko (no key) | No | `get_crypto` |
+| `CurrencyScraper` | Currency exchange rates + conversion (no key) | No | `convert_currency` |
+| `DictionaryScraper` | Word definitions, examples (Free Dictionary API) | No | `define_word` |
+| **E-Commerce** | | | |
+| `AmazonScraper` | Product search | No | `search_amazon` |
+| `NeweggScraper` | Electronics / computer hardware search | No | `search_newegg` |
+| `IKEAScraper` | Furniture / home search, per-country prices (JSON API) | No | `search_ikea` |
+| **Social Media** | | | |
+| `YouTubeScraper` | Video search, channel scraping | Optional | `search_youtube` |
+| `InstagramScraper` | Profiles, hashtag posts (blocked; needs proxy) | Recommended | — |
+| `TwitterScraper` | Tweet search (blocked; needs proxy) | Recommended | — |
+| **Music** | | | |
+| `SpotifyScraper` | Track/playlist search (blocked; needs proxy) | Recommended | — |
+| `SoundCloudScraper` | Track search | Optional | `search_soundcloud` |
+| **Food Delivery** | | | |
+| `ZomatoScraper` | Restaurant listings by city | Recommended | `scrape_zomato` |
+| `UberEatsScraper` | Restaurants by city + full menus (any Uber Eats country) | No | `search_ubereats`, `get_ubereats_menu` |
 
 ## MCP server (use PyScrappy from an AI agent)
 
@@ -348,9 +369,21 @@ Add to your `claude_desktop_config.json` and restart the app:
 | `search_images` | Image search (returns URLs + metadata) |
 | `search_youtube` | YouTube video search |
 | `search_linkedin_jobs` | Public LinkedIn job listings |
+| `search_github` | GitHub repository search (stars, language, …) |
+| `search_hackernews` | Hacker News story search (points, comments) |
+| `search_books` | Book search via Open Library (title, author, year) |
+| `get_weather` | Current weather for a place (no key) |
+| `get_crypto` | Cryptocurrency prices and market data (CoinGecko) |
+| `convert_currency` | Exchange rates and currency conversion |
+| `define_word` | Word definitions and examples |
+| `search_amazon` | Amazon product search |
+| `search_newegg` | Newegg electronics / computer hardware search |
+| `search_ikea` | IKEA furniture / home search |
 | `search_soundcloud` | SoundCloud track search (uses the browser backend) |
 | `lookup_movie` | Movie/TV info from IMDB by title or id (via OMDb; needs `OMDB_API_KEY`) |
 | `scrape_zomato` | Restaurant listings by city |
+| `search_ubereats` | Uber Eats restaurants by city |
+| `get_ubereats_menu` | An Uber Eats restaurant's full menu (from its store URL) |
 
 The `lookup_movie` tool needs a free [OMDb](https://www.omdbapi.com/apikey.aspx) API
 key. Pass it to the server through your MCP client config, e.g. for Claude Desktop:
