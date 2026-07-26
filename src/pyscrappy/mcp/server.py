@@ -440,8 +440,50 @@ async def scrape_zomato(
 
 
 def main() -> None:
-    """Console-script entry point: run the server over stdio."""
-    mcp.run()
+    """Console-script entry point.
+
+    Runs over stdio by default (for local MCP clients like Claude Desktop). Pass
+    ``--http`` to expose the server over Streamable HTTP instead, so it can be
+    self-hosted as a remote MCP endpoint.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="pyscrappy-mcp",
+        description="PyScrappy MCP server. Runs over stdio by default; use --http "
+        "to serve over HTTP for self-hosting as a remote MCP server.",
+    )
+    transport = parser.add_mutually_exclusive_group()
+    transport.add_argument(
+        "--http",
+        action="store_true",
+        help="Serve over Streamable HTTP instead of stdio.",
+    )
+    transport.add_argument(
+        "--sse",
+        action="store_true",
+        help="Serve over the legacy SSE transport instead of stdio.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind when serving over HTTP/SSE (default: 127.0.0.1). "
+        "Use 0.0.0.0 to accept remote connections.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind when serving over HTTP/SSE (default: 8000).",
+    )
+    args = parser.parse_args()
+
+    if args.http or args.sse:
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        mcp.run(transport="sse" if args.sse else "streamable-http")
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":
