@@ -9,6 +9,8 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/pyscrappy)](https://pepy.tech/project/pyscrappy)
+[![PyScrappy MCP server](https://glama.ai/mcp/servers/mldsveda/PyScrappy/badges/card.svg)](https://glama.ai/mcp/servers/mldsveda/PyScrappy)
+[![PyScrappy MCP server](https://glama.ai/mcp/servers/mldsveda/PyScrappy/badges/score.svg)](https://glama.ai/mcp/servers/mldsveda/PyScrappy)
 
 <!-- mcp-name: io.github.mldsveda/pyscrappy -->
 
