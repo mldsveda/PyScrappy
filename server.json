@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mldsveda/pyscrappy",
+  "description": "Web-scraping toolkit with 22 tools for structured web data as JSON for AI agents.",
+  "title": "PyScrappy",
+  "repository": {
+    "url": "https://github.com/mldsveda/PyScrappy",
+    "source": "github"
+  },
+  "version": "1.1.4",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "pyscrappy",
+      "version": "1.1.4",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--from",
+          "value": "pyscrappy[mcp]",
+          "description": "Install PyScrappy with the MCP server extra."
+        },
+        {
+          "type": "positional",
+          "value": "pyscrappy-mcp",
+          "description": "The PyScrappy MCP server console script."
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "OMDB_API_KEY",
+          "description": "Optional free OMDb API key, used only by the movie lookup tool (get one at https://www.omdbapi.com/apikey.aspx).",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
