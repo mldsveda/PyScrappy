@@ -16,7 +16,7 @@
 
 PyScrappy is a Python toolkit for web scraping that works out of the box. Point it at any URL and get structured data back — or use built-in scrapers for Wikipedia, IMDB, Yahoo Finance, news feeds, and more.
 
-📖 **Documentation:** [pyscrappy-documentation.vercel.app](https://pyscrappy.vercel.app)
+📖 **Documentation:** [pyscrappy.vercel.app](https://pyscrappy.vercel.app)
 
 ### Key features
 
