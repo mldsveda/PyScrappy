@@ -10,10 +10,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/pyscrappy)](https://pepy.tech/project/pyscrappy)
 [![Glama quality](https://glama.ai/mcp/servers/mldsveda/PyScrappy/badges/score.svg)](https://glama.ai/mcp/servers/mldsveda/PyScrappy)
+[![Documentation](https://img.shields.io/badge/docs-pyscrappy-117866.svg)](https://pyscrappy-documentation.vercel.app/)
 
 <!-- mcp-name: io.github.mldsveda/pyscrappy -->
 
 PyScrappy is a Python toolkit for web scraping that works out of the box. Point it at any URL and get structured data back — or use built-in scrapers for Wikipedia, IMDB, Yahoo Finance, news feeds, and more.
+
+📖 **Documentation:** [pyscrappy-documentation.vercel.app](https://pyscrappy-documentation.vercel.app/)
 
 ### Key features
 
