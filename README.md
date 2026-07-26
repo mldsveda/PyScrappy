@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/PyScrappy.png">
+  <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/pyscrappy-logo.png">
   <hr>
 </div>
 
