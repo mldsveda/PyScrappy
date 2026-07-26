@@ -7,13 +7,13 @@
     "url": "https://github.com/mldsveda/PyScrappy",
     "source": "github"
   },
-  "version": "1.1.5",
+  "version": "1.1.6",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "pyscrappy",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
