@@ -1,8 +1,3 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/pyscrappy-logo.png">
-  <hr>
-</div>
-
 ## PyScrappy: robust, all-in-one Python web scraping toolkit
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
