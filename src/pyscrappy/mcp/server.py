@@ -95,6 +95,24 @@ async def _run(fn, /, *args, **kwargs) -> ScrapeToolResult:
     return _to_result(result)
 
 
+def _looks_js_rendered(result: ScrapeToolResult) -> bool:
+    """Heuristic: did a static scrape come back suspiciously empty?
+
+    Pages built with client-side JavaScript serve an almost-empty HTML shell to a
+    plain HTTP fetch, so the extracted text and links are tiny. When that happens
+    we hint that ``render_js=true`` (or a data endpoint) is needed.
+    """
+    if not result.data:
+        return True
+    item = result.data[0]
+    text = item.get("text")
+    words = text.get("word_count", 0) if isinstance(text, dict) else 0
+    links = len(item.get("links", []) or [])
+    tables = len(item.get("tables", []) or [])
+    # Real content pages almost always clear one of these bars.
+    return words < 40 and links < 5 and tables == 0
+
+
 @mcp.tool()
 async def scrape_url(
     url: str,
@@ -110,7 +128,7 @@ async def scrape_url(
         max_pages: Follow pagination up to this many pages (default 1).
         render_js: Render JavaScript with a browser backend (needs pyscrappy[browser]).
     """
-    return await _run(
+    result = await _run(
         _scrape_url,
         url,
         selectors=selectors,
@@ -118,6 +136,19 @@ async def scrape_url(
         render_js=render_js,
         config=_config(),
     )
+    if not render_js and _looks_js_rendered(result):
+        result.errors.append(
+            ToolError(
+                url=url,
+                message=(
+                    "The page returned little or no content, which usually means it "
+                    "is rendered client-side with JavaScript. Retry with "
+                    "render_js=true (requires the pyscrappy[browser] extra), or scrape "
+                    "the underlying data endpoint the page fetches instead."
+                ),
+            )
+        )
+    return result
 
 
 @mcp.tool()
