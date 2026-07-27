@@ -118,6 +118,41 @@ class TestScrapeResult:
         assert len(df) == 2
         assert list(df.columns) == ["a", "b"]
 
+    def test_to_markdown_flat_item(self):
+        result = ScrapeResult(data=[{"title": "Inception", "year": "2010", "rating": "8.8"}])
+        md = result.to_markdown()
+        assert "**title:** Inception" in md
+        assert "**year:** 2010" in md
+        assert "**rating:** 8.8" in md
+
+    def test_to_markdown_rich_item(self):
+        result = ScrapeResult(
+            data=[
+                {
+                    "url": "https://example.com",
+                    "metadata": {"title": "Web scraping"},
+                    "text": {
+                        "text": "Web scraping is the extraction of data.",
+                        "headings": [{"level": "h2", "text": "Overview"}],
+                    },
+                    "tables": [[{"Name": "Alice", "Age": "30"}]],
+                }
+            ]
+        )
+        md = result.to_markdown()
+        assert "# Web scraping" in md
+        assert "## Overview" in md
+        assert "Web scraping is the extraction of data." in md
+        assert "| Name | Age |" in md
+        assert "| Alice | 30 |" in md
+
+    def test_to_markdown_separates_items(self):
+        result = ScrapeResult(data=[{"a": "1"}, {"a": "2"}])
+        assert "\n\n---\n\n" in result.to_markdown()
+
+    def test_to_markdown_empty(self):
+        assert ScrapeResult(data=[]).to_markdown() == ""
+
     def test_errors_list(self):
         errors = [
             ScrapeError(url="https://a.com", message="err1"),
