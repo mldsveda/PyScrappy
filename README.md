@@ -13,19 +13,42 @@ PyScrappy is an AI-native web scraping toolkit that turns websites into structur
 
 📖 **Documentation:** [pyscrappy.vercel.app](https://pyscrappy.vercel.app)
 
-### Key features
+## For AI agents
+
+PyScrappy ships an [MCP server](#mcp-server-use-pyscrappy-from-an-ai-agent) that
+exposes its scrapers as tools, so an agent (Claude, Cursor, an OpenAI agent, a
+local LLM) can pull structured web data from any URL and hand it straight to the
+model:
+
+```mermaid
+flowchart LR
+    A[AI agent] -->|MCP tool call| B[PyScrappy]
+    B -->|fetch + extract| C[Any website]
+    C --> B
+    B -->|clean Markdown / JSON| A
+```
+
+```sh
+pip install 'pyscrappy[mcp]'
+claude mcp add pyscrappy pyscrappy-mcp
+```
+
+Then just ask: *"use pyscrappy to summarize the latest headlines from bbc.com."*
+See [MCP server](#mcp-server-use-pyscrappy-from-an-ai-agent) for the full setup
+and tool list.
+
+## Key features
 
 - **Generic scraper** — give it any URL, get back structured text, links, images, tables, and metadata
-- **Auto-pagination** — automatically follows "next page" links
+- **LLM-ready output** — `.to_markdown()` turns any result into clean Markdown; also `.to_json()` and `.to_dataframe()`
+- **MCP server** — expose the scrapers as tools for AI agents (Claude, Cursor, local LLMs, …)
 - **JS rendering** — optional Playwright backend for JavaScript-heavy sites
 - **Custom selectors** — pass CSS selectors to extract exactly what you need
-- **20+ built-in scrapers** — Wikipedia, IMDB, stocks, news, GitHub, Hacker News, books, weather, Amazon/Newegg/IKEA, LinkedIn, YouTube, Uber Eats, and more
-- **MCP server** — expose the scrapers as tools for AI agents (Claude, Cursor, local LLMs, …)
 - **Concurrent scraping** — `scrape_many` / `scrape_all` run scrapes in parallel
 - **Proxy & scraping-API support** — route through a proxy or ScraperAPI/ScrapeOps for blocked sites
-- **Clean API** — every scraper returns a `ScrapeResult` with `.to_dataframe()` and `.to_json()`
 - **Retry & rate-limiting** — built-in exponential backoff and per-domain rate limiting
 - **Type-safe** — full type hints, `py.typed` marker
+- **20+ built-in scrapers** — Wikipedia, IMDB, stocks, news, GitHub, Amazon/IKEA, YouTube, and [more](#built-in-scrapers)
 
 ## Installation
 
@@ -52,12 +75,21 @@ pip install 'pyscrappy[all]'
 
 ## Quick start
 
-### Scrape any URL (one-liner)
+### Scrape any URL → clean, LLM-ready Markdown
 
 ```python
 from pyscrappy import scrape
 
 result = scrape("https://en.wikipedia.org/wiki/Web_scraping")
+
+print(result.to_markdown())   # feed straight to an LLM
+# ...or result.to_json() / result.to_dataframe()
+```
+
+Prefer raw fields? Every result is a `ScrapeResult` with `.data` (a list of
+dicts):
+
+```python
 print(result.data[0]["metadata"]["title"])
 print(result.data[0]["text"]["word_count"])
 ```
