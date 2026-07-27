@@ -62,7 +62,7 @@ from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper
 from pyscrappy.scrapers.zomato import ZomatoScraper
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 
 __all__ = [
     # Core
