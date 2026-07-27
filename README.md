@@ -9,7 +9,7 @@
 
 <!-- mcp-name: io.github.mldsveda/pyscrappy -->
 
-PyScrappy is a Python toolkit for web scraping that works out of the box. Point it at any URL and get structured data back — or use built-in scrapers for Wikipedia, IMDB, Yahoo Finance, news feeds, and more.
+PyScrappy is an AI-native web scraping toolkit that turns websites into structured, LLM-ready data. Use it as a Python library or expose it as an MCP server for AI agents.
 
 📖 **Documentation:** [pyscrappy.vercel.app](https://pyscrappy.vercel.app)
 
