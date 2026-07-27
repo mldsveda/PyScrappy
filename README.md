@@ -71,6 +71,22 @@ Then just ask: *"use pyscrappy to summarize the latest headlines from bbc.com."*
 See [MCP server](#mcp-server-use-pyscrappy-from-an-ai-agent) for the full setup
 and tool list.
 
+### Local models (Ollama), no MCP host needed
+
+Ollama can't talk MCP on its own, so normally you'd run a host (Goose, Cline, …)
+in between. PyScrappy skips that with a built-in agent that talks to Ollama
+directly and lets a local model call the scrapers as tools:
+
+```sh
+pip install 'pyscrappy[mcp]'                 # needs Python 3.10+
+pyscrappy chat --model qwen2.5 "what's the current AAPL quote?"
+```
+
+It exposes the same 22 tools as the MCP server. The only requirement is a model
+that supports **tool calling** (Llama 3.1, Qwen 2.5, Mistral, …); how well it
+*picks* the right tool is up to the model. Point it at a remote Ollama with
+`--host`, and pass `-v` to see each tool call.
+
 ## MCP server (use PyScrappy from an AI agent)
 
 PyScrappy ships an optional [Model Context Protocol](https://modelcontextprotocol.io)
