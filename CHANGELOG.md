@@ -4,6 +4,11 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-07-28
+
+### Added
+- **First-class MCP tools for plugins.** A scraper can set an `mcp_tools` mapping (`tool_name -> method_name`) to be exposed as a dedicated, typed MCP tool instead of only being reachable through the generic `scrape_with`. The tool's input schema is derived from the scraper method's signature, so agents get proper named arguments. Plugins without `mcp_tools` are unaffected.
+
 ## [1.3.0] - 2026-07-28
 
 ### Added
