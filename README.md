@@ -208,6 +208,45 @@ Every scraper that works without a proxy is also exposed as an [MCP tool](#mcp-s
 | `ZomatoScraper` | Restaurant listings by city | Recommended | `scrape_zomato` |
 | `UberEatsScraper` | Restaurants by city + full menus (any Uber Eats country) | No | `search_ubereats`, `get_ubereats_menu` |
 
+## Plugins
+
+PyScrappy is extensible: you can add your own scrapers, and third parties can
+ship them as standalone `pyscrappy-<name>` packages. A registered scraper works
+everywhere a built-in does, including the MCP server and the `pyscrappy chat`
+agent, with no change to PyScrappy core.
+
+**In your own code** — register with the decorator:
+
+```python
+from pyscrappy import BaseScraper, register_scraper, get_scraper
+from pyscrappy.core.models import ScrapeResult, ScrapeMetadata
+
+@register_scraper("reddit")
+class RedditScraper(BaseScraper):
+    def scrape(self, subreddit: str, **kwargs) -> ScrapeResult:
+        data = self.fetch_and_parse(f"https://old.reddit.com/r/{subreddit}/.json")
+        # ... build a list of dicts ...
+        return ScrapeResult(data=[...], metadata=ScrapeMetadata(scraper="reddit"))
+
+get_scraper("reddit")().scrape(subreddit="python")
+```
+
+**As a distributable package** — advertise an entry point in your
+`pyproject.toml`, and PyScrappy discovers it once your package is installed:
+
+```toml
+[project.entry-points."pyscrappy.scrapers"]
+reddit = "pyscrappy_reddit:RedditScraper"
+```
+
+After `pip install pyscrappy-reddit`, the scraper shows up in
+`list_scrapers()`, and an AI agent can call it via the `scrape_with` MCP tool —
+no core change required.
+
+See the [plugin template](plugin-template/) for a complete, copyable starting
+point, and the [plugin guide](https://pyscrappy.vercel.app/docs/plugins/) for
+the full walkthrough.
+
 ## Quick start
 
 ### Scrape any URL → clean, LLM-ready Markdown
