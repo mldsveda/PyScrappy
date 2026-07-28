@@ -36,7 +36,14 @@ from pyscrappy.core.exceptions import (
     ScraperTimeoutError,
     SelectorError,
 )
+from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.models import ScrapeResult
+from pyscrappy.registry import (
+    get_scraper,
+    list_scrapers,
+    register,
+    register_scraper,
+)
 from pyscrappy.generic.scraper import GenericScraper
 from pyscrappy.scrapers.amazon import AmazonScraper
 from pyscrappy.scrapers.crypto import CryptoScraper
@@ -62,7 +69,39 @@ from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper
 from pyscrappy.scrapers.zomato import ZomatoScraper
 
-__version__ = "1.2.2"
+# Register built-in scrapers so they sit in the same registry as plugins and are
+# exposed uniformly to the API, MCP server, and agent. Keyed by each class's
+# `name` attribute.
+for _cls in (
+    GenericScraper,
+    AmazonScraper,
+    CryptoScraper,
+    CurrencyScraper,
+    DictionaryScraper,
+    GitHubScraper,
+    HackerNewsScraper,
+    IKEAScraper,
+    ImageSearchScraper,
+    IMDBScraper,
+    InstagramScraper,
+    LinkedInJobsScraper,
+    NeweggScraper,
+    NewsScraper,
+    OpenLibraryScraper,
+    SoundCloudScraper,
+    SpotifyScraper,
+    StockScraper,
+    UberEatsScraper,
+    TwitterScraper,
+    WeatherScraper,
+    WikipediaScraper,
+    YouTubeScraper,
+    ZomatoScraper,
+):
+    register(_cls.name, _cls)
+del _cls
+
+__version__ = "1.3.0"
 
 __all__ = [
     # Core
@@ -109,6 +148,12 @@ __all__ = [
     "scrape",
     "scrape_many",
     "scrape_all",
+    # Plugins / registry
+    "BaseScraper",
+    "register_scraper",
+    "register",
+    "get_scraper",
+    "list_scrapers",
 ]
 
 

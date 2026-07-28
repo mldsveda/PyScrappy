@@ -470,6 +470,41 @@ async def scrape_zomato(
         )
 
 
+@mcp.tool()
+async def list_available_scrapers() -> dict[str, list[str]]:
+    """List every scraper available to this server, including installed plugins.
+
+    Third-party `pyscrappy-*` plugin packages register scrapers that show up here
+    automatically. Use a returned name with `scrape_with`.
+    """
+    from pyscrappy import list_scrapers
+
+    return {"scrapers": sorted(list_scrapers())}
+
+
+@mcp.tool()
+async def scrape_with(name: str, args: dict[str, Any] | None = None) -> ScrapeToolResult:
+    """Run any registered scraper by name, including plugins, with arbitrary args.
+
+    This is the generic entry point for scrapers that don't have a dedicated tool
+    of their own — notably third-party plugins. Call `list_available_scrapers`
+    first to see valid names.
+
+    Args:
+        name: A scraper name from `list_available_scrapers`, e.g. "wikipedia".
+        args: Keyword arguments passed to that scraper's `scrape()` method.
+    """
+    from pyscrappy import get_scraper
+
+    try:
+        scraper_cls = get_scraper(name)
+    except KeyError as exc:
+        raise ValueError(str(exc)) from None
+
+    with scraper_cls(_config()) as scraper:
+        return await _run(scraper.scrape, **(args or {}))
+
+
 def main() -> None:
     """Console-script entry point.
 

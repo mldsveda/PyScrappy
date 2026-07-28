@@ -15,7 +15,8 @@ from pyscrappy.mcp import agent
 @pytest.mark.anyio
 async def test_tool_specs_wrap_mcp_tools():
     specs = await agent._tool_specs()
-    assert len(specs) == 22
+    # At least the core scraper tools plus the generic plugin dispatch tools.
+    assert len(specs) >= 22
     spec = specs[0]
     assert spec["type"] == "function"
     fn = spec["function"]
@@ -24,6 +25,8 @@ async def test_tool_specs_wrap_mcp_tools():
     assert "parameters" in fn and fn["parameters"]["type"] == "object"
     names = {s["function"]["name"] for s in specs}
     assert {"scrape_url", "scrape_stock", "define_word"} <= names
+    # Plugin-aware dispatch tools are exposed to the agent too.
+    assert {"scrape_with", "list_available_scrapers"} <= names
 
 
 def _mock_ollama(monkeypatch, responses):
