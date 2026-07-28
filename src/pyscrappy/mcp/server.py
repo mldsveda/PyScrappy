@@ -505,6 +505,62 @@ async def scrape_with(name: str, args: dict[str, Any] | None = None) -> ScrapeTo
         return await _run(scraper.scrape, **(args or {}))
 
 
+_registered_plugin_tools: set[str] = set()
+
+
+def _register_plugin_tools() -> None:
+    """Register first-class MCP tools declared by plugins.
+
+    A scraper can opt into dedicated, typed tools by setting an ``mcp_tools``
+    attribute mapping ``tool_name -> method_name``. The method's signature
+    becomes the tool's input schema, so an agent sees e.g. ``search_reddit`` with
+    proper arguments instead of the generic ``scrape_with``. Scrapers without
+    ``mcp_tools`` are unaffected and remain callable via ``scrape_with``.
+
+    Called at server startup (and safe to call again) so plugins registered
+    after import are still picked up; already-registered tools are skipped.
+    """
+    import inspect
+
+    from pyscrappy import list_scrapers
+
+    for scraper_name, scraper_cls in list_scrapers().items():
+        mcp_tools = getattr(scraper_cls, "mcp_tools", None)
+        if not mcp_tools:
+            continue
+
+        for tool_name, method_name in dict(mcp_tools).items():
+            if tool_name in _registered_plugin_tools:
+                continue
+            method = getattr(scraper_cls, method_name, None)
+            if method is None:
+                continue
+
+            # Bind loop vars per iteration.
+            def _make(cls=scraper_cls, m_name=method_name):
+                async def _tool(**kwargs: Any) -> ScrapeToolResult:
+                    with cls(_config()) as scraper:
+                        return await _run(getattr(scraper, m_name), **kwargs)
+
+                # Expose the scraper method's signature (minus self) so FastMCP
+                # derives a typed input schema from it. The return annotation is
+                # forced to ScrapeToolResult — what _tool actually returns —
+                # otherwise FastMCP validates against the method's own return
+                # type (ScrapeResult) and rejects the result.
+                sig = inspect.signature(method)
+                params = [p for p in sig.parameters.values() if p.name != "self"]
+                _tool.__signature__ = sig.replace(
+                    parameters=params, return_annotation=ScrapeToolResult
+                )
+                return _tool
+
+            fn = _make()
+            fn.__name__ = tool_name
+            fn.__doc__ = (method.__doc__ or f"Run the {scraper_name} scraper.").strip()
+            mcp.add_tool(fn, name=tool_name, description=fn.__doc__)
+            _registered_plugin_tools.add(tool_name)
+
+
 def main() -> None:
     """Console-script entry point.
 
@@ -513,6 +569,9 @@ def main() -> None:
     self-hosted as a remote MCP endpoint.
     """
     import argparse
+
+    # Register plugin-declared tools now that all installed plugins are known.
+    _register_plugin_tools()
 
     parser = argparse.ArgumentParser(
         prog="pyscrappy-mcp",

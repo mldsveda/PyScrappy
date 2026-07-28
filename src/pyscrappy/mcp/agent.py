@@ -35,6 +35,11 @@ async def _tool_specs() -> list[dict[str, Any]]:
     Ollama uses the OpenAI function-calling shape, and MCP's ``inputSchema`` is
     already JSON Schema, so this is a straight re-wrap — one source of truth.
     """
+    # Ensure plugin-declared tools are registered before we read the tool list,
+    # so the local-model agent sees them too (not just the MCP server).
+    from pyscrappy.mcp.server import _register_plugin_tools
+
+    _register_plugin_tools()
     tools = await mcp.list_tools()
     return [
         {

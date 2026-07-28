@@ -23,6 +23,13 @@ class ExampleScraper(BaseScraper):
 
     name = "example"
 
+    # OPTIONAL. Without this, your scraper is still callable by AI agents via
+    # the generic ``scrape_with`` MCP tool. Declaring ``mcp_tools`` promotes it
+    # to a first-class, named MCP tool whose schema comes from the method's
+    # signature (so ``example.scrape(url: str = ...)`` becomes a ``scrape_example``
+    # tool with a typed ``url`` argument). Maps tool name -> method name.
+    mcp_tools = {"scrape_example": "scrape"}
+
     def scrape(self, url: str = "https://example.com", **kwargs: Any) -> ScrapeResult:
         soup = self.fetch_and_parse(url)
 

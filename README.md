@@ -243,6 +243,20 @@ After `pip install pyscrappy-reddit`, the scraper shows up in
 `list_scrapers()`, and an AI agent can call it via the `scrape_with` MCP tool —
 no core change required.
 
+**First-class MCP tools (optional).** Add an `mcp_tools` mapping and your scraper
+becomes a dedicated, typed MCP tool instead of only being reachable through the
+generic `scrape_with` — its schema is derived from the method signature, so
+agents get proper named arguments:
+
+```python
+@register_scraper("reddit")
+class RedditScraper(BaseScraper):
+    mcp_tools = {"search_reddit": "scrape"}   # tool name -> method
+
+    def scrape(self, subreddit: str, sort: str = "hot") -> ScrapeResult:
+        ...
+```
+
 See the [plugin template](plugin-template/) for a complete, copyable starting
 point, and the [plugin guide](https://pyscrappy.vercel.app/docs/plugins/) for
 the full walkthrough.
@@ -282,7 +296,10 @@ with GenericScraper() as gs:
         print(item["title"], item.get("score", ""))
 ```
 
-### Wikipedia
+### Site-specific scrapers
+
+Every built-in scraper follows the same pattern — instantiate, `scrape(...)`,
+read `result.data` (or `.to_dataframe()` / `.to_markdown()`):
 
 ```python
 from pyscrappy import WikipediaScraper
@@ -292,110 +309,10 @@ with WikipediaScraper() as ws:
     print(result.data[0]["text"])
 ```
 
-### Stock data
-
-```python
-from pyscrappy import StockScraper
-
-with StockScraper() as ss:
-    result = ss.scrape(symbol="AAPL", mode="history", period="1mo")
-    df = result.to_dataframe()
-    print(df.head())
-```
-
-### IMDB (via OMDb API)
-
-IMDB's own pages are protected by an anti-bot challenge, so PyScrappy fetches IMDB
-data through the free [OMDb API](https://www.omdbapi.com/). Set an OMDb API key in
-the `OMDB_API_KEY` environment variable (or pass `api_key=...`).
-
-```python
-from pyscrappy import IMDBScraper
-
-with IMDBScraper() as scraper:      # reads OMDB_API_KEY from the environment
-    # Search by title
-    result = scraper.scrape(query="inception")
-    # ...or look up a specific IMDB id
-    result = scraper.scrape(query="tt1375666")
-    df = result.to_dataframe()
-    print(df[["title", "year", "rating", "genre"]])
-```
-
-### News (RSS feeds)
-
-```python
-from pyscrappy import NewsScraper
-
-with NewsScraper() as ns:
-    result = ns.scrape(feed_url="https://rss.nytimes.com/services/xml/rss/nyt/World.xml")
-    for article in result.data[:5]:
-        print(article["title"])
-```
-
-### Image search
-
-```python
-from pyscrappy import ImageSearchScraper
-
-with ImageSearchScraper() as iss:
-    result = iss.scrape(query="golden retriever", max_images=10, download_to="./dogs")
-```
-
-### YouTube
-
-```python
-from pyscrappy import YouTubeScraper
-
-with YouTubeScraper() as scraper:
-    result = scraper.scrape(query="python tutorial", max_results=10)
-    for video in result.data:
-        print(video["title"], video.get("views", ""))
-```
-
-### SoundCloud
-
-```python
-from pyscrappy import SoundCloudScraper
-
-with SoundCloudScraper() as scraper:
-    result = scraper.scrape(query="lo-fi beats", max_results=10)
-```
-
-### E-Commerce (Amazon, Newegg, IKEA)
-
-```python
-from pyscrappy import AmazonScraper, NeweggScraper, IKEAScraper
-
-# Amazon — general marketplace
-with AmazonScraper() as scraper:
-    result = scraper.scrape(query="laptop", max_pages=2)
-
-# Newegg — electronics / computer hardware
-with NeweggScraper() as scraper:
-    result = scraper.scrape(query="graphics card", max_pages=2)
-
-# IKEA — furniture / home (uses IKEA's JSON search API).
-# Prices and products are per-country: pass the store's country/lang.
-with IKEAScraper(country="gb", lang="en") as scraper:   # or "us"/"en", "de"/"de", …
-    result = scraper.scrape(query="desk", max_results=24)
-    df = result.to_dataframe()
-```
-
-### Food Delivery (Zomato, Uber Eats)
-
-```python
-from pyscrappy import ZomatoScraper, UberEatsScraper
-
-with ZomatoScraper() as scraper:
-    result = scraper.scrape(city="bangalore", max_results=20)
-
-# Uber Eats: restaurants by city (any country Uber Eats operates in),
-# then the full menu of any restaurant. Pass the country's locale.
-with UberEatsScraper(locale="gb") as scraper:
-    result = scraper.scrape(city="London", max_results=30)
-    store = result.data[0]
-    menu = scraper.get_menu(store["url"])   # items with prices
-```
+Each scraper has its own arguments (Wikipedia, stocks, IMDB, news, YouTube,
+Amazon/Newegg/IKEA, Uber Eats, and more — see the [full list](#built-in-scrapers)).
+For per-scraper arguments and examples, see the
+[documentation](https://pyscrappy.vercel.app/docs/scrapers/).
 
 ## Configuration
 
