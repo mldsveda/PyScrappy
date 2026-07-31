@@ -61,28 +61,25 @@ class CurrencyScraper(BaseScraper):
             return self._err(url, str(msg))
 
         rates = payload.get("rates", {})
-        wanted = (
-            {c.strip().upper() for c in to.split(",") if c.strip()} if to else None
-        )
+        wanted = {c.strip().upper() for c in to.split(",") if c.strip()} if to else None
         updated = payload.get("time_last_update_utc")
 
         rows = []
         for code, rate in rates.items():
             if wanted and code not in wanted:
                 continue
-            rows.append({
-                "base": base.upper(),
-                "currency": code,
-                "rate": rate,
-                "amount": amount,
-                "converted": round(rate * amount, 4),
-                "updated": updated,
-            })
+            rows.append(
+                {
+                    "base": base.upper(),
+                    "currency": code,
+                    "rate": rate,
+                    "amount": amount,
+                    "converted": round(rate * amount, 4),
+                    "updated": updated,
+                }
+            )
 
-        errors = (
-            [] if rows
-            else [ScrapeError(url=url, message="No matching currencies.")]
-        )
+        errors = [] if rows else [ScrapeError(url=url, message="No matching currencies.")]
         return ScrapeResult(
             data=rows,
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),

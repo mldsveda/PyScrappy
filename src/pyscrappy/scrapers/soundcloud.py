@@ -52,19 +52,19 @@ class SoundCloudScraper(BaseScraper):
         errors: list[ScrapeError] = []
 
         if render_js:
-            html = self.browser.get_html(
-                url, wait_for="networkidle", scroll_pages=scroll_pages
-            )
+            html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
         tracks = self._extract_tracks(html, max_results)
 
         if not tracks:
-            errors.append(ScrapeError(
-                url=url,
-                message="No tracks extracted. SoundCloud is JS-heavy — try render_js=True.",
-            ))
+            errors.append(
+                ScrapeError(
+                    url=url,
+                    message="No tracks extracted. SoundCloud is JS-heavy — try render_js=True.",
+                )
+            )
 
         return ScrapeResult(
             data=tracks,
@@ -85,25 +85,18 @@ class SoundCloudScraper(BaseScraper):
         soup = self.parse_html(html)
 
         for item in soup.select(
-            ".searchList__item, "
-            ".soundList__item, "
-            "li.searchList__item, "
-            "article"
+            ".searchList__item, .soundList__item, li.searchList__item, article"
         ):
             track: dict[str, Any] = {}
 
             # Title
-            title_el = item.select_one(
-                "a.soundTitle__title span, "
-                "a[href*='/'] span.sc-truncate"
-            )
+            title_el = item.select_one("a.soundTitle__title span, a[href*='/'] span.sc-truncate")
             if title_el:
                 track["title"] = title_el.get_text(strip=True)
 
             # Artist
             artist_el = item.select_one(
-                "a.soundTitle__username span, "
-                "a[href] span.soundTitle__usernameText"
+                "a.soundTitle__username span, a[href] span.soundTitle__usernameText"
             )
             if artist_el:
                 track["artist"] = artist_el.get_text(strip=True)
@@ -118,16 +111,14 @@ class SoundCloudScraper(BaseScraper):
 
             # Play count
             plays_el = item.select_one(
-                ".sc-ministats-plays span[aria-hidden], "
-                "[class*='playbackCount']"
+                ".sc-ministats-plays span[aria-hidden], [class*='playbackCount']"
             )
             if plays_el:
                 track["plays"] = plays_el.get_text(strip=True)
 
             # Duration
             duration_el = item.select_one(
-                ".soundTitle__duration span[aria-hidden], "
-                "[class*='duration']"
+                ".soundTitle__duration span[aria-hidden], [class*='duration']"
             )
             if duration_el:
                 track["duration"] = duration_el.get_text(strip=True)
@@ -140,15 +131,14 @@ class SoundCloudScraper(BaseScraper):
 
         return tracks
 
-    def _extract_from_hydration(
-        self, html: str, max_results: int
-    ) -> list[dict[str, Any]]:
+    def _extract_from_hydration(self, html: str, max_results: int) -> list[dict[str, Any]]:
         """Extract data from SoundCloud's __sc_hydration JSON."""
         tracks: list[dict[str, Any]] = []
 
         match = re.search(
             r"window\.__sc_hydration\s*=\s*(\[.*?\]);\s*</script>",
-            html, re.DOTALL,
+            html,
+            re.DOTALL,
         )
         if not match:
             return tracks
@@ -177,16 +167,18 @@ class SoundCloudScraper(BaseScraper):
                 user = item.get("user") or {}
                 if not isinstance(user, dict):
                     user = {}
-                tracks.append({
-                    "title": item.get("title", ""),
-                    "artist": user.get("username", ""),
-                    "url": item.get("permalink_url", ""),
-                    "plays": item.get("playback_count"),
-                    "likes": item.get("likes_count"),
-                    "duration_ms": item.get("duration"),
-                    "genre": item.get("genre", ""),
-                    "created_at": item.get("created_at", ""),
-                })
+                tracks.append(
+                    {
+                        "title": item.get("title", ""),
+                        "artist": user.get("username", ""),
+                        "url": item.get("permalink_url", ""),
+                        "plays": item.get("playback_count"),
+                        "likes": item.get("likes_count"),
+                        "duration_ms": item.get("duration"),
+                        "genre": item.get("genre", ""),
+                        "created_at": item.get("created_at", ""),
+                    }
+                )
 
                 if len(tracks) >= max_results:
                     return tracks

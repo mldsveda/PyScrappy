@@ -72,15 +72,17 @@ class IMDBScraper(BaseScraper):
             return ScrapeResult(
                 data=[],
                 metadata=ScrapeMetadata(scraper=self.name),
-                errors=[ScrapeError(
-                    url=_OMDB_BASE,
-                    message=(
-                        f"{unsupported!r} browsing is not supported. IMDB data "
-                        "is served via the OMDb API, which supports title "
-                        "search and id lookup only. Use query=<title> or "
-                        "query=<imdb id, e.g. tt1375666>."
-                    ),
-                )],
+                errors=[
+                    ScrapeError(
+                        url=_OMDB_BASE,
+                        message=(
+                            f"{unsupported!r} browsing is not supported. IMDB data "
+                            "is served via the OMDb API, which supports title "
+                            "search and id lookup only. Use query=<title> or "
+                            "query=<imdb id, e.g. tt1375666>."
+                        ),
+                    )
+                ],
             )
 
         if not query:
@@ -90,14 +92,16 @@ class IMDBScraper(BaseScraper):
             return ScrapeResult(
                 data=[],
                 metadata=ScrapeMetadata(scraper=self.name),
-                errors=[ScrapeError(
-                    url=_OMDB_BASE,
-                    message=(
-                        "No OMDb API key. Set the OMDB_API_KEY environment "
-                        "variable or pass api_key=... to IMDBScraper. Get a "
-                        "free key at https://www.omdbapi.com/apikey.aspx"
-                    ),
-                )],
+                errors=[
+                    ScrapeError(
+                        url=_OMDB_BASE,
+                        message=(
+                            "No OMDb API key. Set the OMDB_API_KEY environment "
+                            "variable or pass api_key=... to IMDBScraper. Get a "
+                            "free key at https://www.omdbapi.com/apikey.aspx"
+                        ),
+                    )
+                ],
             )
 
         if _IMDB_ID_RE.match(query.strip()):
@@ -120,10 +124,12 @@ class IMDBScraper(BaseScraper):
             data = [self._normalise(payload)]
         else:
             data = []
-            errors.append(ScrapeError(
-                url=_OMDB_BASE,
-                message=f"OMDb: {payload.get('Error', 'not found')} (id={imdb_id})",
-            ))
+            errors.append(
+                ScrapeError(
+                    url=_OMDB_BASE,
+                    message=f"OMDb: {payload.get('Error', 'not found')} (id={imdb_id})",
+                )
+            )
 
         return ScrapeResult(
             data=data,
@@ -141,10 +147,12 @@ class IMDBScraper(BaseScraper):
             if payload.get("Response") != "True":
                 # OMDb returns "Movie not found!" / "Too many results." as errors.
                 if page == 1:
-                    errors.append(ScrapeError(
-                        url=_OMDB_BASE,
-                        message=f"OMDb: {payload.get('Error', 'no results')}",
-                    ))
+                    errors.append(
+                        ScrapeError(
+                            url=_OMDB_BASE,
+                            message=f"OMDb: {payload.get('Error', 'no results')}",
+                        )
+                    )
                 break
 
             results = payload.get("Search", [])
@@ -158,9 +166,9 @@ class IMDBScraper(BaseScraper):
                     movies.append(self._normalise(hit))
                     continue
                 details = self._get({"i": imdb_id})
-                movies.append(self._normalise(
-                    details if details.get("Response") == "True" else hit
-                ))
+                movies.append(
+                    self._normalise(details if details.get("Response") == "True" else hit)
+                )
 
         return ScrapeResult(
             data=movies,
@@ -174,6 +182,7 @@ class IMDBScraper(BaseScraper):
 
         OMDb uses ``"N/A"`` for missing values; convert those to ``None``.
         """
+
         def val(key: str) -> Any:
             v = item.get(key)
             return None if v in (None, "N/A", "") else v

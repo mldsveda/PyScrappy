@@ -78,9 +78,7 @@ class HttpClient:
             if caller_params:
                 sep = "&" if "?" in url else "?"
                 url = url + sep + urlencode(caller_params)
-            endpoint, api_params = scraper_api.build_request(
-                url, self.config.scraper_api or {}
-            )
+            endpoint, api_params = scraper_api.build_request(url, self.config.scraper_api or {})
             url = endpoint
             kwargs["params"] = api_params
 
@@ -114,13 +112,16 @@ class HttpClient:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
                     delay = self.config.retry_delay * (2 ** (attempt - 1))
-                    logger.warning("Server error %s on %s, retry %d in %.1fs",
-                                   exc.response.status_code, url, attempt, delay)
+                    logger.warning(
+                        "Server error %s on %s, retry %d in %.1fs",
+                        exc.response.status_code,
+                        url,
+                        attempt,
+                        delay,
+                    )
                     time.sleep(delay)
                     continue
-                raise NetworkError(
-                    f"HTTP {exc.response.status_code} from {url}"
-                ) from exc
+                raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
 
             except httpx.RequestError as exc:
                 last_exc = exc
@@ -159,18 +160,14 @@ class HttpClient:
         for attempt in range(1, self.config.max_retries + 1):
             try:
                 headers = {"User-Agent": self._pick_ua(), **extra_headers}
-                resp = client.post(
-                    url, headers=headers, follow_redirects=True, **kwargs
-                )
+                resp = client.post(url, headers=headers, follow_redirects=True, **kwargs)
                 if resp.status_code >= 500 and attempt < self.config.max_retries:
                     time.sleep(self.config.retry_delay * (2 ** (attempt - 1)))
                     continue
                 resp.raise_for_status()
                 return resp.text
             except httpx.HTTPStatusError as exc:
-                raise NetworkError(
-                    f"HTTP {exc.response.status_code} from {url}"
-                ) from exc
+                raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:

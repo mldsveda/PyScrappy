@@ -10,31 +10,40 @@ from pyscrappy.scrapers.imdb import IMDBScraper
 
 # --- Sample OMDb payloads ---------------------------------------------------
 
-DETAILS_JSON = json.dumps({
-    "Title": "Inception",
-    "Year": "2010",
-    "Rated": "PG-13",
-    "Runtime": "148 min",
-    "Genre": "Action, Adventure, Sci-Fi",
-    "Director": "Christopher Nolan",
-    "Actors": "Leonardo DiCaprio, Joseph Gordon-Levitt",
-    "Plot": "A thief who steals corporate secrets...",
-    "imdbRating": "8.8",
-    "imdbVotes": "2,500,000",
-    "imdbID": "tt1375666",
-    "Type": "movie",
-    "Poster": "https://example.com/poster.jpg",
-    "Response": "True",
-})
+DETAILS_JSON = json.dumps(
+    {
+        "Title": "Inception",
+        "Year": "2010",
+        "Rated": "PG-13",
+        "Runtime": "148 min",
+        "Genre": "Action, Adventure, Sci-Fi",
+        "Director": "Christopher Nolan",
+        "Actors": "Leonardo DiCaprio, Joseph Gordon-Levitt",
+        "Plot": "A thief who steals corporate secrets...",
+        "imdbRating": "8.8",
+        "imdbVotes": "2,500,000",
+        "imdbID": "tt1375666",
+        "Type": "movie",
+        "Poster": "https://example.com/poster.jpg",
+        "Response": "True",
+    }
+)
 
-SEARCH_JSON = json.dumps({
-    "Search": [
-        {"Title": "Inception", "Year": "2010", "imdbID": "tt1375666",
-         "Type": "movie", "Poster": "https://example.com/p.jpg"},
-    ],
-    "totalResults": "41",
-    "Response": "True",
-})
+SEARCH_JSON = json.dumps(
+    {
+        "Search": [
+            {
+                "Title": "Inception",
+                "Year": "2010",
+                "imdbID": "tt1375666",
+                "Type": "movie",
+                "Poster": "https://example.com/p.jpg",
+            },
+        ],
+        "totalResults": "41",
+        "Response": "True",
+    }
+)
 
 NOT_FOUND_JSON = json.dumps({"Response": "False", "Error": "Movie not found!"})
 
@@ -121,12 +130,18 @@ class TestIMDBSearchByTitle:
 
 class TestNormalise:
     def test_na_becomes_absent(self):
-        payload = json.dumps({
-            "Title": "X", "Year": "2020", "imdbID": "tt1",
-            "Rated": "N/A", "Director": "N/A", "Response": "True",
-        })
+        payload = json.dumps(
+            {
+                "Title": "X",
+                "Year": "2020",
+                "imdbID": "tt1",
+                "Rated": "N/A",
+                "Director": "N/A",
+                "Response": "True",
+            }
+        )
         scraper = _scraper_with([payload])
         movie = scraper.scrape(query="tt1").data[0]
         assert movie["title"] == "X"
-        assert "rated" not in movie      # "N/A" dropped
+        assert "rated" not in movie  # "N/A" dropped
         assert "director" not in movie

@@ -116,8 +116,12 @@ def main() -> None:
 
     chat = sub.add_parser("chat", help="Ask a local model a question it can answer with scrapers.")
     chat.add_argument("prompt", help="What to ask, in plain language.")
-    chat.add_argument("--model", default=DEFAULT_MODEL, help=f"Ollama model (default: {DEFAULT_MODEL}).")
-    chat.add_argument("--host", default=DEFAULT_HOST, help=f"Ollama host (default: {DEFAULT_HOST}).")
+    chat.add_argument(
+        "--model", default=DEFAULT_MODEL, help=f"Ollama model (default: {DEFAULT_MODEL})."
+    )
+    chat.add_argument(
+        "--host", default=DEFAULT_HOST, help=f"Ollama host (default: {DEFAULT_HOST})."
+    )
     chat.add_argument("--max-steps", type=int, default=MAX_STEPS, help="Max tool-calling rounds.")
     chat.add_argument("-v", "--verbose", action="store_true", help="Print each tool call.")
 

@@ -22,9 +22,7 @@ class ScrapeMetadata:
 
     source_urls: list[str] = field(default_factory=list)
     total_pages: int = 1
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     scraper: str = ""
 
 

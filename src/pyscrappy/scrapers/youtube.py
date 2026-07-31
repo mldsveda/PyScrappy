@@ -60,9 +60,7 @@ class YouTubeScraper(BaseScraper):
             return self._scrape_search(query, max_results, render_js)
         raise ValueError("Provide either query or channel_url")
 
-    def _scrape_search(
-        self, query: str, max_results: int, render_js: bool
-    ) -> ScrapeResult:
+    def _scrape_search(self, query: str, max_results: int, render_js: bool) -> ScrapeResult:
         url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
         html = self.fetch_html(url, render_js=render_js)
         videos = self._extract_from_html(html, max_results)
@@ -187,9 +185,7 @@ class YouTubeScraper(BaseScraper):
 
         return video
 
-    def _extract_from_rendered_html(
-        self, html: str, max_results: int
-    ) -> list[dict[str, Any]]:
+    def _extract_from_rendered_html(self, html: str, max_results: int) -> list[dict[str, Any]]:
         """Fallback: parse rendered HTML with BeautifulSoup."""
         soup = self.parse_html(html)
         videos: list[dict[str, Any]] = []

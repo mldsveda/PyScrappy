@@ -86,9 +86,7 @@ class TestScraperApiRouting:
         return client, mock
 
     def test_routes_through_service(self):
-        cfg = ScraperConfig(
-            scraper_api={"provider": "scraperapi", "api_key": "K"}, rate_limit=0
-        )
+        cfg = ScraperConfig(scraper_api={"provider": "scraperapi", "api_key": "K"}, rate_limit=0)
         client, mock = self._client(cfg)
         client.get_html("https://ebay.com/sch", params={"q": "laptop"})
         call = mock.get.call_args

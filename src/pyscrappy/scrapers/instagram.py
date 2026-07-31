@@ -66,9 +66,7 @@ class InstagramScraper(BaseScraper):
         errors: list[ScrapeError] = []
 
         if render_js:
-            html = self.browser.get_html(
-                url, wait_for="networkidle", scroll_pages=scroll_pages
-            )
+            html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
@@ -78,10 +76,12 @@ class InstagramScraper(BaseScraper):
         else:
             profile = self._parse_profile_html(html, username)
             if not profile.get("username"):
-                errors.append(ScrapeError(
-                    url=url,
-                    message="Could not extract profile data. Instagram may require login.",
-                ))
+                errors.append(
+                    ScrapeError(
+                        url=url,
+                        message="Could not extract profile data. Instagram may require login.",
+                    )
+                )
 
         return ScrapeResult(
             data=[profile] if profile else [],
@@ -96,9 +96,7 @@ class InstagramScraper(BaseScraper):
         errors: list[ScrapeError] = []
 
         if render_js:
-            html = self.browser.get_html(
-                url, wait_for="networkidle", scroll_pages=scroll_pages
-            )
+            html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
@@ -110,10 +108,12 @@ class InstagramScraper(BaseScraper):
         else:
             posts = self._parse_posts_html(html, max_posts)
             if not posts:
-                errors.append(ScrapeError(
-                    url=url,
-                    message="Could not extract hashtag posts. Instagram may require login.",
-                ))
+                errors.append(
+                    ScrapeError(
+                        url=url,
+                        message="Could not extract hashtag posts. Instagram may require login.",
+                    )
+                )
 
         return ScrapeResult(
             data=posts,
@@ -155,9 +155,7 @@ class InstagramScraper(BaseScraper):
         profile["external_url"] = user.get("external_url", "")
 
         # Recent posts
-        edges = (
-            user.get("edge_owner_to_timeline_media", {}).get("edges", [])
-        )
+        edges = user.get("edge_owner_to_timeline_media", {}).get("edges", [])
         profile["recent_posts"] = [
             {
                 "caption": (
@@ -195,9 +193,7 @@ class InstagramScraper(BaseScraper):
 
         return profile
 
-    def _parse_hashtag_json(
-        self, data: dict[str, Any], max_posts: int
-    ) -> list[dict[str, Any]]:
+    def _parse_hashtag_json(self, data: dict[str, Any], max_posts: int) -> list[dict[str, Any]]:
         """Parse hashtag data from _sharedData JSON."""
         posts: list[dict[str, Any]] = []
 
@@ -216,22 +212,21 @@ class InstagramScraper(BaseScraper):
         for edge in edges[:max_posts]:
             node = edge.get("node", {})
             caption_edges = node.get("edge_media_to_caption", {}).get("edges", [])
-            posts.append({
-                "caption": (
-                    caption_edges[0].get("node", {}).get("text", "")
-                    if caption_edges else ""
-                ),
-                "likes": node.get("edge_liked_by", {}).get("count"),
-                "comments": node.get("edge_media_to_comment", {}).get("count"),
-                "url": f"https://www.instagram.com/p/{node.get('shortcode', '')}/",
-                "is_video": node.get("is_video", False),
-            })
+            posts.append(
+                {
+                    "caption": (
+                        caption_edges[0].get("node", {}).get("text", "") if caption_edges else ""
+                    ),
+                    "likes": node.get("edge_liked_by", {}).get("count"),
+                    "comments": node.get("edge_media_to_comment", {}).get("count"),
+                    "url": f"https://www.instagram.com/p/{node.get('shortcode', '')}/",
+                    "is_video": node.get("is_video", False),
+                }
+            )
 
         return posts
 
-    def _parse_posts_html(
-        self, html: str, max_posts: int
-    ) -> list[dict[str, Any]]:
+    def _parse_posts_html(self, html: str, max_posts: int) -> list[dict[str, Any]]:
         """Fallback: extract post links from rendered HTML."""
         soup = self.parse_html(html)
         posts: list[dict[str, Any]] = []

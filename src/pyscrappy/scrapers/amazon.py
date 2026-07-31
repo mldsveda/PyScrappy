@@ -41,8 +41,7 @@ class AmazonScraper(BaseScraper):
         "Accept-Language": "en-GB,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Accept": (
-            "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "image/avif,image/webp,*/*;q=0.8"
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
         ),
         "Referer": "https://www.google.com/",
     }
@@ -74,10 +73,7 @@ class AmazonScraper(BaseScraper):
         visited: list[str] = []
 
         for page in range(1, max_pages + 1):
-            url = (
-                f"https://{self._domain}/s?"
-                f"k={query.replace(' ', '+')}&page={page}"
-            )
+            url = f"https://{self._domain}/s?k={query.replace(' ', '+')}&page={page}"
             visited.append(url)
 
             try:
@@ -88,10 +84,12 @@ class AmazonScraper(BaseScraper):
 
             # Check for CAPTCHA
             if soup.find("form", action=re.compile(r"validateCaptcha")):
-                errors.append(ScrapeError(
-                    url=url,
-                    message="Amazon returned a CAPTCHA page. Try using a proxy.",
-                ))
+                errors.append(
+                    ScrapeError(
+                        url=url,
+                        message="Amazon returned a CAPTCHA page. Try using a proxy.",
+                    )
+                )
                 break
 
             page_products = self._parse_search_results(soup, url)
@@ -104,15 +102,17 @@ class AmazonScraper(BaseScraper):
         # change rather than a genuinely empty result. Say so, so callers aren't
         # left with a silent empty result.
         if not products and not errors:
-            errors.append(ScrapeError(
-                url=visited[-1] if visited else "",
-                message=(
-                    "No products extracted. Amazon aggressively blocks "
-                    "automated traffic — this usually means the request was "
-                    "served an anti-bot page. A proxy or residential IP is "
-                    "typically required."
-                ),
-            ))
+            errors.append(
+                ScrapeError(
+                    url=visited[-1] if visited else "",
+                    message=(
+                        "No products extracted. Amazon aggressively blocks "
+                        "automated traffic — this usually means the request was "
+                        "served an anti-bot page. A proxy or residential IP is "
+                        "typically required."
+                    ),
+                )
+            )
 
         return ScrapeResult(
             data=products,
@@ -124,9 +124,7 @@ class AmazonScraper(BaseScraper):
             errors=errors,
         )
 
-    def _parse_search_results(
-        self, soup: Any, url: str
-    ) -> list[dict[str, Any]]:
+    def _parse_search_results(self, soup: Any, url: str) -> list[dict[str, Any]]:
         """Parse product cards from a search results page."""
         products: list[dict[str, Any]] = []
 

@@ -78,32 +78,29 @@ class StockScraper(BaseScraper):
         chart = data.get("chart", {}).get("result", [])
         if chart:
             meta = chart[0].get("meta", {})
-            result_data.append({
-                "symbol": meta.get("symbol", symbol),
-                "currency": meta.get("currency", ""),
-                "exchange": meta.get("exchangeName", ""),
-                "price": meta.get("regularMarketPrice"),
-                "previous_close": meta.get("chartPreviousClose"),
-                "volume": meta.get("regularMarketVolume"),
-                "day_high": meta.get("regularMarketDayHigh"),
-                "day_low": meta.get("regularMarketDayLow"),
-                "fifty_two_week_high": meta.get("fiftyTwoWeekHigh"),
-                "fifty_two_week_low": meta.get("fiftyTwoWeekLow"),
-            })
+            result_data.append(
+                {
+                    "symbol": meta.get("symbol", symbol),
+                    "currency": meta.get("currency", ""),
+                    "exchange": meta.get("exchangeName", ""),
+                    "price": meta.get("regularMarketPrice"),
+                    "previous_close": meta.get("chartPreviousClose"),
+                    "volume": meta.get("regularMarketVolume"),
+                    "day_high": meta.get("regularMarketDayHigh"),
+                    "day_low": meta.get("regularMarketDayLow"),
+                    "fifty_two_week_high": meta.get("fiftyTwoWeekHigh"),
+                    "fifty_two_week_low": meta.get("fiftyTwoWeekLow"),
+                }
+            )
 
         return ScrapeResult(
             data=result_data,
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
         )
 
-    def _scrape_history(
-        self, symbol: str, period: str, interval: str
-    ) -> ScrapeResult:
+    def _scrape_history(self, symbol: str, period: str, interval: str) -> ScrapeResult:
         """Fetch historical OHLCV data."""
-        url = (
-            f"{_YF_BASE}/v8/finance/chart/{symbol}"
-            f"?range={period}&interval={interval}"
-        )
+        url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range={period}&interval={interval}"
         data = self._fetch_json(url)
 
         result_data: list[dict[str, Any]] = []
@@ -120,14 +117,16 @@ class StockScraper(BaseScraper):
             volumes = quotes.get("volume", [])
 
             for i, ts in enumerate(timestamps):
-                result_data.append({
-                    "date": time.strftime("%Y-%m-%d", time.gmtime(ts)),
-                    "open": opens[i] if i < len(opens) else None,
-                    "high": highs[i] if i < len(highs) else None,
-                    "low": lows[i] if i < len(lows) else None,
-                    "close": closes[i] if i < len(closes) else None,
-                    "volume": volumes[i] if i < len(volumes) else None,
-                })
+                result_data.append(
+                    {
+                        "date": time.strftime("%Y-%m-%d", time.gmtime(ts)),
+                        "open": opens[i] if i < len(opens) else None,
+                        "high": highs[i] if i < len(highs) else None,
+                        "low": lows[i] if i < len(lows) else None,
+                        "close": closes[i] if i < len(closes) else None,
+                        "volume": volumes[i] if i < len(volumes) else None,
+                    }
+                )
 
         return ScrapeResult(
             data=result_data,
@@ -143,15 +142,17 @@ class StockScraper(BaseScraper):
         chart = data.get("chart", {}).get("result", [])
         if chart:
             meta = chart[0].get("meta", {})
-            result_data.append({
-                "symbol": meta.get("symbol", symbol),
-                "name": meta.get("longName", meta.get("shortName", "")),
-                "currency": meta.get("currency", ""),
-                "exchange": meta.get("exchangeName", ""),
-                "market": meta.get("market", ""),
-                "timezone": meta.get("exchangeTimezoneName", ""),
-                "instrument_type": meta.get("instrumentType", ""),
-            })
+            result_data.append(
+                {
+                    "symbol": meta.get("symbol", symbol),
+                    "name": meta.get("longName", meta.get("shortName", "")),
+                    "currency": meta.get("currency", ""),
+                    "exchange": meta.get("exchangeName", ""),
+                    "market": meta.get("market", ""),
+                    "timezone": meta.get("exchangeTimezoneName", ""),
+                    "instrument_type": meta.get("instrumentType", ""),
+                }
+            )
 
         return ScrapeResult(
             data=result_data,
@@ -206,7 +207,7 @@ class StockScraper(BaseScraper):
 
             # Rate-limited — back off and retry
             if resp.status_code == 429:
-                delay = self.config.retry_delay * (2 ** attempt)
+                delay = self.config.retry_delay * (2**attempt)
                 self.logger.warning("Rate-limited by Yahoo Finance, retrying in %.1fs", delay)
                 time.sleep(delay)
                 continue

@@ -66,11 +66,7 @@ class HackerNewsScraper(BaseScraper):
                 errors=[ScrapeError(url=url, message=str(exc))],
             )
 
-        stories = [
-            self._parse(hit)
-            for hit in payload.get("hits", [])
-            if isinstance(hit, dict)
-        ]
+        stories = [self._parse(hit) for hit in payload.get("hits", []) if isinstance(hit, dict)]
 
         errors: list[ScrapeError] = []
         if not stories:
@@ -92,9 +88,6 @@ class HackerNewsScraper(BaseScraper):
             "author": hit.get("author"),
             "num_comments": hit.get("num_comments"),
             "created_at": hit.get("created_at"),
-            "hn_url": (
-                f"https://news.ycombinator.com/item?id={object_id}"
-                if object_id else None
-            ),
+            "hn_url": (f"https://news.ycombinator.com/item?id={object_id}" if object_id else None),
         }
         return {k: v for k, v in story.items() if v is not None}

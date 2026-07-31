@@ -26,6 +26,7 @@ class TestBrowserManagerInit:
 class TestBrowserManagerImportError:
     def test_start_raises_browser_not_installed_when_no_playwright(self, monkeypatch):
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):

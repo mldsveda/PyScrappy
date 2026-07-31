@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from pyscrappy.core.models import ScrapeResult
 from pyscrappy.scrapers.wikipedia import WikipediaScraper
 

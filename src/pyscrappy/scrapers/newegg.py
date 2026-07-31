@@ -34,8 +34,7 @@ class NeweggScraper(BaseScraper):
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Accept": (
-            "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "image/avif,image/webp,*/*;q=0.8"
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
         ),
         "Referer": "https://www.google.com/",
     }
@@ -67,10 +66,7 @@ class NeweggScraper(BaseScraper):
         visited: list[str] = []
 
         for page in range(1, max_pages + 1):
-            url = (
-                f"https://{self._domain}/p/pl?"
-                f"d={query.replace(' ', '+')}&page={page}"
-            )
+            url = f"https://{self._domain}/p/pl?d={query.replace(' ', '+')}&page={page}"
             visited.append(url)
 
             try:
@@ -85,13 +81,15 @@ class NeweggScraper(BaseScraper):
             products.extend(page_products)
 
         if not products and not errors:
-            errors.append(ScrapeError(
-                url=visited[-1] if visited else "",
-                message=(
-                    "No products extracted. Newegg may have changed its page "
-                    "layout, or the query returned no results."
-                ),
-            ))
+            errors.append(
+                ScrapeError(
+                    url=visited[-1] if visited else "",
+                    message=(
+                        "No products extracted. Newegg may have changed its page "
+                        "layout, or the query returned no results."
+                    ),
+                )
+            )
 
         return ScrapeResult(
             data=products,

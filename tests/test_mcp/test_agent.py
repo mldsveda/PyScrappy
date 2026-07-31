@@ -93,9 +93,7 @@ async def test_string_arguments_are_parsed(monkeypatch):
             {
                 "role": "assistant",
                 "content": "",
-                "tool_calls": [
-                    {"function": {"name": "define_word", "arguments": '{"word": "x"}'}}
-                ],
+                "tool_calls": [{"function": {"name": "define_word", "arguments": '{"word": "x"}'}}],
             },
             {"role": "assistant", "content": "done"},
         ],

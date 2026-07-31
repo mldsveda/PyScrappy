@@ -25,16 +25,12 @@ class TestMetadataExtractor:
         assert result["title"] == "Test Page"
 
     def test_extract_description(self):
-        soup = _soup(
-            '<html><head><meta name="description" content="A test page"></head></html>'
-        )
+        soup = _soup('<html><head><meta name="description" content="A test page"></head></html>')
         result = self.extractor.extract(soup)
         assert result["description"] == "A test page"
 
     def test_extract_author(self):
-        soup = _soup(
-            '<html><head><meta name="author" content="John Doe"></head></html>'
-        )
+        soup = _soup('<html><head><meta name="author" content="John Doe"></head></html>')
         result = self.extractor.extract(soup)
         assert result["author"] == "John Doe"
 
@@ -47,10 +43,10 @@ class TestMetadataExtractor:
 
     def test_extract_og_tags(self):
         soup = _soup(
-            '<html><head>'
+            "<html><head>"
             '<meta property="og:title" content="OG Title">'
             '<meta property="og:image" content="https://img.com/pic.jpg">'
-            '</head></html>'
+            "</head></html>"
         )
         result = self.extractor.extract(soup)
         assert result["og"]["title"] == "OG Title"
@@ -58,9 +54,7 @@ class TestMetadataExtractor:
 
     def test_extract_twitter_card(self):
         soup = _soup(
-            '<html><head>'
-            '<meta name="twitter:card" content="summary_large_image">'
-            '</head></html>'
+            '<html><head><meta name="twitter:card" content="summary_large_image"></head></html>'
         )
         result = self.extractor.extract(soup)
         assert result["twitter_card"]["card"] == "summary_large_image"
@@ -119,11 +113,7 @@ class TestTextExtractor:
 
     def test_extract_headings(self):
         soup = _soup(
-            "<html><body>"
-            "<h1>Main Title</h1>"
-            "<h2>Section One</h2>"
-            "<h3>Subsection</h3>"
-            "</body></html>"
+            "<html><body><h1>Main Title</h1><h2>Section One</h2><h3>Subsection</h3></body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result["headings"]) == 3
@@ -152,11 +142,11 @@ class TestTextExtractor:
 
     def test_removes_noise_classes(self):
         soup = _soup(
-            '<html><body>'
+            "<html><body>"
             '<div class="sidebar">Sidebar content</div>'
             '<div class="ad-banner">Ad content</div>'
-            '<p>This is the real content paragraph of the page that should remain.</p>'
-            '</body></html>'
+            "<p>This is the real content paragraph of the page that should remain.</p>"
+            "</body></html>"
         )
         result = self.extractor.extract(soup)
         assert "Sidebar content" not in result["text"]
@@ -177,10 +167,10 @@ class TestLinkExtractor:
 
     def test_extract_links(self):
         soup = _soup(
-            '<html><body>'
+            "<html><body>"
             '<a href="https://example.com/page1">Page 1</a>'
             '<a href="/page2">Page 2</a>'
-            '</body></html>'
+            "</body></html>"
         )
         result = self.extractor.extract(soup, "https://example.com")
         assert len(result) == 2
@@ -190,23 +180,23 @@ class TestLinkExtractor:
 
     def test_deduplication(self):
         soup = _soup(
-            '<html><body>'
+            "<html><body>"
             '<a href="https://example.com/page">Link 1</a>'
             '<a href="https://example.com/page">Link 2</a>'
-            '</body></html>'
+            "</body></html>"
         )
         result = self.extractor.extract(soup, "https://example.com")
         assert len(result) == 1
 
     def test_skips_javascript_mailto_tel_hash(self):
         soup = _soup(
-            '<html><body>'
+            "<html><body>"
             '<a href="javascript:void(0)">JS</a>'
             '<a href="mailto:test@test.com">Email</a>'
             '<a href="tel:+1234567890">Phone</a>'
             '<a href="#">Top</a>'
             '<a href="https://real.com">Real</a>'
-            '</body></html>'
+            "</body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1
@@ -214,9 +204,9 @@ class TestLinkExtractor:
 
     def test_extracts_rel(self):
         soup = _soup(
-            '<html><body>'
+            "<html><body>"
             '<a href="https://external.com" rel="nofollow noopener">External</a>'
-            '</body></html>'
+            "</body></html>"
         )
         result = self.extractor.extract(soup)
         assert result[0]["rel"] == "nofollow noopener"
@@ -227,9 +217,7 @@ class TestLinkExtractor:
         assert len(result) == 0
 
     def test_relative_urls_resolved(self):
-        soup = _soup(
-            '<html><body><a href="/relative/path">Link</a></body></html>'
-        )
+        soup = _soup('<html><body><a href="/relative/path">Link</a></body></html>')
         result = self.extractor.extract(soup, "https://base.com")
         assert result[0]["url"] == "https://base.com/relative/path"
 
@@ -240,9 +228,9 @@ class TestImageExtractor:
 
     def test_extract_images(self):
         soup = _soup(
-            '<html><body>'
+            "<html><body>"
             '<img src="https://img.com/pic.jpg" alt="A picture" width="100" height="200">'
-            '</body></html>'
+            "</body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1
@@ -253,9 +241,7 @@ class TestImageExtractor:
 
     def test_lazy_loaded_images(self):
         soup = _soup(
-            '<html><body>'
-            '<img data-src="https://img.com/lazy.jpg" alt="Lazy">'
-            '</body></html>'
+            '<html><body><img data-src="https://img.com/lazy.jpg" alt="Lazy"></body></html>'
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1
@@ -263,9 +249,7 @@ class TestImageExtractor:
 
     def test_data_lazy_src(self):
         soup = _soup(
-            '<html><body>'
-            '<img data-lazy-src="https://img.com/lazy2.jpg" alt="Lazy2">'
-            '</body></html>'
+            '<html><body><img data-lazy-src="https://img.com/lazy2.jpg" alt="Lazy2"></body></html>'
         )
         result = self.extractor.extract(soup)
         assert result[0]["url"] == "https://img.com/lazy2.jpg"
@@ -276,9 +260,7 @@ class TestImageExtractor:
         assert len(result) == 0
 
     def test_relative_image_url_resolved(self):
-        soup = _soup(
-            '<html><body><img src="/images/pic.jpg"></body></html>'
-        )
+        soup = _soup('<html><body><img src="/images/pic.jpg"></body></html>')
         result = self.extractor.extract(soup, "https://example.com")
         assert result[0]["url"] == "https://example.com/images/pic.jpg"
 
@@ -296,11 +278,11 @@ class TestTableExtractor:
 
     def test_extract_table(self):
         soup = _soup(
-            '<html><body><table>'
-            '<tr><th>Name</th><th>Age</th></tr>'
-            '<tr><td>Alice</td><td>30</td></tr>'
-            '<tr><td>Bob</td><td>25</td></tr>'
-            '</table></body></html>'
+            "<html><body><table>"
+            "<tr><th>Name</th><th>Age</th></tr>"
+            "<tr><td>Alice</td><td>30</td></tr>"
+            "<tr><td>Bob</td><td>25</td></tr>"
+            "</table></body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1
@@ -310,21 +292,21 @@ class TestTableExtractor:
 
     def test_multiple_tables(self):
         soup = _soup(
-            '<html><body>'
-            '<table><tr><th>A</th></tr><tr><td>1</td></tr></table>'
-            '<table><tr><th>B</th></tr><tr><td>2</td></tr></table>'
-            '</body></html>'
+            "<html><body>"
+            "<table><tr><th>A</th></tr><tr><td>1</td></tr></table>"
+            "<table><tr><th>B</th></tr><tr><td>2</td></tr></table>"
+            "</body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result) == 2
 
     def test_skips_rows_with_wrong_column_count(self):
         soup = _soup(
-            '<html><body><table>'
-            '<tr><th>A</th><th>B</th></tr>'
-            '<tr><td>1</td></tr>'
-            '<tr><td>2</td><td>3</td></tr>'
-            '</table></body></html>'
+            "<html><body><table>"
+            "<tr><th>A</th><th>B</th></tr>"
+            "<tr><td>1</td></tr>"
+            "<tr><td>2</td><td>3</td></tr>"
+            "</table></body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1
@@ -332,25 +314,21 @@ class TestTableExtractor:
         assert result[0][0] == {"A": "2", "B": "3"}
 
     def test_empty_table_skipped(self):
-        soup = _soup('<html><body><table></table></body></html>')
+        soup = _soup("<html><body><table></table></body></html>")
         result = self.extractor.extract(soup)
         assert result == []
 
     def test_table_with_no_data_rows(self):
-        soup = _soup(
-            '<html><body><table>'
-            '<tr><th>Header</th></tr>'
-            '</table></body></html>'
-        )
+        soup = _soup("<html><body><table><tr><th>Header</th></tr></table></body></html>")
         result = self.extractor.extract(soup)
         assert result == []
 
     def test_headers_from_td_in_first_row(self):
         soup = _soup(
-            '<html><body><table>'
-            '<tr><td>Col1</td><td>Col2</td></tr>'
-            '<tr><td>A</td><td>B</td></tr>'
-            '</table></body></html>'
+            "<html><body><table>"
+            "<tr><td>Col1</td><td>Col2</td></tr>"
+            "<tr><td>A</td><td>B</td></tr>"
+            "</table></body></html>"
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1

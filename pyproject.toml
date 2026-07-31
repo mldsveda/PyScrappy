@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscrappy"
-version = "1.3.1"
+version = "1.3.2"
 description = "A robust, all-in-one Python web scraping toolkit"
 readme = "README.md"
 license = "MIT"
@@ -73,6 +73,9 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+# The formatter owns line width; E501 only fires on lines it can't split
+# (long string literals), so enforcing it adds noise, not value.
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

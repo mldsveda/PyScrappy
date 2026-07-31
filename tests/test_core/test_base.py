@@ -1,6 +1,6 @@
 """Tests for pyscrappy.core.base."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from bs4 import BeautifulSoup

@@ -16,12 +16,22 @@ def _mock(scraper, *responses):
 
 class TestCrypto:
     def test_top_coins(self):
-        payload = json.dumps([{
-            "id": "bitcoin", "name": "Bitcoin", "symbol": "btc",
-            "current_price": 64000, "market_cap": 1200000000000,
-            "market_cap_rank": 1, "price_change_percentage_24h": 1.5,
-            "total_volume": 30000000000, "high_24h": 64500, "low_24h": 63000,
-        }])
+        payload = json.dumps(
+            [
+                {
+                    "id": "bitcoin",
+                    "name": "Bitcoin",
+                    "symbol": "btc",
+                    "current_price": 64000,
+                    "market_cap": 1200000000000,
+                    "market_cap_rank": 1,
+                    "price_change_percentage_24h": 1.5,
+                    "total_volume": 30000000000,
+                    "high_24h": 64500,
+                    "low_24h": 63000,
+                }
+            ]
+        )
         s = _mock(CryptoScraper(), payload)
         r = s.scrape(max_results=1)
         assert len(r.data) == 1
@@ -34,8 +44,9 @@ class TestCrypto:
 
     def test_query_resolves_ids(self):
         search = json.dumps({"coins": [{"id": "ethereum"}]})
-        markets = json.dumps([{"id": "ethereum", "name": "Ethereum", "symbol": "eth",
-                               "current_price": 1800}])
+        markets = json.dumps(
+            [{"id": "ethereum", "name": "Ethereum", "symbol": "eth", "current_price": 1800}]
+        )
         s = _mock(CryptoScraper(), search, markets)
         r = s.scrape(query="eth")
         assert r.data[0]["name"] == "Ethereum"
@@ -45,11 +56,14 @@ class TestCrypto:
 
 class TestCurrency:
     def test_rates_and_conversion(self):
-        payload = json.dumps({
-            "result": "success", "base_code": "USD",
-            "time_last_update_utc": "Sat, 01 Jan 2026 00:00:00 +0000",
-            "rates": {"EUR": 0.9, "GBP": 0.8, "JPY": 150.0},
-        })
+        payload = json.dumps(
+            {
+                "result": "success",
+                "base_code": "USD",
+                "time_last_update_utc": "Sat, 01 Jan 2026 00:00:00 +0000",
+                "rates": {"EUR": 0.9, "GBP": 0.8, "JPY": 150.0},
+            }
+        )
         s = _mock(CurrencyScraper(), payload)
         r = s.scrape(base="USD", to="EUR,GBP", amount=100)
         assert len(r.data) == 2  # only EUR + GBP
@@ -58,7 +72,9 @@ class TestCurrency:
         assert by_code["GBP"]["converted"] == 80.0
 
     def test_api_error(self):
-        s = _mock(CurrencyScraper(), json.dumps({"result": "error", "error-type": "unsupported-code"}))
+        s = _mock(
+            CurrencyScraper(), json.dumps({"result": "error", "error-type": "unsupported-code"})
+        )
         r = s.scrape(base="XXX")
         assert r.data == []
         assert "unsupported-code" in r.errors[0].message
@@ -66,13 +82,26 @@ class TestCurrency:
 
 class TestDictionary:
     def test_definitions(self):
-        payload = json.dumps([{
-            "word": "test", "phonetic": "/tɛst/",
-            "meanings": [{"partOfSpeech": "noun", "definitions": [
-                {"definition": "A procedure to establish quality.",
-                 "example": "a test of skill", "synonyms": ["trial"]},
-            ]}],
-        }])
+        payload = json.dumps(
+            [
+                {
+                    "word": "test",
+                    "phonetic": "/tɛst/",
+                    "meanings": [
+                        {
+                            "partOfSpeech": "noun",
+                            "definitions": [
+                                {
+                                    "definition": "A procedure to establish quality.",
+                                    "example": "a test of skill",
+                                    "synonyms": ["trial"],
+                                },
+                            ],
+                        }
+                    ],
+                }
+            ]
+        )
         s = _mock(DictionaryScraper(), payload)
         r = s.scrape(word="test")
         assert len(r.data) == 1

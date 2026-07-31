@@ -79,10 +79,12 @@ class SpotifyScraper(BaseScraper):
         items = self._extract_items(html, max_results)
 
         if not items:
-            errors.append(ScrapeError(
-                url=url,
-                message="No results extracted. Spotify requires JS rendering — use render_js=True.",
-            ))
+            errors.append(
+                ScrapeError(
+                    url=url,
+                    message="No results extracted. Spotify requires JS rendering — use render_js=True.",
+                )
+            )
 
         return ScrapeResult(
             data=items,
@@ -96,19 +98,19 @@ class SpotifyScraper(BaseScraper):
         errors: list[ScrapeError] = []
 
         if render_js:
-            html = self.browser.get_html(
-                url, wait_for="networkidle", scroll_pages=scroll_pages
-            )
+            html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
         tracks = self._extract_playlist_tracks(html, max_results)
 
         if not tracks:
-            errors.append(ScrapeError(
-                url=url,
-                message="No tracks extracted. Use render_js=True for playlists.",
-            ))
+            errors.append(
+                ScrapeError(
+                    url=url,
+                    message="No tracks extracted. Use render_js=True for playlists.",
+                )
+            )
 
         return ScrapeResult(
             data=tracks,
@@ -129,32 +131,25 @@ class SpotifyScraper(BaseScraper):
         soup = self.parse_html(html)
 
         for card in soup.select(
-            "[data-testid='tracklist-row'], "
-            "[data-testid='search-result-item'], "
-            "div[role='row']"
+            "[data-testid='tracklist-row'], [data-testid='search-result-item'], div[role='row']"
         ):
             item: dict[str, Any] = {}
 
             # Title
             title_el = card.select_one(
-                "a[data-testid='internal-track-link'] div, "
-                "div[class*='Type__TypeElement'] a"
+                "a[data-testid='internal-track-link'] div, div[class*='Type__TypeElement'] a"
             )
             if title_el:
                 item["title"] = title_el.get_text(strip=True)
 
             # Artist
-            artist_el = card.select_one(
-                "span[data-testid='artists-names'], "
-                "a[href*='/artist/']"
-            )
+            artist_el = card.select_one("span[data-testid='artists-names'], a[href*='/artist/']")
             if artist_el:
                 item["artist"] = artist_el.get_text(strip=True)
 
             # Duration
             duration_el = card.select_one(
-                "[data-testid='tracklist-duration'], "
-                "div[class*='Duration']"
+                "[data-testid='tracklist-duration'], div[class*='Duration']"
             )
             if duration_el:
                 item["duration"] = duration_el.get_text(strip=True)
@@ -172,9 +167,7 @@ class SpotifyScraper(BaseScraper):
 
         return items
 
-    def _extract_playlist_tracks(
-        self, html: str, max_results: int
-    ) -> list[dict[str, Any]]:
+    def _extract_playlist_tracks(self, html: str, max_results: int) -> list[dict[str, Any]]:
         """Extract tracks from a playlist page."""
         # Try resource data first
         tracks = self._extract_from_resource(html, max_results)
@@ -184,21 +177,21 @@ class SpotifyScraper(BaseScraper):
         # Fallback to generic extraction
         return self._extract_items(html, max_results)
 
-    def _extract_from_resource(
-        self, html: str, max_results: int
-    ) -> list[dict[str, Any]]:
+    def _extract_from_resource(self, html: str, max_results: int) -> list[dict[str, Any]]:
         """Extract data from Spotify's embedded resource JSON."""
         items: list[dict[str, Any]] = []
 
         match = re.search(
             r'<script id="initial-state" type="text/plain">(.*?)</script>',
-            html, re.DOTALL,
+            html,
+            re.DOTALL,
         )
         if not match:
             return items
 
         try:
             import base64
+
             decoded = base64.b64decode(match.group(1))
             data = json.loads(decoded)
         except Exception:
@@ -218,13 +211,15 @@ class SpotifyScraper(BaseScraper):
         if isinstance(data, dict):
             if data.get("type") == "track" and data.get("name"):
                 artists = data.get("artists", [])
-                tracks.append({
-                    "title": data.get("name", ""),
-                    "artist": ", ".join(a.get("name", "") for a in artists) if artists else "",
-                    "album": data.get("album", {}).get("name", ""),
-                    "duration_ms": data.get("duration_ms"),
-                    "url": f"https://open.spotify.com/track/{data.get('id', '')}",
-                })
+                tracks.append(
+                    {
+                        "title": data.get("name", ""),
+                        "artist": ", ".join(a.get("name", "") for a in artists) if artists else "",
+                        "album": data.get("album", {}).get("name", ""),
+                        "duration_ms": data.get("duration_ms"),
+                        "url": f"https://open.spotify.com/track/{data.get('id', '')}",
+                    }
+                )
             for value in data.values():
                 tracks.extend(self._find_tracks(value))
         elif isinstance(data, list):

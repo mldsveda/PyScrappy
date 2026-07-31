@@ -89,9 +89,7 @@ def _to_result(result: ScrapeResult) -> ScrapeToolResult:
 
 async def _run(fn, /, *args, **kwargs) -> ScrapeToolResult:
     """Run a synchronous scraper off the event loop and return a typed result."""
-    result: ScrapeResult = await anyio.to_thread.run_sync(
-        lambda: fn(*args, **kwargs)
-    )
+    result: ScrapeResult = await anyio.to_thread.run_sync(lambda: fn(*args, **kwargs))
     return _to_result(result)
 
 
@@ -213,9 +211,7 @@ async def search_images(query: str, max_images: int = 20, engine: str = "bing") 
         engine: Search engine to use (default "bing").
     """
     with ImageSearchScraper(_config()) as iss:
-        return await _run(
-            iss.scrape, query=query, max_images=max_images, engine=engine
-        )
+        return await _run(iss.scrape, query=query, max_images=max_images, engine=engine)
 
 
 @mcp.tool()
@@ -242,9 +238,7 @@ async def search_linkedin_jobs(
         max_pages: Pages of results to scrape (default 1).
     """
     with LinkedInJobsScraper(_config()) as ljs:
-        return await _run(
-            ljs.scrape, query=query, location=location, max_pages=max_pages
-        )
+        return await _run(ljs.scrape, query=query, location=location, max_pages=max_pages)
 
 
 @mcp.tool()
@@ -259,9 +253,7 @@ async def get_crypto(
         vs_currency: Fiat currency for prices, e.g. "usd", "eur" (default "usd").
     """
     with CryptoScraper(_config()) as c:
-        return await _run(
-            c.scrape, query=query, max_results=max_results, vs_currency=vs_currency
-        )
+        return await _run(c.scrape, query=query, max_results=max_results, vs_currency=vs_currency)
 
 
 @mcp.tool()
@@ -465,9 +457,7 @@ async def scrape_zomato(
         max_results: Maximum number of restaurants to return (default 50).
     """
     with ZomatoScraper(_config()) as zs:
-        return await _run(
-            zs.scrape, city=city, query=query, max_results=max_results
-        )
+        return await _run(zs.scrape, city=city, query=query, max_results=max_results)
 
 
 @mcp.tool()

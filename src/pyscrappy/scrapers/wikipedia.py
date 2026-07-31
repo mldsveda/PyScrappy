@@ -132,29 +132,35 @@ class WikipediaScraper(BaseScraper):
                 headline = element.find("span", class_="mw-headline")
                 if headline:
                     current_section = headline.get_text(strip=True)
-                    items.append({
-                        "type": "header",
-                        "level": element.name,
-                        "text": current_section,
-                    })
+                    items.append(
+                        {
+                            "type": "header",
+                            "level": element.name,
+                            "text": current_section,
+                        }
+                    )
 
             elif element.name == "p":
                 text = self._clean_text(element.get_text())
                 if text:
-                    items.append({
-                        "type": "paragraph",
-                        "section": current_section,
-                        "text": text,
-                    })
+                    items.append(
+                        {
+                            "type": "paragraph",
+                            "section": current_section,
+                            "text": text,
+                        }
+                    )
 
             elif element.name == "table" and "wikitable" in element.get("class", []):
                 table_data = self._parse_table(element)
                 if table_data:
-                    items.append({
-                        "type": "table",
-                        "section": current_section,
-                        "data": table_data,
-                    })
+                    items.append(
+                        {
+                            "type": "table",
+                            "section": current_section,
+                            "data": table_data,
+                        }
+                    )
 
         return items
 
@@ -183,10 +189,7 @@ class WikipediaScraper(BaseScraper):
         for row in rows[1:]:
             cells = row.find_all(["td", "th"])
             if len(cells) == len(headers):
-                data.append({
-                    h: self._clean_text(c.get_text())
-                    for h, c in zip(headers, cells)
-                })
+                data.append({h: self._clean_text(c.get_text()) for h, c in zip(headers, cells)})
         return data
 
     def _clean_text(self, text: str) -> str:

@@ -60,22 +60,22 @@ class ZomatoScraper(BaseScraper):
         errors: list[ScrapeError] = []
 
         if render_js:
-            html = self.browser.get_html(
-                url, wait_for="networkidle", scroll_pages=scroll_pages
-            )
+            html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
         restaurants = self._extract_restaurants(html, max_results)
 
         if not restaurants:
-            errors.append(ScrapeError(
-                url=url,
-                message=(
-                    "No restaurants extracted. Zomato requires JS rendering"
-                    " — use render_js=True."
-                ),
-            ))
+            errors.append(
+                ScrapeError(
+                    url=url,
+                    message=(
+                        "No restaurants extracted. Zomato requires JS rendering"
+                        " — use render_js=True."
+                    ),
+                )
+            )
 
         return ScrapeResult(
             data=restaurants,
@@ -83,9 +83,7 @@ class ZomatoScraper(BaseScraper):
             errors=errors,
         )
 
-    def _extract_restaurants(
-        self, html: str, max_results: int
-    ) -> list[dict[str, Any]]:
+    def _extract_restaurants(self, html: str, max_results: int) -> list[dict[str, Any]]:
         """Extract restaurant data from Zomato HTML."""
         # Try embedded JSON first
         json_data = self._extract_from_next_data(html, max_results)
@@ -129,10 +127,7 @@ class ZomatoScraper(BaseScraper):
             restaurant["url"] = href
 
         # Rating
-        rating_el = card.select_one(
-            "[class*='rating'], "
-            "[class*='Rating']"
-        )
+        rating_el = card.select_one("[class*='rating'], [class*='Rating']")
         if rating_el:
             text = rating_el.get_text(strip=True)
             if text and text[0].isdigit():
@@ -155,13 +150,12 @@ class ZomatoScraper(BaseScraper):
 
         return restaurant
 
-    def _extract_from_next_data(
-        self, html: str, max_results: int
-    ) -> list[dict[str, Any]]:
+    def _extract_from_next_data(self, html: str, max_results: int) -> list[dict[str, Any]]:
         """Extract from Zomato's embedded page data."""
         match = re.search(
             r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-            html, re.DOTALL,
+            html,
+            re.DOTALL,
         )
         if not match:
             return []
@@ -175,9 +169,7 @@ class ZomatoScraper(BaseScraper):
         self._find_restaurants(data, restaurants, max_results)
         return restaurants
 
-    def _find_restaurants(
-        self, data: Any, results: list[dict[str, Any]], max_results: int
-    ) -> None:
+    def _find_restaurants(self, data: Any, results: list[dict[str, Any]], max_results: int) -> None:
         """Recursively find restaurant objects in Zomato's JSON."""
         if len(results) >= max_results:
             return
@@ -185,29 +177,32 @@ class ZomatoScraper(BaseScraper):
         if isinstance(data, dict):
             # Zomato nests restaurant data in various structures
             info = data.get("info") or data.get("restaurant") or data
-            if isinstance(info, dict) and info.get("name") and (
-                info.get("cuisine_string") or info.get("cuisines")
+            if (
+                isinstance(info, dict)
+                and info.get("name")
+                and (info.get("cuisine_string") or info.get("cuisines"))
             ):
                 cuisines = info.get("cuisine_string", "")
                 if not cuisines and info.get("cuisines"):
                     cuisines = ", ".join(
-                        c.get("name", "") for c in info["cuisines"]
-                        if isinstance(c, dict)
+                        c.get("name", "") for c in info["cuisines"] if isinstance(c, dict)
                     )
-                results.append({
-                    "name": info.get("name", ""),
-                    "cuisine": cuisines,
-                    "rating": info.get("rating", {}).get("aggregate_rating")
-                    if isinstance(info.get("rating"), dict)
-                    else info.get("rating"),
-                    "price": (
-                        info.get("average_cost_for_two")
-                        or info.get("cfo", {}).get("text", "")
-                    ),
-                    "address": info.get("location", {}).get("address", "")
-                    if isinstance(info.get("location"), dict) else "",
-                    "url": f"https://www.zomato.com/restaurant/{info.get('id', '')}",
-                })
+                results.append(
+                    {
+                        "name": info.get("name", ""),
+                        "cuisine": cuisines,
+                        "rating": info.get("rating", {}).get("aggregate_rating")
+                        if isinstance(info.get("rating"), dict)
+                        else info.get("rating"),
+                        "price": (
+                            info.get("average_cost_for_two") or info.get("cfo", {}).get("text", "")
+                        ),
+                        "address": info.get("location", {}).get("address", "")
+                        if isinstance(info.get("location"), dict)
+                        else "",
+                        "url": f"https://www.zomato.com/restaurant/{info.get('id', '')}",
+                    }
+                )
                 return
 
             for value in data.values():

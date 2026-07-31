@@ -2,10 +2,8 @@
 
 import pytest
 
-import pyscrappy
-from pyscrappy import BaseScraper, get_scraper, list_scrapers, register, register_scraper
+from pyscrappy import BaseScraper, get_scraper, list_scrapers, register, register_scraper, registry
 from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
-from pyscrappy import registry
 
 
 class _Dummy(BaseScraper):

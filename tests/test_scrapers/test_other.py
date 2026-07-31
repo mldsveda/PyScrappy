@@ -1,13 +1,9 @@
 """Tests for remaining scrapers: LinkedIn, ImageSearch."""
 
-import json
 from unittest.mock import MagicMock
 
-import pytest
-
-from pyscrappy.scrapers.linkedin import LinkedInJobsScraper
 from pyscrappy.scrapers.image_search import ImageSearchScraper
-
+from pyscrappy.scrapers.linkedin import LinkedInJobsScraper
 
 # --- LinkedIn ---
 
@@ -75,7 +71,7 @@ class TestLinkedInJobsScraper:
         mock_http.get_html.side_effect = [LINKEDIN_HTML, empty]
         scraper._http = mock_http
 
-        result = scraper.scrape(query="test", max_pages=2)
+        scraper.scrape(query="test", max_pages=2)
 
         calls = mock_http.get_html.call_args_list
         assert "start=0" in calls[0][0][0]
