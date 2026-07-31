@@ -59,6 +59,49 @@ async def test_direct_answer_no_tools(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_json_output_returns_raw_tool_result(monkeypatch):
+    _mock_ollama(
+        monkeypatch,
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"function": {"name": "define_word", "arguments": {"word": "python"}}}
+                ],
+            },
+            {"role": "assistant", "content": "A python is a snake."},
+        ],
+    )
+    payload = {"data": [{"definition": "a snake"}], "count": 1}
+
+    async def fake_call_tool(name, arguments):
+        return json.dumps(payload)
+
+    monkeypatch.setattr(agent, "_call_tool", fake_call_tool)
+
+    output = await agent.run_agent("define python", model="test", json_output=True)
+    assert json.loads(output) == payload
+
+
+def test_json_flag_prints_only_json(monkeypatch, capsys):
+    payload = {"data": [{"definition": "a snake"}], "count": 1}
+
+    async def fake_run_agent(prompt, **kwargs):
+        assert kwargs["json_output"] is True
+        return json.dumps(payload)
+
+    monkeypatch.setattr(agent, "run_agent", fake_run_agent)
+    monkeypatch.setattr(agent.sys, "argv", ["pyscrappy", "chat", "define python", "--json"])
+
+    agent.main()
+
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == payload
+    assert captured.err == ""
+
+
+@pytest.mark.anyio
 async def test_tool_call_round_trip(monkeypatch):
     # Turn 1: model asks for a tool. Turn 2: model answers using the result.
     _mock_ollama(
