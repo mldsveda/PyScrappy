@@ -274,6 +274,23 @@ class TestHttpClientCaching:
         assert mock_httpx.get.call_count == 1  # only first hit the network
         client.close()
 
+    def test_expired_entry_triggers_refetch(self, monkeypatch):
+        # Drive a fake clock so the entry ages past its TTL without sleeping.
+        import pyscrappy.core.http as http_mod
+
+        now = [1000.0]
+        monkeypatch.setattr(http_mod.time, "monotonic", lambda: now[0])
+
+        client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
+        client.get("https://example.com")  # network + cache
+        now[0] += 30  # within TTL -> served from cache
+        client.get("https://example.com")
+        assert mock_httpx.get.call_count == 1
+        now[0] += 31  # total 61s > 60s TTL -> entry is stale, must re-fetch
+        client.get("https://example.com")
+        assert mock_httpx.get.call_count == 2
+        client.close()
+
     def test_params_are_part_of_key(self):
         client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
         client.get("https://api.example.com", params={"q": "a"})
