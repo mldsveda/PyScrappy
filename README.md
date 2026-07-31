@@ -101,8 +101,20 @@ get structured web data back.
 pip install 'pyscrappy[mcp]'
 ```
 
-This installs a `pyscrappy-mcp` command (a stdio MCP server). You can also run it
-with `python -m pyscrappy.mcp`.
+The MCP extra installs the standalone `fastmcp` package and requires Python 3.10
+or newer. On Python 3.9 the core scraping library still works, but the MCP server
+is unavailable.
+
+This installs the `pyscrappy-mcp` command. It uses stdio by default for local MCP
+clients; Streamable HTTP and legacy SSE are available for remote deployments:
+
+```sh
+pyscrappy-mcp          # stdio (default)
+pyscrappy-mcp --http   # Streamable HTTP
+pyscrappy-mcp --sse    # legacy SSE
+```
+
+You can also run the stdio server with `python -m pyscrappy.mcp`.
 
 ### Register with Claude Code
 
@@ -413,7 +425,8 @@ when the process exits. Call `HttpClient.clear_cache()` to empty it manually.
 
 **Required:** `httpx`, `beautifulsoup4`, `lxml`
 
-**Optional:** `playwright` (JS rendering), `pandas` (DataFrames), `mcp` (MCP server)
+**Optional:** `playwright` (JS rendering), `pandas` (DataFrames), `fastmcp`
+(MCP server, Python 3.10+)
 
 ## License
 
