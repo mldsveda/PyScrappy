@@ -146,3 +146,25 @@ async def test_tool_error_is_reported_to_model(monkeypatch):
     result = await agent._call_tool("define_word", {"word": "x"})
     payload = json.loads(result)
     assert "error" in payload and "network down" in payload["error"]
+    
+def test_cli_json_flag(monkeypatch, capsys):
+    # 1. Simulate passing command-line flags: pyscrappy chat --json "define python"
+    monkeypatch.setattr("sys.argv", ["pyscrappy", "chat", "--json", "define python"])
+
+    # 2. Mock Ollama HTTP response with a JSON payload
+    expected_json = '{"data": [{"word": "python", "definition": "a high-level programming language"}]}'
+    _mock_ollama(
+        monkeypatch,
+        [{"role": "assistant", "content": expected_json}],
+    )
+
+    # 3. Execute CLI main()
+    agent.main()
+
+    # 4. Capture stdout and verify it is valid JSON
+    captured = capsys.readouterr()
+    stdout = captured.out.strip()
+
+    # Assert stdout can be parsed cleanly by json.loads
+    parsed = json.loads(stdout)
+    assert parsed is not None

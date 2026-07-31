@@ -71,12 +71,9 @@ async def run_agent(
     host: str = DEFAULT_HOST,
     max_steps: int = MAX_STEPS,
     verbose: bool = False,
+    ret_json: bool = False,
 ) -> str:
-    """Answer ``prompt`` with a local model, letting it call PyScrappy scrapers.
-
-    Talks to an Ollama-compatible ``/api/chat`` endpoint. Returns the model's
-    final text answer.
-    """
+    """Answer ``prompt`` with a local model, letting it call PyScrappy scrapers."""
     tools = await _tool_specs()
     messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
 
@@ -92,20 +89,32 @@ async def run_agent(
 
             tool_calls = message.get("tool_calls")
             if not tool_calls:
-                return message.get("content", "")
+                content = message.get("content", "")
+                if ret_json:
+                    return json.dumps({"content": content})
+                return content
 
             for call in tool_calls:
                 fn = call["function"]
                 name = fn["name"]
                 args = fn.get("arguments") or {}
-                if isinstance(args, str):  # some models return arguments as a JSON string
+                if isinstance(args, str):
                     args = json.loads(args)
-                if verbose:
+                if verbose and not ret_json:
                     print(f"  → {name}({json.dumps(args)})", file=sys.stderr)
+                
                 result = await _call_tool(name, args)
+
+                # When --json is requested, return the raw tool JSON output immediately
+                if ret_json:
+                    return result
+
                 messages.append({"role": "tool", "name": name, "content": result})
 
-    return "Stopped: reached the maximum number of tool-calling steps."
+    error_msg = "Stopped: reached the maximum number of tool-calling steps."
+    if ret_json:
+        return json.dumps({"error": error_msg})
+    return error_msg
 
 
 def main() -> None:
@@ -125,6 +134,7 @@ def main() -> None:
     )
     chat.add_argument("--max-steps", type=int, default=MAX_STEPS, help="Max tool-calling rounds.")
     chat.add_argument("-v", "--verbose", action="store_true", help="Print each tool call.")
+    chat.add_argument('--json', action="store_true", help="Prints output in JSON format only.")
 
     args = parser.parse_args()
 
@@ -138,6 +148,7 @@ def main() -> None:
                 host=args.host,
                 max_steps=args.max_steps,
                 verbose=args.verbose,
+                ret_json=args.json
             )
         )
         print(answer)
