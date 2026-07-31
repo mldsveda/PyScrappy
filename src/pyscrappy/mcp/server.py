@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 import anyio
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from pyscrappy import (
@@ -542,12 +542,24 @@ def _register_plugin_tools() -> None:
                 _tool.__signature__ = sig.replace(
                     parameters=params, return_annotation=ScrapeToolResult
                 )
+                # fastmcp derives the input schema from __annotations__ (not
+                # __signature__), so keep them in sync — otherwise pydantic looks
+                # up a signature param that's absent from annotations and raises
+                # KeyError. The real _tool takes **kwargs, so we rewrite its
+                # annotations to the scraper method's typed params + return type.
+                _tool.__annotations__ = {
+                    p.name: (p.annotation if p.annotation is not inspect.Parameter.empty else Any)
+                    for p in params
+                }
+                _tool.__annotations__["return"] = ScrapeToolResult
                 return _tool
 
             fn = _make()
             fn.__name__ = tool_name
             fn.__doc__ = (method.__doc__ or f"Run the {scraper_name} scraper.").strip()
-            mcp.add_tool(fn, name=tool_name, description=fn.__doc__)
+            # fastmcp derives the tool name and description from fn.__name__ /
+            # fn.__doc__ (set just above), so no explicit name/description kwargs.
+            mcp.add_tool(fn)
             _registered_plugin_tools.add(tool_name)
 
 
@@ -594,9 +606,12 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.http or args.sse:
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        mcp.run(transport="sse" if args.sse else "streamable-http")
+        # fastmcp 3.x takes host/port as run() kwargs (there's no mcp.settings).
+        mcp.run(
+            transport="sse" if args.sse else "streamable-http",
+            host=args.host,
+            port=args.port,
+        )
     else:
         mcp.run()
 

@@ -41,19 +41,17 @@ async def test_declared_tool_is_first_class():
     assert "search_reddit_test" in names
 
     tool = next(t for t in tools if t.name == "search_reddit_test")
-    props = tool.inputSchema.get("properties", {})
+    props = tool.parameters.get("properties", {})
     # The scraper method's signature drives the schema.
     assert set(props) == {"subreddit", "sort"}
-    assert tool.inputSchema.get("required") == ["subreddit"]
+    assert tool.parameters.get("required") == ["subreddit"]
 
 
 @pytest.mark.anyio
 async def test_declared_tool_runs():
     mcp = _server().mcp
-    _content, structured = await mcp.call_tool(
-        "search_reddit_test", {"subreddit": "python", "sort": "top"}
-    )
-    assert structured["data"] == [{"sub": "python", "sort": "top"}]
+    result = await mcp.call_tool("search_reddit_test", {"subreddit": "python", "sort": "top"})
+    assert result.structured_content["data"] == [{"sub": "python", "sort": "top"}]
 
 
 @pytest.mark.anyio
@@ -62,7 +60,21 @@ async def test_plugin_without_mcp_tools_has_no_dedicated_tool():
     names = {t.name for t in await mcp.list_tools()}
     assert "plain_test" not in names
     # ...but it is still reachable via the generic dispatcher.
-    _content, structured = await mcp.call_tool(
-        "scrape_with", {"name": "plain_test", "args": {"q": "x"}}
-    )
-    assert structured["scraper"] == "plain_test"
+    result = await mcp.call_tool("scrape_with", {"name": "plain_test", "args": {"q": "x"}})
+    assert result.structured_content["scraper"] == "plain_test"
+
+
+@pytest.mark.anyio
+async def test_agent_call_tool_reads_structured_result():
+    """Exercise the real agent._call_tool against the live registry (the mocked
+    agent tests skip this path). Guards the fastmcp ToolResult shape: the result
+    is a ToolResult object with .structured_content, not a (content, structured)
+    tuple."""
+    _server()
+    from pyscrappy.mcp import agent
+
+    out = await agent._call_tool("search_reddit_test", {"subreddit": "python"})
+    import json
+
+    parsed = json.loads(out)
+    assert parsed["data"] == [{"sub": "python", "sort": "hot"}]

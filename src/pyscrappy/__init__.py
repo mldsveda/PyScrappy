@@ -101,7 +101,7 @@ for _cls in (
     register(_cls.name, _cls)
 del _cls
 
-__version__ = "1.3.2"
+__version__ = "1.3.3"
 
 __all__ = [
     # Core
