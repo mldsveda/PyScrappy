@@ -9,6 +9,7 @@ loop.
 
 from __future__ import annotations
 
+import math
 import os
 from typing import Any
 
@@ -57,9 +58,12 @@ def _cache_ttl_from_env() -> float:
     if raw is None or raw.strip() == "":
         return _DEFAULT_CACHE_TTL
     try:
-        return float(raw)
+        ttl = float(raw)
     except ValueError:
         return _DEFAULT_CACHE_TTL
+    if not math.isfinite(ttl):
+        return _DEFAULT_CACHE_TTL
+    return ttl
 
 
 _CACHE_TTL = _cache_ttl_from_env()
@@ -80,7 +84,7 @@ class ScrapeToolResult(BaseModel):
     """Structured result returned by every PyScrappy MCP tool.
 
     ``data`` holds the scraped items. The item shape depends on the source (a
-    movie, a stock quote, an article…), so it stays a list of free-form objects,
+    movie, a stock quote, an articleâ€¦), so it stays a list of free-form objects,
     while the envelope around it is typed and gives agents a stable schema.
     """
 
@@ -540,7 +544,7 @@ async def search_soundcloud(query: str, max_results: int = 20) -> ScrapeToolResu
     def _do() -> ScrapeResult:
         # The scraper drives Playwright's sync API, which pins the browser to
         # the thread that created it. Open, use and close it all inside this
-        # one worker thread — never split the lifecycle across threads.
+        # one worker thread â€” never split the lifecycle across threads.
         with SoundCloudScraper(_config()) as scs:
             return scs.scrape(
                 query=query,
@@ -668,7 +672,7 @@ def _register_plugin_tools() -> None:
 
                 # Expose the scraper method's signature (minus self) so FastMCP
                 # derives a typed input schema from it. The return annotation is
-                # forced to ScrapeToolResult — what _tool actually returns —
+                # forced to ScrapeToolResult â€” what _tool actually returns â€”
                 # otherwise FastMCP validates against the method's own return
                 # type (ScrapeResult) and rejects the result.
                 sig = inspect.signature(method)
@@ -677,7 +681,7 @@ def _register_plugin_tools() -> None:
                     parameters=params, return_annotation=ScrapeToolResult
                 )
                 # fastmcp derives the input schema from __annotations__ (not
-                # __signature__), so keep them in sync — otherwise pydantic looks
+                # __signature__), so keep them in sync â€” otherwise pydantic looks
                 # up a signature param that's absent from annotations and raises
                 # KeyError. The real _tool takes **kwargs, so we rewrite its
                 # annotations to the scraper method's typed params + return type.
