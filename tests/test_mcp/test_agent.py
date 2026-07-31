@@ -9,10 +9,10 @@ import json
 import httpx
 import pytest
 
-# The agent module imports the MCP SDK (mcp.server.fastmcp). It's an optional
-# dependency (pyscrappy[mcp]); if it isn't installed, skip these tests cleanly
-# instead of erroring the whole collection.
-pytest.importorskip("mcp.server.fastmcp")
+# The agent module imports fastmcp. It's an optional dependency
+# (pyscrappy[mcp]); if it isn't installed, skip these tests cleanly instead of
+# erroring the whole collection.
+pytest.importorskip("fastmcp")
 
 from pyscrappy.mcp import agent  # noqa: E402  (import after the skip guard)
 

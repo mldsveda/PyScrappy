@@ -32,8 +32,9 @@ MAX_STEPS = 8
 async def _tool_specs() -> list[dict[str, Any]]:
     """Convert the MCP tool registry into Ollama's tool-definition format.
 
-    Ollama uses the OpenAI function-calling shape, and MCP's ``inputSchema`` is
-    already JSON Schema, so this is a straight re-wrap — one source of truth.
+    Ollama uses the OpenAI function-calling shape, and a fastmcp tool's
+    ``parameters`` is already JSON Schema, so this is a straight re-wrap — one
+    source of truth.
     """
     # Ensure plugin-declared tools are registered before we read the tool list,
     # so the local-model agent sees them too (not just the MCP server).
@@ -47,7 +48,7 @@ async def _tool_specs() -> list[dict[str, Any]]:
             "function": {
                 "name": t.name,
                 "description": t.description or "",
-                "parameters": t.inputSchema,
+                "parameters": t.parameters,
             },
         }
         for t in tools
@@ -57,10 +58,10 @@ async def _tool_specs() -> list[dict[str, Any]]:
 async def _call_tool(name: str, arguments: dict[str, Any]) -> str:
     """Run one scraper tool via the MCP registry, returning JSON for the model."""
     try:
-        _content, structured = await mcp.call_tool(name, arguments)
+        result = await mcp.call_tool(name, arguments)
     except Exception as exc:  # surface the failure to the model, don't crash the loop
         return json.dumps({"error": f"{type(exc).__name__}: {exc}"})
-    return json.dumps(structured, default=str)
+    return json.dumps(result.structured_content, default=str)
 
 
 async def run_agent(

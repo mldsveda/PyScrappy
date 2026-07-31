@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscrappy"
-version = "1.3.2"
+version = "1.3.3"
 description = "A robust, all-in-one Python web scraping toolkit"
 readme = "README.md"
 license = "MIT"
@@ -45,13 +45,16 @@ dataframe = ["pandas>=1.5"]
 # The MCP SDK requires Python >=3.10. The core library still supports 3.9, so
 # gate these deps behind a marker: on 3.9 they're skipped, on 3.10+ installed.
 mcp = [
-    "mcp>=1.2; python_version >= '3.10'",
+    # FastMCP graduated out of the mcp SDK (removed from mcp 2.x) into the
+    # standalone `fastmcp` package, which we import directly. It requires
+    # Python >=3.10; the core library still supports 3.9, so gate behind a marker.
+    "fastmcp>=2.0; python_version >= '3.10'",
     "anyio>=4.0; python_version >= '3.10'",
 ]
 all = [
     "playwright>=1.40",
     "pandas>=1.5",
-    "mcp>=1.2; python_version >= '3.10'",
+    "fastmcp>=2.0; python_version >= '3.10'",
     "anyio>=4.0; python_version >= '3.10'",
 ]
 
