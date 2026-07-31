@@ -2,12 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.models import ScrapeResult
 from pyscrappy.generic.scraper import GenericScraper
-
 
 SAMPLE_HTML = """
 <html lang="en">
@@ -101,7 +97,7 @@ class TestGenericScraperScrape:
         result = scraper.scrape(url="https://example.com")
         links = result.data[0]["links"]
         assert len(links) >= 1
-        urls = [l["url"] for l in links]
+        urls = [link["url"] for link in links]
         assert "https://example.com/link1" in urls
         scraper.close()
 
@@ -235,7 +231,9 @@ class TestGenericScraperPagination:
         scraper.close()
 
     def test_stops_when_no_next_page(self):
-        page1 = "<html><body><p>Only page with long enough content for the extractor.</p></body></html>"
+        page1 = (
+            "<html><body><p>Only page with long enough content for the extractor.</p></body></html>"
+        )
         scraper = GenericScraper()
         mock_http = MagicMock()
         mock_http.get_html.return_value = page1

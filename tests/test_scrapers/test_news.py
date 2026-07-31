@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pyscrappy.core.models import ScrapeResult
 from pyscrappy.scrapers.news import NewsScraper
 
 RSS_FEED = """<?xml version="1.0" encoding="UTF-8"?>
@@ -218,6 +217,7 @@ class TestNewsScraperHelpers:
 
     def test_xml_text_missing_element(self):
         from xml.etree import ElementTree
+
         root = ElementTree.fromstring("<item><title>Test</title></item>")
         assert NewsScraper._xml_text(root, "title") == "Test"
         assert NewsScraper._xml_text(root, "description") == ""

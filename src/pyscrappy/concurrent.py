@@ -55,6 +55,7 @@ def scrape_many(
     Returns:
         A list of ``ScrapeResult`` in the same order as ``calls``.
     """
+
     def _one(call: dict[str, Any]) -> ScrapeResult:
         with scraper_cls(config) as scraper:
             return scraper.scrape(**call)

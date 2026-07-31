@@ -17,13 +17,24 @@ def _with(scraper, *responses):
 
 class TestGitHub:
     def test_parse(self):
-        payload = json.dumps({"items": [{
-            "name": "pyscrappy", "full_name": "mldsveda/pyscrappy",
-            "owner": {"login": "mldsveda"}, "description": "scraping toolkit",
-            "html_url": "https://github.com/mldsveda/pyscrappy",
-            "stargazers_count": 90, "forks_count": 31, "language": "Python",
-            "open_issues_count": 2, "updated_at": "2026-01-01",
-        }]})
+        payload = json.dumps(
+            {
+                "items": [
+                    {
+                        "name": "pyscrappy",
+                        "full_name": "mldsveda/pyscrappy",
+                        "owner": {"login": "mldsveda"},
+                        "description": "scraping toolkit",
+                        "html_url": "https://github.com/mldsveda/pyscrappy",
+                        "stargazers_count": 90,
+                        "forks_count": 31,
+                        "language": "Python",
+                        "open_issues_count": 2,
+                        "updated_at": "2026-01-01",
+                    }
+                ]
+            }
+        )
         s = _with(GitHubScraper(token="t"), payload)
         r = s.scrape(query="scraping")
         assert len(r.data) == 1
@@ -42,11 +53,21 @@ class TestGitHub:
 
 class TestHackerNews:
     def test_parse(self):
-        payload = json.dumps({"hits": [{
-            "title": "Show HN: PyScrappy", "url": "https://example.com",
-            "points": 42, "author": "veda", "num_comments": 7,
-            "created_at": "2026-01-01", "objectID": "12345",
-        }]})
+        payload = json.dumps(
+            {
+                "hits": [
+                    {
+                        "title": "Show HN: PyScrappy",
+                        "url": "https://example.com",
+                        "points": 42,
+                        "author": "veda",
+                        "num_comments": 7,
+                        "created_at": "2026-01-01",
+                        "objectID": "12345",
+                    }
+                ]
+            }
+        )
         s = _with(HackerNewsScraper(), payload)
         r = s.scrape(query="pyscrappy")
         assert len(r.data) == 1
@@ -64,11 +85,21 @@ class TestHackerNews:
 
 class TestOpenLibrary:
     def test_parse(self):
-        payload = json.dumps({"docs": [{
-            "title": "Dune", "author_name": ["Frank Herbert"],
-            "first_publish_year": 1965, "edition_count": 100,
-            "language": ["eng"], "key": "/works/OL893415W", "cover_i": 111,
-        }]})
+        payload = json.dumps(
+            {
+                "docs": [
+                    {
+                        "title": "Dune",
+                        "author_name": ["Frank Herbert"],
+                        "first_publish_year": 1965,
+                        "edition_count": 100,
+                        "language": ["eng"],
+                        "key": "/works/OL893415W",
+                        "cover_i": 111,
+                    }
+                ]
+            }
+        )
         s = _with(OpenLibraryScraper(), payload)
         r = s.scrape(query="dune")
         assert len(r.data) == 1
@@ -87,16 +118,30 @@ class TestOpenLibrary:
 
 class TestWeather:
     def test_geocode_then_forecast(self):
-        geo = json.dumps({"results": [{
-            "name": "London", "country": "United Kingdom",
-            "latitude": 51.5, "longitude": -0.12,
-        }]})
-        forecast = json.dumps({
-            "current": {"time": "2026-01-01T12:00", "temperature_2m": 15.0,
-                        "relative_humidity_2m": 60, "wind_speed_10m": 10.0,
-                        "weather_code": 3},
-            "current_units": {"temperature_2m": "°C", "wind_speed_10m": "km/h"},
-        })
+        geo = json.dumps(
+            {
+                "results": [
+                    {
+                        "name": "London",
+                        "country": "United Kingdom",
+                        "latitude": 51.5,
+                        "longitude": -0.12,
+                    }
+                ]
+            }
+        )
+        forecast = json.dumps(
+            {
+                "current": {
+                    "time": "2026-01-01T12:00",
+                    "temperature_2m": 15.0,
+                    "relative_humidity_2m": 60,
+                    "wind_speed_10m": 10.0,
+                    "weather_code": 3,
+                },
+                "current_units": {"temperature_2m": "°C", "wind_speed_10m": "km/h"},
+            }
+        )
         s = _with(WeatherScraper(), geo, forecast)
         r = s.scrape(location="London")
         assert len(r.data) == 1

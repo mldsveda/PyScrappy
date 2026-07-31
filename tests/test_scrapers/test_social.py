@@ -5,10 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pyscrappy.scrapers.youtube import YouTubeScraper
 from pyscrappy.scrapers.instagram import InstagramScraper
 from pyscrappy.scrapers.twitter import TwitterScraper
-
+from pyscrappy.scrapers.youtube import YouTubeScraper
 
 # --- YouTube ---
 
@@ -17,25 +16,33 @@ YT_INITIAL_DATA = {
         "twoColumnSearchResultsRenderer": {
             "primaryContents": {
                 "sectionListRenderer": {
-                    "contents": [{
-                        "itemSectionRenderer": {
-                            "contents": [{
-                                "videoRenderer": {
-                                    "videoId": "dQw4w9WgXcQ",
-                                    "title": {"runs": [{"text": "Python Tutorial"}]},
-                                    "ownerText": {"runs": [{"text": "Corey Schafer"}]},
-                                    "viewCountText": {"simpleText": "5M views"},
-                                    "publishedTimeText": {"simpleText": "2 years ago"},
-                                    "lengthText": {"simpleText": "45:23"},
-                                    "thumbnailOverlays": [{}],
-                                    "thumbnail": {"thumbnails": [
-                                        {"url": "https://i.ytimg.com/vi/x/default.jpg"},
-                                        {"url": "https://i.ytimg.com/vi/x/hqdefault.jpg"},
-                                    ]},
-                                }
-                            }]
+                    "contents": [
+                        {
+                            "itemSectionRenderer": {
+                                "contents": [
+                                    {
+                                        "videoRenderer": {
+                                            "videoId": "dQw4w9WgXcQ",
+                                            "title": {"runs": [{"text": "Python Tutorial"}]},
+                                            "ownerText": {"runs": [{"text": "Corey Schafer"}]},
+                                            "viewCountText": {"simpleText": "5M views"},
+                                            "publishedTimeText": {"simpleText": "2 years ago"},
+                                            "lengthText": {"simpleText": "45:23"},
+                                            "thumbnailOverlays": [{}],
+                                            "thumbnail": {
+                                                "thumbnails": [
+                                                    {"url": "https://i.ytimg.com/vi/x/default.jpg"},
+                                                    {
+                                                        "url": "https://i.ytimg.com/vi/x/hqdefault.jpg"
+                                                    },
+                                                ]
+                                            },
+                                        }
+                                    }
+                                ]
+                            }
                         }
-                    }]
+                    ]
                 }
             }
         }
@@ -43,9 +50,9 @@ YT_INITIAL_DATA = {
 }
 
 YT_HTML = (
-    '<html><body><script>var ytInitialData = '
+    "<html><body><script>var ytInitialData = "
     + json.dumps(YT_INITIAL_DATA)
-    + ';</script></body></html>'
+    + ";</script></body></html>"
 )
 
 YT_RENDERED_HTML = """
@@ -97,11 +104,18 @@ class TestYouTubeScraper:
     def test_max_results_limit(self):
         scraper = YouTubeScraper()
         # Build HTML with multiple videos
-        data = {"contents": [{"videoRenderer": {
-            "videoId": f"vid{i}",
-            "title": {"runs": [{"text": f"Video {i}"}]},
-        }} for i in range(10)]}
-        html = f'<html><body><script>var ytInitialData = {json.dumps(data)};</script></body></html>'
+        data = {
+            "contents": [
+                {
+                    "videoRenderer": {
+                        "videoId": f"vid{i}",
+                        "title": {"runs": [{"text": f"Video {i}"}]},
+                    }
+                }
+                for i in range(10)
+            ]
+        }
+        html = f"<html><body><script>var ytInitialData = {json.dumps(data)};</script></body></html>"
         mock_http = MagicMock()
         mock_http.get_html.return_value = html
         scraper._http = mock_http
@@ -127,37 +141,43 @@ class TestYouTubeScraper:
 
 IG_SHARED_DATA = {
     "entry_data": {
-        "ProfilePage": [{
-            "graphql": {
-                "user": {
-                    "full_name": "National Geographic",
-                    "biography": "Experience the world.",
-                    "edge_followed_by": {"count": 250000000},
-                    "edge_follow": {"count": 150},
-                    "edge_owner_to_timeline_media": {
-                        "count": 25000,
-                        "edges": [{
-                            "node": {
-                                "shortcode": "ABC123",
-                                "edge_media_to_caption": {"edges": [{"node": {"text": "Beautiful sunset"}}]},
-                                "edge_liked_by": {"count": 100000},
-                                "edge_media_to_comment": {"count": 500},
-                            }
-                        }],
-                    },
-                    "is_verified": True,
-                    "profile_pic_url_hd": "https://pic.com/natgeo.jpg",
-                    "external_url": "https://natgeo.com",
+        "ProfilePage": [
+            {
+                "graphql": {
+                    "user": {
+                        "full_name": "National Geographic",
+                        "biography": "Experience the world.",
+                        "edge_followed_by": {"count": 250000000},
+                        "edge_follow": {"count": 150},
+                        "edge_owner_to_timeline_media": {
+                            "count": 25000,
+                            "edges": [
+                                {
+                                    "node": {
+                                        "shortcode": "ABC123",
+                                        "edge_media_to_caption": {
+                                            "edges": [{"node": {"text": "Beautiful sunset"}}]
+                                        },
+                                        "edge_liked_by": {"count": 100000},
+                                        "edge_media_to_comment": {"count": 500},
+                                    }
+                                }
+                            ],
+                        },
+                        "is_verified": True,
+                        "profile_pic_url_hd": "https://pic.com/natgeo.jpg",
+                        "external_url": "https://natgeo.com",
+                    }
                 }
             }
-        }]
+        ]
     }
 }
 
 IG_HTML_WITH_JSON = (
-    '<html><body><script>window._sharedData = '
+    "<html><body><script>window._sharedData = "
     + json.dumps(IG_SHARED_DATA)
-    + ';</script></body></html>'
+    + ";</script></body></html>"
 )
 
 IG_HTML_FALLBACK = """
@@ -172,30 +192,36 @@ IG_HTML_FALLBACK = """
 
 IG_HASHTAG_DATA = {
     "entry_data": {
-        "TagPage": [{
-            "graphql": {
-                "hashtag": {
-                    "edge_hashtag_to_media": {
-                        "edges": [{
-                            "node": {
-                                "shortcode": "XYZ789",
-                                "edge_media_to_caption": {"edges": [{"node": {"text": "Sunset pic"}}]},
-                                "edge_liked_by": {"count": 5000},
-                                "edge_media_to_comment": {"count": 50},
-                                "is_video": False,
-                            }
-                        }]
+        "TagPage": [
+            {
+                "graphql": {
+                    "hashtag": {
+                        "edge_hashtag_to_media": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "shortcode": "XYZ789",
+                                        "edge_media_to_caption": {
+                                            "edges": [{"node": {"text": "Sunset pic"}}]
+                                        },
+                                        "edge_liked_by": {"count": 5000},
+                                        "edge_media_to_comment": {"count": 50},
+                                        "is_video": False,
+                                    }
+                                }
+                            ]
+                        }
                     }
                 }
             }
-        }]
+        ]
     }
 }
 
 IG_HASHTAG_HTML = (
-    '<html><body><script>window._sharedData = '
+    "<html><body><script>window._sharedData = "
     + json.dumps(IG_HASHTAG_DATA)
-    + ';</script></body></html>'
+    + ";</script></body></html>"
 )
 
 
@@ -290,22 +316,24 @@ TWITTER_RENDERED_HTML = """
 """
 
 TWITTER_JSON_HTML = (
-    '<html><body><script>window.__INITIAL_STATE__ = '
-    + json.dumps({
-        "entities": {
-            "tweets": {
-                "entities": {
-                    "12345": {
-                        "full_text": "JSON extracted tweet",
-                        "created_at": "Mon Jan 15 10:00:00 +0000 2024",
-                        "retweet_count": 20,
-                        "favorite_count": 100,
+    "<html><body><script>window.__INITIAL_STATE__ = "
+    + json.dumps(
+        {
+            "entities": {
+                "tweets": {
+                    "entities": {
+                        "12345": {
+                            "full_text": "JSON extracted tweet",
+                            "created_at": "Mon Jan 15 10:00:00 +0000 2024",
+                            "retweet_count": 20,
+                            "favorite_count": 100,
+                        }
                     }
                 }
             }
         }
-    })
-    + ';</script></body></html>'
+    )
+    + ";</script></body></html>"
 )
 
 
@@ -324,7 +352,7 @@ class TestTwitterScraper:
         mock_http.get_html.return_value = "<html><body></body></html>"
         scraper._http = mock_http
 
-        result = scraper.scrape(hashtag="python")
+        scraper.scrape(hashtag="python")
         url = mock_http.get_html.call_args[0][0]
         assert "%23python" in url  # #python URL-encoded
         scraper.close()

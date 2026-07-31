@@ -31,6 +31,7 @@ class TestScrapeMetadata:
         meta = ScrapeMetadata()
         # Should be parseable as ISO datetime
         from datetime import datetime
+
         dt = datetime.fromisoformat(meta.timestamp)
         assert dt is not None
 
@@ -95,6 +96,7 @@ class TestScrapeResult:
 
     def test_to_dataframe_missing_pandas(self, monkeypatch):
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -108,10 +110,7 @@ class TestScrapeResult:
             result.to_dataframe()
 
     def test_to_dataframe_with_pandas(self):
-        try:
-            import pandas as pd
-        except ImportError:
-            pytest.skip("pandas not installed")
+        pytest.importorskip("pandas")
 
         result = ScrapeResult(data=[{"a": 1, "b": 2}, {"a": 3, "b": 4}])
         df = result.to_dataframe()

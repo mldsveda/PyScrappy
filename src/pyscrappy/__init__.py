@@ -27,6 +27,7 @@ Quick start::
 """
 
 from pyscrappy.concurrent import scrape_all, scrape_many
+from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import (
     BrowserNotInstalledError,
@@ -36,15 +37,14 @@ from pyscrappy.core.exceptions import (
     ScraperTimeoutError,
     SelectorError,
 )
-from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.models import ScrapeResult
+from pyscrappy.generic.scraper import GenericScraper
 from pyscrappy.registry import (
     get_scraper,
     list_scrapers,
     register,
     register_scraper,
 )
-from pyscrappy.generic.scraper import GenericScraper
 from pyscrappy.scrapers.amazon import AmazonScraper
 from pyscrappy.scrapers.crypto import CryptoScraper
 from pyscrappy.scrapers.currency import CurrencyScraper
@@ -62,8 +62,8 @@ from pyscrappy.scrapers.openlibrary import OpenLibraryScraper
 from pyscrappy.scrapers.soundcloud import SoundCloudScraper
 from pyscrappy.scrapers.spotify import SpotifyScraper
 from pyscrappy.scrapers.stock import StockScraper
-from pyscrappy.scrapers.ubereats import UberEatsScraper
 from pyscrappy.scrapers.twitter import TwitterScraper
+from pyscrappy.scrapers.ubereats import UberEatsScraper
 from pyscrappy.scrapers.weather import WeatherScraper
 from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper
@@ -101,7 +101,7 @@ for _cls in (
     register(_cls.name, _cls)
 del _cls
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 
 __all__ = [
     # Core

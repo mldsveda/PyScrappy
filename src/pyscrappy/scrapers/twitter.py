@@ -71,23 +71,23 @@ class TwitterScraper(BaseScraper):
         errors: list[ScrapeError] = []
 
         if render_js:
-            html = self.browser.get_html(
-                url, wait_for="networkidle", scroll_pages=scroll_pages
-            )
+            html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
         tweets = self._extract_tweets(html, max_tweets)
 
         if not tweets:
-            errors.append(ScrapeError(
-                url=url,
-                message=(
-                    "No tweets extracted. Twitter/X likely requires"
-                    " authentication. Use render_js=True with a"
-                    " logged-in browser session."
-                ),
-            ))
+            errors.append(
+                ScrapeError(
+                    url=url,
+                    message=(
+                        "No tweets extracted. Twitter/X likely requires"
+                        " authentication. Use render_js=True with a"
+                        " logged-in browser session."
+                    ),
+                )
+            )
 
         return ScrapeResult(
             data=tweets,
@@ -163,12 +163,14 @@ class TwitterScraper(BaseScraper):
         for tweet_id, tweet_data in entities.items():
             if len(tweets) >= max_tweets:
                 break
-            tweets.append({
-                "id": tweet_id,
-                "text": tweet_data.get("full_text", ""),
-                "created_at": tweet_data.get("created_at", ""),
-                "retweets": tweet_data.get("retweet_count"),
-                "likes": tweet_data.get("favorite_count"),
-            })
+            tweets.append(
+                {
+                    "id": tweet_id,
+                    "text": tweet_data.get("full_text", ""),
+                    "created_at": tweet_data.get("created_at", ""),
+                    "retweets": tweet_data.get("retweet_count"),
+                    "likes": tweet_data.get("favorite_count"),
+                }
+            )
 
         return tweets

@@ -1,64 +1,68 @@
 """Tests for pyscrappy.scrapers.stock."""
 
-import json
 from unittest.mock import MagicMock
 
-import pytest
-
-from pyscrappy.core.exceptions import NetworkError
 from pyscrappy.core.models import ScrapeResult
 from pyscrappy.scrapers.stock import StockScraper
 
 QUOTE_JSON = {
     "chart": {
-        "result": [{
-            "meta": {
-                "symbol": "AAPL",
-                "currency": "USD",
-                "exchangeName": "NMS",
-                "regularMarketPrice": 175.50,
-                "chartPreviousClose": 174.20,
-                "regularMarketVolume": 50000000,
-                "regularMarketDayHigh": 176.00,
-                "regularMarketDayLow": 173.80,
-                "fiftyTwoWeekHigh": 199.62,
-                "fiftyTwoWeekLow": 124.17,
+        "result": [
+            {
+                "meta": {
+                    "symbol": "AAPL",
+                    "currency": "USD",
+                    "exchangeName": "NMS",
+                    "regularMarketPrice": 175.50,
+                    "chartPreviousClose": 174.20,
+                    "regularMarketVolume": 50000000,
+                    "regularMarketDayHigh": 176.00,
+                    "regularMarketDayLow": 173.80,
+                    "fiftyTwoWeekHigh": 199.62,
+                    "fiftyTwoWeekLow": 124.17,
+                }
             }
-        }]
+        ]
     }
 }
 
 HISTORY_JSON = {
     "chart": {
-        "result": [{
-            "timestamp": [1704067200, 1704153600],
-            "indicators": {
-                "quote": [{
-                    "open": [185.0, 186.0],
-                    "high": [186.5, 187.0],
-                    "low": [184.0, 185.5],
-                    "close": [186.0, 186.5],
-                    "volume": [40000000, 35000000],
-                }]
+        "result": [
+            {
+                "timestamp": [1704067200, 1704153600],
+                "indicators": {
+                    "quote": [
+                        {
+                            "open": [185.0, 186.0],
+                            "high": [186.5, 187.0],
+                            "low": [184.0, 185.5],
+                            "close": [186.0, 186.5],
+                            "volume": [40000000, 35000000],
+                        }
+                    ]
+                },
             }
-        }]
+        ]
     }
 }
 
 PROFILE_JSON = {
     "chart": {
-        "result": [{
-            "meta": {
-                "symbol": "AAPL",
-                "longName": "Apple Inc.",
-                "shortName": "Apple",
-                "currency": "USD",
-                "exchangeName": "NMS",
-                "market": "us_market",
-                "exchangeTimezoneName": "America/New_York",
-                "instrumentType": "EQUITY",
+        "result": [
+            {
+                "meta": {
+                    "symbol": "AAPL",
+                    "longName": "Apple Inc.",
+                    "shortName": "Apple",
+                    "currency": "USD",
+                    "exchangeName": "NMS",
+                    "market": "us_market",
+                    "exchangeTimezoneName": "America/New_York",
+                    "instrumentType": "EQUITY",
+                }
             }
-        }]
+        ]
     }
 }
 

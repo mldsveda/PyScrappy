@@ -1,0 +1,9 @@
+# Auto-fix lint + format on commit. One-time setup:  pre-commit install
+# Then `git commit` runs ruff on staged files, fixing what it can automatically.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff          # lint, auto-fixing what's safe
+        args: [--fix]
+      - id: ruff-format   # format

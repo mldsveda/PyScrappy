@@ -268,18 +268,14 @@ class TestHttpClientCaching:
         client.close()
 
     def test_cache_hit_skips_network(self):
-        client, mock_httpx = self._mock_client(
-            ScraperConfig(rate_limit=0, cache_ttl=60)
-        )
+        client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
         for _ in range(3):
             client.get("https://example.com")
         assert mock_httpx.get.call_count == 1  # only first hit the network
         client.close()
 
     def test_params_are_part_of_key(self):
-        client, mock_httpx = self._mock_client(
-            ScraperConfig(rate_limit=0, cache_ttl=60)
-        )
+        client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
         client.get("https://api.example.com", params={"q": "a"})
         client.get("https://api.example.com", params={"q": "a"})  # cached
         client.get("https://api.example.com", params={"q": "b"})  # new key
@@ -287,9 +283,7 @@ class TestHttpClientCaching:
         client.close()
 
     def test_clear_cache_forces_refetch(self):
-        client, mock_httpx = self._mock_client(
-            ScraperConfig(rate_limit=0, cache_ttl=60)
-        )
+        client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
         client.get("https://example.com")
         client.clear_cache()
         client.get("https://example.com")
@@ -298,9 +292,7 @@ class TestHttpClientCaching:
 
     def test_non_2xx_not_cached(self):
         # get_raw bypasses caching entirely; only successful get() responses cache
-        client, mock_httpx = self._mock_client(
-            ScraperConfig(rate_limit=0, cache_ttl=60)
-        )
+        client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
         client.get_raw("https://example.com")
         client.get_raw("https://example.com")
         assert mock_httpx.get.call_count == 2

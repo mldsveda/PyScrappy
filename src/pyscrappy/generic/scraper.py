@@ -136,9 +136,7 @@ class GenericScraper(BaseScraper):
             errors=all_errors,
         )
 
-    def _fetch_with_js_detection(
-        self, url: str, render_js: bool | str, scroll_pages: int
-    ) -> str:
+    def _fetch_with_js_detection(self, url: str, render_js: bool | str, scroll_pages: int) -> str:
         """Fetch HTML, auto-detecting if JS rendering is needed."""
         if render_js is True:
             return self.browser.get_html(url, scroll_pages=scroll_pages)

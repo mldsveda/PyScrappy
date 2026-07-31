@@ -72,10 +72,7 @@ class CryptoScraper(BaseScraper):
             return self._err(url, "Unexpected response from CoinGecko.")
 
         coins = [self._parse(c, vs_currency) for c in payload if isinstance(c, dict)]
-        errors = (
-            [] if coins
-            else [ScrapeError(url=url, message="No coins found for this query.")]
-        )
+        errors = [] if coins else [ScrapeError(url=url, message="No coins found for this query.")]
         return ScrapeResult(
             data=coins,
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),

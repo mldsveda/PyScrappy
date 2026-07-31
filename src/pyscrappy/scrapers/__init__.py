@@ -15,8 +15,8 @@ from pyscrappy.scrapers.openlibrary import OpenLibraryScraper
 from pyscrappy.scrapers.soundcloud import SoundCloudScraper
 from pyscrappy.scrapers.spotify import SpotifyScraper
 from pyscrappy.scrapers.stock import StockScraper
-from pyscrappy.scrapers.ubereats import UberEatsScraper
 from pyscrappy.scrapers.twitter import TwitterScraper
+from pyscrappy.scrapers.ubereats import UberEatsScraper
 from pyscrappy.scrapers.weather import WeatherScraper
 from pyscrappy.scrapers.wikipedia import WikipediaScraper
 from pyscrappy.scrapers.youtube import YouTubeScraper

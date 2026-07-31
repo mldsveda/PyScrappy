@@ -10,27 +10,31 @@ from pyscrappy.scrapers.zomato import ZomatoScraper
 ZOMATO_NEXT_DATA = {
     "props": {
         "pageProps": {
-            "sections": [{
-                "cards": [{
-                    "info": {
-                        "id": "67890",
-                        "name": "Biryani House",
-                        "cuisine_string": "Biryani, North Indian",
-                        "rating": {"aggregate_rating": "4.3"},
-                        "average_cost_for_two": 600,
-                        "location": {"address": "123 Main St, Mumbai"},
-                    }
-                }]
-            }]
+            "sections": [
+                {
+                    "cards": [
+                        {
+                            "info": {
+                                "id": "67890",
+                                "name": "Biryani House",
+                                "cuisine_string": "Biryani, North Indian",
+                                "rating": {"aggregate_rating": "4.3"},
+                                "average_cost_for_two": 600,
+                                "location": {"address": "123 Main St, Mumbai"},
+                            }
+                        }
+                    ]
+                }
+            ]
         }
     }
 }
 
 ZOMATO_HTML_JSON = (
-    '<html><body>'
+    "<html><body>"
     '<script id="__NEXT_DATA__" type="application/json">'
     + json.dumps(ZOMATO_NEXT_DATA)
-    + '</script></body></html>'
+    + "</script></body></html>"
 )
 
 ZOMATO_HTML_RENDERED = """

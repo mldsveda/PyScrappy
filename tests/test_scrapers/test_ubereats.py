@@ -5,25 +5,46 @@ from unittest.mock import MagicMock
 
 from pyscrappy.scrapers.ubereats import UberEatsScraper
 
-GEO_JSON = json.dumps({"results": [{
-    "name": "London", "latitude": 51.5, "longitude": -0.12,
-}]})
+GEO_JSON = json.dumps(
+    {
+        "results": [
+            {
+                "name": "London",
+                "latitude": 51.5,
+                "longitude": -0.12,
+            }
+        ]
+    }
+)
 
-FEED_JSON = json.dumps({"data": {"cityName": "london", "feedItems": [
-    {"type": "REGULAR_STORE", "store": {
-        "storeUuid": "abc-123",
-        "title": {"text": "Domino's Pizza"},
-        "meta": [{"text": "£0.99 Delivery Fee"}, {"text": "20 min"}],
-        "actionUrl": "/store/dominos/abc-123",
-    }},
-    {"type": "DIVIDER"},
-    {"type": "REGULAR_STORE", "store": {
-        "storeUuid": "def-456",
-        "title": {"text": "Five Guys"},
-        "meta": [{"text": "10 min"}],
-        "actionUrl": "/store/five-guys/def-456",
-    }},
-]}})
+FEED_JSON = json.dumps(
+    {
+        "data": {
+            "cityName": "london",
+            "feedItems": [
+                {
+                    "type": "REGULAR_STORE",
+                    "store": {
+                        "storeUuid": "abc-123",
+                        "title": {"text": "Domino's Pizza"},
+                        "meta": [{"text": "£0.99 Delivery Fee"}, {"text": "20 min"}],
+                        "actionUrl": "/store/dominos/abc-123",
+                    },
+                },
+                {"type": "DIVIDER"},
+                {
+                    "type": "REGULAR_STORE",
+                    "store": {
+                        "storeUuid": "def-456",
+                        "title": {"text": "Five Guys"},
+                        "meta": [{"text": "10 min"}],
+                        "actionUrl": "/store/five-guys/def-456",
+                    },
+                },
+            ],
+        }
+    }
+)
 
 STORE_HTML = """
 <html><head>

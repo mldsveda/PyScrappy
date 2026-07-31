@@ -81,10 +81,7 @@ class IKEAScraper(BaseScraper):
             )
 
         items = (
-            payload.get("searchResultPage", {})
-            .get("products", {})
-            .get("main", {})
-            .get("items", [])
+            payload.get("searchResultPage", {}).get("products", {}).get("main", {}).get("items", [])
         )
 
         products = [
@@ -94,10 +91,12 @@ class IKEAScraper(BaseScraper):
         ]
 
         if not products:
-            errors.append(ScrapeError(
-                url=url,
-                message="No products returned for this query.",
-            ))
+            errors.append(
+                ScrapeError(
+                    url=url,
+                    message="No products returned for this query.",
+                )
+            )
 
         return ScrapeResult(
             data=products,

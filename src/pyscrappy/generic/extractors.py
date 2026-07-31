@@ -137,11 +137,13 @@ class LinkExtractor:
                 continue
             seen.add(absolute)
 
-            links.append({
-                "url": absolute,
-                "text": a.get_text(strip=True),
-                "rel": " ".join(a.get("rel", [])),
-            })
+            links.append(
+                {
+                    "url": absolute,
+                    "text": a.get_text(strip=True),
+                    "rel": " ".join(a.get("rel", [])),
+                }
+            )
 
         return links
 
@@ -157,12 +159,14 @@ class ImageExtractor:
             if not src:
                 continue
             absolute = urljoin(base_url, src) if base_url else src
-            images.append({
-                "url": absolute,
-                "alt": img.get("alt", ""),
-                "width": img.get("width", ""),
-                "height": img.get("height", ""),
-            })
+            images.append(
+                {
+                    "url": absolute,
+                    "alt": img.get("alt", ""),
+                    "width": img.get("width", ""),
+                    "height": img.get("height", ""),
+                }
+            )
 
         return images
 

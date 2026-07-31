@@ -8,7 +8,6 @@ import pytest
 from pyscrappy.scrapers.soundcloud import SoundCloudScraper
 from pyscrappy.scrapers.spotify import SpotifyScraper
 
-
 # --- SoundCloud ---
 
 SC_HYDRATION = [
@@ -47,9 +46,9 @@ SC_HYDRATION = [
 ]
 
 SC_HTML_WITH_HYDRATION = (
-    '<html><body><script>window.__sc_hydration = '
+    "<html><body><script>window.__sc_hydration = "
     + json.dumps(SC_HYDRATION)
-    + '; </script></body></html>'
+    + "; </script></body></html>"
 )
 
 SC_HTML_RENDERED = """
@@ -148,10 +147,10 @@ SPOTIFY_RESOURCE_DATA = {
 }
 
 SPOTIFY_HTML_WITH_RESOURCE = (
-    '<html><body>'
+    "<html><body>"
     '<script id="initial-state" type="text/plain">'
     + __import__("base64").b64encode(json.dumps(SPOTIFY_RESOURCE_DATA).encode()).decode()
-    + '</script></body></html>'
+    + "</script></body></html>"
 )
 
 SPOTIFY_HTML_RENDERED = """

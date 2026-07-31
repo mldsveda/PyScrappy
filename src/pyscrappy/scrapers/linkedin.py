@@ -72,10 +72,12 @@ class LinkedInJobsScraper(BaseScraper):
 
             # Check if we got an auth wall
             if soup.find("form", class_="login__form"):
-                errors.append(ScrapeError(
-                    url=url,
-                    message="LinkedIn requires authentication for this page.",
-                ))
+                errors.append(
+                    ScrapeError(
+                        url=url,
+                        message="LinkedIn requires authentication for this page.",
+                    )
+                )
                 break
 
             page_jobs = self._parse_job_cards(soup)
@@ -97,9 +99,7 @@ class LinkedInJobsScraper(BaseScraper):
         """Parse job cards from LinkedIn's public job search page."""
         jobs: list[dict[str, Any]] = []
 
-        for card in soup.select(
-            ".base-card, .job-search-card, .base-search-card--link"
-        ):
+        for card in soup.select(".base-card, .job-search-card, .base-search-card--link"):
             job = self._parse_single_card(card)
             if job and job.get("title"):
                 jobs.append(job)
@@ -111,16 +111,12 @@ class LinkedInJobsScraper(BaseScraper):
         job: dict[str, Any] = {}
 
         # Title
-        title_el = card.select_one(
-            ".base-search-card__title, .base-card__full-link span"
-        )
+        title_el = card.select_one(".base-search-card__title, .base-card__full-link span")
         if title_el:
             job["title"] = title_el.get_text(strip=True)
 
         # Company
-        company_el = card.select_one(
-            ".base-search-card__subtitle a, .base-search-card__subtitle"
-        )
+        company_el = card.select_one(".base-search-card__subtitle a, .base-search-card__subtitle")
         if company_el:
             job["company"] = company_el.get_text(strip=True)
 

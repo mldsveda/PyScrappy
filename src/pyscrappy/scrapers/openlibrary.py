@@ -56,11 +56,7 @@ class OpenLibraryScraper(BaseScraper):
                 errors=[ScrapeError(url=url, message=str(exc))],
             )
 
-        books = [
-            self._parse(doc)
-            for doc in payload.get("docs", [])
-            if isinstance(doc, dict)
-        ]
+        books = [self._parse(doc) for doc in payload.get("docs", []) if isinstance(doc, dict)]
 
         errors: list[ScrapeError] = []
         if not books:
@@ -85,9 +81,6 @@ class OpenLibraryScraper(BaseScraper):
             "edition_count": doc.get("edition_count"),
             "languages": doc.get("language"),
             "url": f"https://openlibrary.org{key}" if key else None,
-            "cover": (
-                f"https://covers.openlibrary.org/b/id/{cover}-M.jpg"
-                if cover else None
-            ),
+            "cover": (f"https://covers.openlibrary.org/b/id/{cover}-M.jpg" if cover else None),
         }
         return {k: v for k, v in book.items() if v is not None}

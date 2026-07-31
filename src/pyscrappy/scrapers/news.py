@@ -129,12 +129,14 @@ class NewsScraper(BaseScraper):
         main = soup.find("article") or soup.find("main") or soup.find(role="main")
         if main and isinstance(main, Tag):
             paragraphs = [
-                p.get_text(strip=True) for p in main.find_all("p")
+                p.get_text(strip=True)
+                for p in main.find_all("p")
                 if len(p.get_text(strip=True)) > 30
             ]
         else:
             paragraphs = [
-                p.get_text(strip=True) for p in soup.find_all("p")
+                p.get_text(strip=True)
+                for p in soup.find_all("p")
                 if len(p.get_text(strip=True)) > 50
             ]
 

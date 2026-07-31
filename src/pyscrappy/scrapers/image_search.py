@@ -67,9 +67,7 @@ class ImageSearchScraper(BaseScraper):
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
         )
 
-    def _search_bing(
-        self, query: str, max_images: int
-    ) -> tuple[list[dict[str, Any]], str]:
+    def _search_bing(self, query: str, max_images: int) -> tuple[list[dict[str, Any]], str]:
         """Search Bing Images (server-rendered, no JS needed)."""
         url = f"https://www.bing.com/images/search?q={quote_plus(query)}&first=1&count={max_images}"
         soup = self.fetch_and_parse(url)
@@ -81,6 +79,7 @@ class ImageSearchScraper(BaseScraper):
             if not m_attr:
                 continue
             import json
+
             try:
                 m_data = json.loads(str(m_attr))
             except (json.JSONDecodeError, TypeError):
@@ -90,14 +89,16 @@ class ImageSearchScraper(BaseScraper):
             if not img_url:
                 continue
 
-            images.append({
-                "url": img_url,
-                "thumbnail": m_data.get("turl", ""),
-                "title": m_data.get("t", ""),
-                "source_page": m_data.get("purl", ""),
-                "width": m_data.get("mw"),
-                "height": m_data.get("mh"),
-            })
+            images.append(
+                {
+                    "url": img_url,
+                    "thumbnail": m_data.get("turl", ""),
+                    "title": m_data.get("t", ""),
+                    "source_page": m_data.get("purl", ""),
+                    "width": m_data.get("mw"),
+                    "height": m_data.get("mh"),
+                }
+            )
 
             if len(images) >= max_images:
                 break
@@ -107,18 +108,18 @@ class ImageSearchScraper(BaseScraper):
             for img in soup.find_all("img", src=True):
                 src = str(img["src"])
                 if src.startswith("http") and "bing.com/th" not in src:
-                    images.append({
-                        "url": src,
-                        "alt": img.get("alt", ""),
-                    })
+                    images.append(
+                        {
+                            "url": src,
+                            "alt": img.get("alt", ""),
+                        }
+                    )
                     if len(images) >= max_images:
                         break
 
         return images, url
 
-    def _search_google(
-        self, query: str, max_images: int
-    ) -> tuple[list[dict[str, Any]], str]:
+    def _search_google(self, query: str, max_images: int) -> tuple[list[dict[str, Any]], str]:
         """Search Google Images (basic HTML — limited results without JS)."""
         url = f"https://www.google.com/search?q={quote_plus(query)}&tbm=isch"
         soup = self.fetch_and_parse(url)
@@ -129,18 +130,18 @@ class ImageSearchScraper(BaseScraper):
             # Skip Google's tracking pixel and logo
             if not src.startswith("http") or "google.com/images" in src:
                 continue
-            images.append({
-                "url": src,
-                "alt": img.get("alt", ""),
-            })
+            images.append(
+                {
+                    "url": src,
+                    "alt": img.get("alt", ""),
+                }
+            )
             if len(images) >= max_images:
                 break
 
         return images, url
 
-    def _download_images(
-        self, images: list[dict[str, Any]], directory: str
-    ) -> None:
+    def _download_images(self, images: list[dict[str, Any]], directory: str) -> None:
         """Download images to a local directory."""
         os.makedirs(directory, exist_ok=True)
 

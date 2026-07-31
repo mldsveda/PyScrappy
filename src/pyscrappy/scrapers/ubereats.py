@@ -93,9 +93,7 @@ class UberEatsScraper(BaseScraper):
             "type": "google_places",
             "source": "manual_auto_complete",
         }
-        self.http.set_cookie(
-            "uev2.loc", quote(json.dumps(loc)), domain=".ubereats.com"
-        )
+        self.http.set_cookie("uev2.loc", quote(json.dumps(loc)), domain=".ubereats.com")
 
         # 3. Query the feed API.
         feed_url = _FEED.format(locale=self.locale)
@@ -210,24 +208,24 @@ class UberEatsScraper(BaseScraper):
                         offers = offers[0] if offers else {}
                     name = item.get("name")
                     desc = item.get("description")
-                    menu.append({
-                        "section": section_name,
-                        "name": _html.unescape(name) if name else None,
-                        "description": _html.unescape(desc) if desc else None,
-                        "price": offers.get("price") if isinstance(offers, dict) else None,
-                        "currency": (
-                            offers.get("priceCurrency") if isinstance(offers, dict) else None
-                        ),
-                    })
+                    menu.append(
+                        {
+                            "section": section_name,
+                            "name": _html.unescape(name) if name else None,
+                            "description": _html.unescape(desc) if desc else None,
+                            "price": offers.get("price") if isinstance(offers, dict) else None,
+                            "currency": (
+                                offers.get("priceCurrency") if isinstance(offers, dict) else None
+                            ),
+                        }
+                    )
 
             record = {
                 "name": data.get("name"),
                 "cuisine": data.get("servesCuisine"),
                 "price_range": data.get("priceRange"),
                 "rating": rating.get("ratingValue") if isinstance(rating, dict) else None,
-                "rating_count": (
-                    rating.get("reviewCount") if isinstance(rating, dict) else None
-                ),
+                "rating_count": (rating.get("reviewCount") if isinstance(rating, dict) else None),
                 "telephone": data.get("telephone"),
                 "menu": menu or None,
             }

@@ -69,20 +69,19 @@ class DictionaryScraper(BaseScraper):
             for meaning in entry.get("meanings", []):
                 pos = meaning.get("partOfSpeech")
                 for definition in meaning.get("definitions", []):
-                    rows.append({
-                        "word": entry.get("word") or word,
-                        "phonetic": phonetic,
-                        "part_of_speech": pos,
-                        "definition": definition.get("definition"),
-                        "example": definition.get("example"),
-                        "synonyms": definition.get("synonyms") or None,
-                    })
+                    rows.append(
+                        {
+                            "word": entry.get("word") or word,
+                            "phonetic": phonetic,
+                            "part_of_speech": pos,
+                            "definition": definition.get("definition"),
+                            "example": definition.get("example"),
+                            "synonyms": definition.get("synonyms") or None,
+                        }
+                    )
 
         rows = [{k: v for k, v in r.items() if v is not None} for r in rows]
-        errors = (
-            [] if rows
-            else [ScrapeError(url=url, message=f"No definitions for {word!r}.")]
-        )
+        errors = [] if rows else [ScrapeError(url=url, message=f"No definitions for {word!r}.")]
         return ScrapeResult(
             data=rows,
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),

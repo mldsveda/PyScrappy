@@ -106,8 +106,7 @@ class BrowserManager:
         context = self._browser.new_context()
         page = context.new_page()
         try:
-            page.goto(url, wait_until="networkidle",
-                       timeout=int(self.config.timeout * 1000))
+            page.goto(url, wait_until="networkidle", timeout=int(self.config.timeout * 1000))
             page.screenshot(path=path, full_page=full_page)
         finally:
             page.close()

@@ -1,6 +1,6 @@
 """Tests for pyscrappy.core.config."""
 
-from pyscrappy.core.config import ScraperConfig, _DEFAULT_USER_AGENTS
+from pyscrappy.core.config import _DEFAULT_USER_AGENTS, ScraperConfig
 
 
 class TestScraperConfig:
