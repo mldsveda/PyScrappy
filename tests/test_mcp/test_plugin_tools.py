@@ -2,8 +2,13 @@
 
 import pytest
 
-from pyscrappy import BaseScraper, register_scraper
-from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
+# These tests import the MCP server, which needs fastmcp (optional, Python >=3.10
+# only). Skip the whole module cleanly when it isn't installed (e.g. on 3.9)
+# instead of erroring at collection.
+pytest.importorskip("fastmcp")
+
+from pyscrappy import BaseScraper, register_scraper  # noqa: E402
+from pyscrappy.core.models import ScrapeMetadata, ScrapeResult  # noqa: E402
 
 
 @register_scraper("reddit_test")
