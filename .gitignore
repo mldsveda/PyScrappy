@@ -8,3 +8,5 @@ build/
 *.egg
 .mypy_cache/
 .venv/
+# Library, not an app: ship version ranges, not a pinned lockfile.
+uv.lock
