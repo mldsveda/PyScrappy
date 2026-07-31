@@ -9,6 +9,7 @@ loop.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import anyio
@@ -47,8 +48,21 @@ mcp = FastMCP("pyscrappy")
 
 # Agents tend to ask for the same data repeatedly within a session, so cache
 # successful responses for a few minutes to cut latency and avoid rate limits.
-# Hardcoded for now; a future version will make this configurable.
-_CACHE_TTL = 300.0
+# Configurable via PYSCRAPPY_MCP_CACHE_TTL (seconds); falls back to 300s.
+_DEFAULT_CACHE_TTL = 300.0
+
+
+def _cache_ttl_from_env() -> float:
+    raw = os.getenv("PYSCRAPPY_MCP_CACHE_TTL")
+    if raw is None or raw.strip() == "":
+        return _DEFAULT_CACHE_TTL
+    try:
+        return float(raw)
+    except ValueError:
+        return _DEFAULT_CACHE_TTL
+
+
+_CACHE_TTL = _cache_ttl_from_env()
 
 
 def _config() -> ScraperConfig:
