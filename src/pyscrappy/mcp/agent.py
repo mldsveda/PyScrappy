@@ -71,14 +71,16 @@ async def run_agent(
     host: str = DEFAULT_HOST,
     max_steps: int = MAX_STEPS,
     verbose: bool = False,
+    json_output: bool = False,
 ) -> str:
     """Answer ``prompt`` with a local model, letting it call PyScrappy scrapers.
 
-    Talks to an Ollama-compatible ``/api/chat`` endpoint. Returns the model's
-    final text answer.
+    Talks to an Ollama-compatible ``/api/chat`` endpoint. Returns the model's final text
+    answer by default, or the latest raw tool result when ``json_output`` is enabled.
     """
     tools = await _tool_specs()
     messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+    last_result: str | None = None
 
     async with httpx.AsyncClient(base_url=host, timeout=120.0) as client:
         for _ in range(max_steps):
@@ -92,7 +94,12 @@ async def run_agent(
 
             tool_calls = message.get("tool_calls")
             if not tool_calls:
-                return message.get("content", "")
+                answer = message.get("content", "")
+                if json_output:
+                    return (
+                        last_result if last_result is not None else json.dumps({"answer": answer})
+                    )
+                return answer
 
             for call in tool_calls:
                 fn = call["function"]
@@ -102,10 +109,13 @@ async def run_agent(
                     args = json.loads(args)
                 if verbose:
                     print(f"  → {name}({json.dumps(args)})", file=sys.stderr)
-                result = await _call_tool(name, args)
-                messages.append({"role": "tool", "name": name, "content": result})
+                last_result = await _call_tool(name, args)
+                messages.append({"role": "tool", "name": name, "content": last_result})
 
-    return "Stopped: reached the maximum number of tool-calling steps."
+    stopped = "Stopped: reached the maximum number of tool-calling steps."
+    if json_output:
+        return last_result if last_result is not None else json.dumps({"error": stopped})
+    return stopped
 
 
 def main() -> None:
@@ -125,6 +135,7 @@ def main() -> None:
     )
     chat.add_argument("--max-steps", type=int, default=MAX_STEPS, help="Max tool-calling rounds.")
     chat.add_argument("-v", "--verbose", action="store_true", help="Print each tool call.")
+    chat.add_argument("--json", action="store_true", help="Print the raw scraper result as JSON.")
 
     args = parser.parse_args()
 
@@ -138,6 +149,7 @@ def main() -> None:
                 host=args.host,
                 max_steps=args.max_steps,
                 verbose=args.verbose,
+                json_output=args.json,
             )
         )
         print(answer)
