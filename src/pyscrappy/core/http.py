@@ -111,7 +111,7 @@ class HttpClient:
             except httpx.HTTPStatusError as exc:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
-                    delay = self.config.retry_delay * (2 ** (attempt - 1))
+                    delay = self._backoff_delay(attempt)
                     logger.warning(
                         "Server error %s on %s, retry %d in %.1fs",
                         exc.response.status_code,
@@ -126,7 +126,7 @@ class HttpClient:
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
-                    delay = self.config.retry_delay * (2 ** (attempt - 1))
+                    delay = self._backoff_delay(attempt)
                     logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
                     time.sleep(delay)
                     continue
@@ -206,6 +206,16 @@ class HttpClient:
 
     def _pick_ua(self) -> str:
         return random.choice(self.config.user_agents)
+
+    def _backoff_delay(self, attempt: int) -> float:
+        """Delay before the given retry (1-indexed), using the configured base
+        delay, backoff factor, and optional cap:
+        ``retry_delay * backoff_factor ** (attempt - 1)``, clamped to backoff_max.
+        """
+        delay = self.config.retry_delay * (self.config.backoff_factor ** (attempt - 1))
+        if self.config.backoff_max is not None:
+            delay = min(delay, self.config.backoff_max)
+        return delay
 
     # -- caching --
 

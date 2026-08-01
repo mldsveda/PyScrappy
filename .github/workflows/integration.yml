@@ -1,0 +1,28 @@
+name: Integration (live scrapers)
+
+# The integration tests hit real websites, so they're deselected from PR CI
+# (slow, and they break when a target site changes its HTML — which is exactly
+# what we want to catch here, proactively, rather than via a user report).
+#
+# Runs on a weekly schedule and can be triggered manually. It's allowed to fail
+# without blocking anything: a failure means a site changed and a scraper needs
+# attention. Check the run summary to see which scrapers broke.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday at 06:00 UTC
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[all]' pytest
+      # Run ONLY the integration tests. continue-on-error so one broken site
+      # doesn't mask the rest of the report; the step summary shows what failed.
+      - name: Run live integration tests
+        run: pytest -m integration -v -rA

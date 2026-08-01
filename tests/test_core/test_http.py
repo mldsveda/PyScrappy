@@ -124,6 +124,33 @@ class TestHttpClientGet:
             client.get("https://example.com")
         client.close()
 
+    def test_backoff_delay_defaults_to_exponential_doubling(self):
+        client = HttpClient(ScraperConfig(retry_delay=1.0))  # factor 2.0 by default
+        assert client._backoff_delay(1) == 1.0
+        assert client._backoff_delay(2) == 2.0
+        assert client._backoff_delay(3) == 4.0
+        client.close()
+
+    def test_backoff_factor_is_configurable(self):
+        client = HttpClient(ScraperConfig(retry_delay=2.0, backoff_factor=3.0))
+        assert client._backoff_delay(1) == 2.0
+        assert client._backoff_delay(2) == 6.0
+        assert client._backoff_delay(3) == 18.0
+        client.close()
+
+    def test_backoff_factor_one_keeps_delay_constant(self):
+        client = HttpClient(ScraperConfig(retry_delay=1.5, backoff_factor=1.0))
+        assert client._backoff_delay(1) == 1.5
+        assert client._backoff_delay(5) == 1.5
+        client.close()
+
+    def test_backoff_max_caps_the_delay(self):
+        client = HttpClient(ScraperConfig(retry_delay=1.0, backoff_factor=2.0, backoff_max=5.0))
+        assert client._backoff_delay(3) == 4.0  # under the cap
+        assert client._backoff_delay(4) == 5.0  # 8.0 clamped to 5.0
+        assert client._backoff_delay(10) == 5.0  # stays capped
+        client.close()
+
     def test_get_retries_on_server_error(self):
         config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=0)
         client = HttpClient(config)

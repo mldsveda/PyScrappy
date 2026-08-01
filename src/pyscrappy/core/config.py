@@ -25,7 +25,12 @@ class ScraperConfig:
     Attributes:
         timeout: HTTP request timeout in seconds.
         max_retries: Number of retry attempts for failed requests.
-        retry_delay: Base delay between retries in seconds (exponential backoff).
+        retry_delay: Base delay before the first retry, in seconds.
+        backoff_factor: Multiplier applied to the delay after each retry, so the
+            wait is ``retry_delay * backoff_factor ** (attempt - 1)``. ``2.0``
+            (the default) doubles each time; ``1.0`` keeps a constant delay.
+        backoff_max: Upper bound (seconds) on a single retry delay, so backoff
+            can't grow without limit. ``None`` (the default) means no cap.
         rate_limit: Minimum seconds between requests to the same domain.
         user_agents: List of User-Agent strings to rotate through.
         proxy: A proxy URL, e.g. ``"http://user:pass@host:port"``, or a list of
@@ -49,6 +54,8 @@ class ScraperConfig:
     timeout: float = 30.0
     max_retries: int = 3
     retry_delay: float = 1.0
+    backoff_factor: float = 2.0
+    backoff_max: float | None = None
     rate_limit: float = 1.0
     user_agents: list[str] = field(default_factory=lambda: list(_DEFAULT_USER_AGENTS))
     proxy: str | list[str] | None = None
