@@ -69,11 +69,35 @@ class StockScraper(BaseScraper):
         else:
             return self._scrape_quote(symbol)
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        symbol: str,
+        mode: str = "quote",
+        period: str = "1mo",
+        interval: str = "1d",
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        symbol = symbol.upper().strip()
+
+        if mode == "history":
+            url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range={period}&interval={interval}"
+            data = await self._fetch_json_async(url)
+            return self._build_history(symbol, url, data)
+        elif mode == "profile":
+            url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range=1d&interval=1d"
+            data = await self._fetch_json_async(url)
+            return self._build_profile(symbol, url, data)
+        else:
+            url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range=1d&interval=1d"
+            data = await self._fetch_json_async(url)
+            return self._build_quote(symbol, url, data)
+
     def _scrape_quote(self, symbol: str) -> ScrapeResult:
         """Fetch current quote data via the v8 finance endpoint."""
         url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range=1d&interval=1d"
-        data = self._fetch_json(url)
+        return self._build_quote(symbol, url, self._fetch_json(url))
 
+    def _build_quote(self, symbol: str, url: str, data: dict[str, Any]) -> ScrapeResult:
         result_data: list[dict[str, Any]] = []
         chart = data.get("chart", {}).get("result", [])
         if chart:
@@ -101,8 +125,9 @@ class StockScraper(BaseScraper):
     def _scrape_history(self, symbol: str, period: str, interval: str) -> ScrapeResult:
         """Fetch historical OHLCV data."""
         url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range={period}&interval={interval}"
-        data = self._fetch_json(url)
+        return self._build_history(symbol, url, self._fetch_json(url))
 
+    def _build_history(self, symbol: str, url: str, data: dict[str, Any]) -> ScrapeResult:
         result_data: list[dict[str, Any]] = []
         chart = data.get("chart", {}).get("result", [])
         if chart:
@@ -136,8 +161,9 @@ class StockScraper(BaseScraper):
     def _scrape_profile(self, symbol: str) -> ScrapeResult:
         """Fetch company profile data."""
         url = f"{_YF_BASE}/v8/finance/chart/{symbol}?range=1d&interval=1d"
-        data = self._fetch_json(url)
+        return self._build_profile(symbol, url, self._fetch_json(url))
 
+    def _build_profile(self, symbol: str, url: str, data: dict[str, Any]) -> ScrapeResult:
         result_data: list[dict[str, Any]] = []
         chart = data.get("chart", {}).get("result", [])
         if chart:
@@ -184,6 +210,25 @@ class StockScraper(BaseScraper):
                 self._crumb = crumb
                 self.logger.debug("Obtained Yahoo Finance crumb")
 
+    async def _ensure_crumb_async(self) -> None:
+        """Async counterpart to :meth:`_ensure_crumb`."""
+        if self._crumb:
+            return
+
+        resp = await self.async_http.get_raw("https://finance.yahoo.com/quote/AAPL/")
+        for name, value in resp.cookies.items():
+            self._cookies[name] = value
+
+        crumb_resp = await self.async_http.get_raw(
+            f"{_YF_BASE}/v1/test/getcrumb",
+            cookies=self._cookies,
+        )
+        if crumb_resp.status_code == 200:
+            crumb = crumb_resp.text.strip()
+            if crumb and len(crumb) < 50:
+                self._crumb = crumb
+                self.logger.debug("Obtained Yahoo Finance crumb")
+
     def _fetch_json(self, url: str) -> dict[str, Any]:
         """Fetch JSON from Yahoo Finance with crumb authentication and retry."""
         self._ensure_crumb()
@@ -214,6 +259,40 @@ class StockScraper(BaseScraper):
                 delay = backoff_delay(self.config, attempt + 1)
                 self.logger.warning("Rate-limited by Yahoo Finance, retrying in %.1fs", delay)
                 time.sleep(delay)
+                continue
+
+            raise NetworkError(f"Yahoo Finance returned HTTP {resp.status_code} for {url}")
+
+        raise NetworkError(f"Failed to fetch {url} after {self.config.max_retries} attempts")
+
+    async def _fetch_json_async(self, url: str) -> dict[str, Any]:
+        """Async counterpart to :meth:`_fetch_json`."""
+        import asyncio
+
+        await self._ensure_crumb_async()
+
+        for attempt in range(self.config.max_retries):
+            fetch_url = self._append_crumb(url)
+            resp = await self.async_http.get_raw(fetch_url, cookies=self._cookies)
+
+            if resp.status_code == 200:
+                try:
+                    return resp.json()
+                except Exception as exc:
+                    raise NetworkError(f"Failed to parse JSON from {url}") from exc
+
+            if resp.status_code in (401, 403):
+                self._crumb = None
+                self._cookies = {}
+                await self._ensure_crumb_async()
+                continue
+
+            if resp.status_code == 429:
+                from pyscrappy.core.http import backoff_delay
+
+                delay = backoff_delay(self.config, attempt + 1)
+                self.logger.warning("Rate-limited by Yahoo Finance, retrying in %.1fs", delay)
+                await asyncio.sleep(delay)
                 continue
 
             raise NetworkError(f"Yahoo Finance returned HTTP {resp.status_code} for {url}")

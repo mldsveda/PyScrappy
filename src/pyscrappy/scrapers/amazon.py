@@ -97,6 +97,52 @@ class AmazonScraper(BaseScraper):
                 break
             products.extend(page_products)
 
+        return self._build_result(products, errors, visited)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_pages: int = 1,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        products: list[dict[str, Any]] = []
+        errors: list[ScrapeError] = []
+        visited: list[str] = []
+
+        for page in range(1, max_pages + 1):
+            url = f"https://{self._domain}/s?k={query.replace(' ', '+')}&page={page}"
+            visited.append(url)
+
+            try:
+                soup = await self.fetch_and_parse_async(url, headers=self._HEADERS)
+            except Exception as exc:
+                errors.append(ScrapeError(url=url, message=str(exc)))
+                break
+
+            # Check for CAPTCHA
+            if soup.find("form", action=re.compile(r"validateCaptcha")):
+                errors.append(
+                    ScrapeError(
+                        url=url,
+                        message="Amazon returned a CAPTCHA page. Try using a proxy.",
+                    )
+                )
+                break
+
+            page_products = self._parse_search_results(soup, url)
+            if not page_products:
+                break
+            products.extend(page_products)
+
+        return self._build_result(products, errors, visited)
+
+    def _build_result(
+        self,
+        products: list[dict[str, Any]],
+        errors: list[ScrapeError],
+        visited: list[str],
+    ) -> ScrapeResult:
+        """Finalize a scrape: add the no-products error and build the result."""
         # Nothing extracted and no error recorded: the request "succeeded" but
         # yielded no products — almost always anti-bot blocking or a layout
         # change rather than a genuinely empty result. Say so, so callers aren't

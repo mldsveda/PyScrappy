@@ -57,12 +57,34 @@ class ZomatoScraper(BaseScraper):
         else:
             url = f"https://www.zomato.com/{city_slug}/delivery"
 
-        errors: list[ScrapeError] = []
-
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
+
+        return self._build_result(html, url, max_results)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        city: str,
+        query: str | None = None,
+        max_results: int = 50,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        city_slug = city.lower().replace(" ", "-")
+
+        if query:
+            url = f"https://www.zomato.com/{city_slug}/search?q={quote_plus(query)}"
+        else:
+            url = f"https://www.zomato.com/{city_slug}/delivery"
+
+        html = await self.async_http.get_html(url)
+
+        return self._build_result(html, url, max_results)
+
+    def _build_result(self, html: str, url: str, max_results: int) -> ScrapeResult:
+        """Extract restaurants from fetched HTML and build the result."""
+        errors: list[ScrapeError] = []
 
         restaurants = self._extract_restaurants(html, max_results)
 

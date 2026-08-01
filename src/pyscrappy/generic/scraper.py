@@ -136,6 +136,60 @@ class GenericScraper(BaseScraper):
             errors=all_errors,
         )
 
+    async def scrape_async(
+        self,
+        url: str,
+        selectors: dict[str, str] | None = None,
+        max_pages: int = 1,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` for asyncio callers.
+
+        Fetches with a native ``AsyncHttpClient`` (no thread pool) and reuses the
+        same synchronous parsing/extraction. JS rendering is not supported here
+        (the browser backend is sync-only); use :meth:`scrape` with ``render_js``
+        for pages that need a browser.
+
+        Args, Returns: same as :meth:`scrape` (minus render_js/scroll_pages).
+        """
+        from pyscrappy.core.async_http import AsyncHttpClient
+
+        all_data: list[dict[str, Any]] = []
+        all_errors: list[ScrapeError] = []
+        visited: list[str] = []
+        current_url: str | None = url
+
+        async with AsyncHttpClient(self.config) as http:
+            for page_num in range(1, max_pages + 1):
+                if current_url is None:
+                    break
+                logger.info("Scraping page %d (async): %s", page_num, current_url)
+                visited.append(current_url)
+                try:
+                    html = await http.get_html(current_url)
+                except Exception as exc:
+                    all_errors.append(ScrapeError(url=current_url, message=str(exc)))
+                    break
+
+                soup = self.parse_html(html)
+                if selectors:
+                    all_data.extend(self._extract_with_selectors(soup, selectors, current_url))
+                else:
+                    all_data.append(self._extract_all(soup, current_url))
+
+                current_url = (
+                    find_next_page_url(soup, current_url) if page_num < max_pages else None
+                )
+
+        return ScrapeResult(
+            data=all_data,
+            metadata=ScrapeMetadata(
+                source_urls=visited,
+                total_pages=len(visited),
+                scraper=self.name,
+            ),
+            errors=all_errors,
+        )
+
     def _fetch_with_js_detection(self, url: str, render_js: bool | str, scroll_pages: int) -> str:
         """Fetch HTML, auto-detecting if JS rendering is needed."""
         if render_js is True:

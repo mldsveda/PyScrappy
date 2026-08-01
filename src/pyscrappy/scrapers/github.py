@@ -76,6 +76,38 @@ class GitHubScraper(BaseScraper):
                 errors=[ScrapeError(url=url, message=str(exc))],
             )
 
+        return self._build_result(payload, url)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_results: int = 30,
+        sort: str = "best-match",
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        per_page = min(max_results, 100)
+        url = f"{_API}?q={quote_plus(query)}&per_page={per_page}"
+        if sort != "best-match":
+            url += f"&sort={sort}"
+
+        headers = {"Accept": "application/vnd.github+json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+
+        try:
+            raw = await self.async_http.get_html(url, headers=headers)
+            payload = json.loads(raw)
+        except Exception as exc:
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+                errors=[ScrapeError(url=url, message=str(exc))],
+            )
+
+        return self._build_result(payload, url)
+
+    def _build_result(self, payload: dict[str, Any], url: str) -> ScrapeResult:
+        """Shared payload handling for the sync and async scrape paths."""
         items = payload.get("items", [])
         repos = [self._parse(item) for item in items if isinstance(item, dict)]
 

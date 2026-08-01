@@ -56,18 +56,43 @@ class CryptoScraper(BaseScraper):
             ScrapeResult with coin data (name, symbol, price, market cap, …).
         """
         ids = self._resolve_ids(query) if query else None
-        url = (
-            f"{_MARKETS}?vs_currency={vs_currency}"
-            f"&order=market_cap_desc&per_page={max_results}&page=1"
-        )
-        if ids:
-            url += f"&ids={quote_plus(','.join(ids))}"
+        url = self._build_markets_url(vs_currency, max_results, ids)
 
         try:
             payload = json.loads(self.http.get_html(url))
         except Exception as exc:
             return self._err(url, str(exc))
 
+        return self._build_result(payload, url, vs_currency)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str | None = None,
+        max_results: int = 20,
+        vs_currency: str = "usd",
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        ids = await self._resolve_ids_async(query) if query else None
+        url = self._build_markets_url(vs_currency, max_results, ids)
+
+        try:
+            payload = json.loads(await self.async_http.get_html(url))
+        except Exception as exc:
+            return self._err(url, str(exc))
+
+        return self._build_result(payload, url, vs_currency)
+
+    @staticmethod
+    def _build_markets_url(vs_currency: str, max_results: int, ids: list[str] | None) -> str:
+        url = (
+            f"{_MARKETS}?vs_currency={vs_currency}"
+            f"&order=market_cap_desc&per_page={max_results}&page=1"
+        )
+        if ids:
+            url += f"&ids={quote_plus(','.join(ids))}"
+        return url
+
+    def _build_result(self, payload: Any, url: str, vs_currency: str) -> ScrapeResult:
         if not isinstance(payload, list):
             return self._err(url, "Unexpected response from CoinGecko.")
 
@@ -86,6 +111,19 @@ class CryptoScraper(BaseScraper):
             try:
                 res = json.loads(self.http.get_html(f"{_SEARCH}?query={quote_plus(term)}"))
                 coins = res.get("coins", [])
+                if coins:
+                    ids.append(coins[0]["id"])
+            except Exception:
+                continue
+        return ids
+
+    async def _resolve_ids_async(self, query: str) -> list[str]:
+        """Async counterpart to :meth:`_resolve_ids`."""
+        ids: list[str] = []
+        for term in (t.strip() for t in query.split(",") if t.strip()):
+            try:
+                raw = await self.async_http.get_html(f"{_SEARCH}?query={quote_plus(term)}")
+                coins = json.loads(raw).get("coins", [])
                 if coins:
                     ids.append(coins[0]["id"])
             except Exception:

@@ -32,6 +32,13 @@ class ScraperConfig:
         backoff_max: Upper bound (seconds) on a single retry delay, so backoff
             can't grow without limit. ``None`` (the default) means no cap.
         rate_limit: Minimum seconds between requests to the same domain.
+        user_agent: A single User-Agent string to use for every request. When set,
+            it overrides ``user_agents`` rotation (some sites block the default
+            UAs or require a specific one). ``None`` (the default) rotates through
+            ``user_agents``.
+        headers: Extra HTTP headers sent on every request (e.g.
+            ``{"Accept-Language": "en-US"}``). Merged under the User-Agent, and a
+            per-call ``headers=`` argument still takes precedence over these.
         user_agents: List of User-Agent strings to rotate through.
         proxy: A proxy URL, e.g. ``"http://user:pass@host:port"``, or a list of
             proxy URLs to rotate through (one is picked at random per request).
@@ -57,6 +64,8 @@ class ScraperConfig:
     backoff_factor: float = 2.0
     backoff_max: float | None = None
     rate_limit: float = 1.0
+    user_agent: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
     user_agents: list[str] = field(default_factory=lambda: list(_DEFAULT_USER_AGENTS))
     proxy: str | list[str] | None = None
     scraper_api: dict[str, str] | None = None

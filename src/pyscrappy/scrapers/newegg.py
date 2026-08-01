@@ -101,6 +101,52 @@ class NeweggScraper(BaseScraper):
             errors=errors,
         )
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_pages: int = 1,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        products: list[dict[str, Any]] = []
+        errors: list[ScrapeError] = []
+        visited: list[str] = []
+
+        for page in range(1, max_pages + 1):
+            url = f"https://{self._domain}/p/pl?d={query.replace(' ', '+')}&page={page}"
+            visited.append(url)
+
+            try:
+                soup = await self.fetch_and_parse_async(url, headers=self._HEADERS)
+            except Exception as exc:
+                errors.append(ScrapeError(url=url, message=str(exc)))
+                break
+
+            page_products = self._parse_search_results(soup)
+            if not page_products:
+                break
+            products.extend(page_products)
+
+        if not products and not errors:
+            errors.append(
+                ScrapeError(
+                    url=visited[-1] if visited else "",
+                    message=(
+                        "No products extracted. Newegg may have changed its page "
+                        "layout, or the query returned no results."
+                    ),
+                )
+            )
+
+        return ScrapeResult(
+            data=products,
+            metadata=ScrapeMetadata(
+                source_urls=visited,
+                total_pages=len(visited),
+                scraper=self.name,
+            ),
+            errors=errors,
+        )
+
     def _parse_search_results(self, soup: Any) -> list[dict[str, Any]]:
         """Parse product cards from a search results page."""
         products: list[dict[str, Any]] = []

@@ -62,13 +62,7 @@ class IKEAScraper(BaseScraper):
         Returns:
             ScrapeResult with product data (name, type, price, url, image, …).
         """
-        from urllib.parse import quote_plus
-
-        url = (
-            f"{_SEARCH_HOST}/{self.country}/{self.lang}/search-result-page"
-            f"?q={quote_plus(query)}&size={max_results}&types=PRODUCT"
-        )
-        errors: list[ScrapeError] = []
+        url = self._build_url(query, max_results)
 
         try:
             raw = self.http.get_html(url, headers=self._HEADERS)
@@ -79,6 +73,41 @@ class IKEAScraper(BaseScraper):
                 metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
                 errors=[ScrapeError(url=url, message=str(exc))],
             )
+
+        return self._build_result(payload, url)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_results: int = 24,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = self._build_url(query, max_results)
+
+        try:
+            raw = await self.async_http.get_html(url, headers=self._HEADERS)
+            payload = json.loads(raw)
+        except Exception as exc:
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+                errors=[ScrapeError(url=url, message=str(exc))],
+            )
+
+        return self._build_result(payload, url)
+
+    def _build_url(self, query: str, max_results: int) -> str:
+        """Build the IKEA JSON search-API URL for a query."""
+        from urllib.parse import quote_plus
+
+        return (
+            f"{_SEARCH_HOST}/{self.country}/{self.lang}/search-result-page"
+            f"?q={quote_plus(query)}&size={max_results}&types=PRODUCT"
+        )
+
+    def _build_result(self, payload: dict[str, Any], url: str) -> ScrapeResult:
+        """Map the search-API payload into a ScrapeResult (shared sync/async)."""
+        errors: list[ScrapeError] = []
 
         items = (
             payload.get("searchResultPage", {}).get("products", {}).get("main", {}).get("items", [])

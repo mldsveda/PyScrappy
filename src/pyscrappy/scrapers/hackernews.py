@@ -51,10 +51,7 @@ class HackerNewsScraper(BaseScraper):
         Returns:
             ScrapeResult with story data (title, url, points, author, comments, …).
         """
-        endpoint = "search_by_date" if by == "date" else "search"
-        base = _API.replace("/search", f"/{endpoint}")
-        hits = min(max_results, 1000)
-        url = f"{base}?query={quote_plus(query)}&tags={tags}&hitsPerPage={hits}"
+        url = self._build_url(query, max_results, by, tags)
 
         try:
             raw = self.http.get_html(url)
@@ -66,6 +63,38 @@ class HackerNewsScraper(BaseScraper):
                 errors=[ScrapeError(url=url, message=str(exc))],
             )
 
+        return self._build_result(url, payload)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_results: int = 20,
+        by: str = "relevance",
+        tags: str = "story",
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = self._build_url(query, max_results, by, tags)
+
+        try:
+            raw = await self.async_http.get_html(url)
+            payload = json.loads(raw)
+        except Exception as exc:
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+                errors=[ScrapeError(url=url, message=str(exc))],
+            )
+
+        return self._build_result(url, payload)
+
+    @staticmethod
+    def _build_url(query: str, max_results: int, by: str, tags: str) -> str:
+        endpoint = "search_by_date" if by == "date" else "search"
+        base = _API.replace("/search", f"/{endpoint}")
+        hits = min(max_results, 1000)
+        return f"{base}?query={quote_plus(query)}&tags={tags}&hitsPerPage={hits}"
+
+    def _build_result(self, url: str, payload: dict[str, Any]) -> ScrapeResult:
         stories = [self._parse(hit) for hit in payload.get("hits", []) if isinstance(hit, dict)]
 
         errors: list[ScrapeError] = []

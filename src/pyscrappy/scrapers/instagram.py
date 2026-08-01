@@ -59,17 +59,37 @@ class InstagramScraper(BaseScraper):
             return self._scrape_hashtag(hashtag, max_posts, render_js, scroll_pages)
         raise ValueError("Provide either username or hashtag")
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        username: str | None = None,
+        hashtag: str | None = None,
+        max_posts: int = 20,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        if username:
+            url = f"https://www.instagram.com/{username}/"
+            html = await self.async_http.get_html(url)
+            return self._build_profile_result(html, url, username)
+        if hashtag:
+            url = f"https://www.instagram.com/explore/tags/{hashtag}/"
+            html = await self.async_http.get_html(url)
+            return self._build_hashtag_result(html, url, max_posts)
+        raise ValueError("Provide either username or hashtag")
+
     def _scrape_profile(
         self, username: str, max_posts: int, render_js: bool, scroll_pages: int
     ) -> ScrapeResult:
         url = f"https://www.instagram.com/{username}/"
-        errors: list[ScrapeError] = []
 
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
+        return self._build_profile_result(html, url, username)
+
+    def _build_profile_result(self, html: str, url: str, username: str) -> ScrapeResult:
+        errors: list[ScrapeError] = []
         data = self._extract_shared_data(html)
         if data:
             profile = self._parse_profile_json(data, username)
@@ -93,13 +113,16 @@ class InstagramScraper(BaseScraper):
         self, hashtag: str, max_posts: int, render_js: bool, scroll_pages: int
     ) -> ScrapeResult:
         url = f"https://www.instagram.com/explore/tags/{hashtag}/"
-        errors: list[ScrapeError] = []
 
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
+        return self._build_hashtag_result(html, url, max_posts)
+
+    def _build_hashtag_result(self, html: str, url: str, max_posts: int) -> ScrapeResult:
+        errors: list[ScrapeError] = []
         data = self._extract_shared_data(html)
         posts: list[dict[str, Any]] = []
 

@@ -95,6 +95,58 @@ class LinkedInJobsScraper(BaseScraper):
             errors=errors,
         )
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        location: str = "",
+        max_pages: int = 1,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        jobs: list[dict[str, Any]] = []
+        errors: list[ScrapeError] = []
+        visited: list[str] = []
+
+        for page in range(max_pages):
+            start = page * 25
+            url = (
+                f"https://www.linkedin.com/jobs/search/?"
+                f"keywords={quote_plus(query)}"
+                f"&location={quote_plus(location)}"
+                f"&start={start}"
+            )
+            visited.append(url)
+
+            try:
+                soup = await self.fetch_and_parse_async(url)
+            except Exception as exc:
+                errors.append(ScrapeError(url=url, message=str(exc)))
+                break
+
+            # Check if we got an auth wall
+            if soup.find("form", class_="login__form"):
+                errors.append(
+                    ScrapeError(
+                        url=url,
+                        message="LinkedIn requires authentication for this page.",
+                    )
+                )
+                break
+
+            page_jobs = self._parse_job_cards(soup)
+            if not page_jobs:
+                break
+            jobs.extend(page_jobs)
+
+        return ScrapeResult(
+            data=jobs,
+            metadata=ScrapeMetadata(
+                source_urls=visited,
+                total_pages=len(visited),
+                scraper=self.name,
+            ),
+            errors=errors,
+        )
+
     def _parse_job_cards(self, soup: Any) -> list[dict[str, Any]]:
         """Parse job cards from LinkedIn's public job search page."""
         jobs: list[dict[str, Any]] = []

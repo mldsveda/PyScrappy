@@ -60,9 +60,32 @@ class YouTubeScraper(BaseScraper):
             return self._scrape_search(query, max_results, render_js)
         raise ValueError("Provide either query or channel_url")
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str | None = None,
+        channel_url: str | None = None,
+        max_results: int = 20,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        if channel_url:
+            return await self._scrape_channel_async(channel_url, max_results)
+        if query:
+            return await self._scrape_search_async(query, max_results)
+        raise ValueError("Provide either query or channel_url")
+
     def _scrape_search(self, query: str, max_results: int, render_js: bool) -> ScrapeResult:
         url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
         html = self.fetch_html(url, render_js=render_js)
+        videos = self._extract_from_html(html, max_results)
+
+        return ScrapeResult(
+            data=videos,
+            metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+        )
+
+    async def _scrape_search_async(self, query: str, max_results: int) -> ScrapeResult:
+        url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+        html = await self.fetch_html_async(url)
         videos = self._extract_from_html(html, max_results)
 
         return ScrapeResult(
@@ -82,6 +105,15 @@ class YouTubeScraper(BaseScraper):
         else:
             html = self.http.get_html(channel_url)
 
+        videos = self._extract_from_html(html, max_results)
+
+        return ScrapeResult(
+            data=videos,
+            metadata=ScrapeMetadata(source_urls=[channel_url], scraper=self.name),
+        )
+
+    async def _scrape_channel_async(self, channel_url: str, max_results: int) -> ScrapeResult:
+        html = await self.async_http.get_html(channel_url)
         videos = self._extract_from_html(html, max_results)
 
         return ScrapeResult(

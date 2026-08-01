@@ -62,19 +62,43 @@ class TwitterScraper(BaseScraper):
 
         return self._scrape_search(query, max_tweets, render_js, scroll_pages)
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str | None = None,
+        hashtag: str | None = None,
+        max_tweets: int = 20,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        if hashtag:
+            query = f"#{hashtag}"
+        if not query:
+            raise ValueError("Provide either query or hashtag")
+
+        url = self._search_url(query)
+        html = await self.async_http.get_html(url)
+        return self._build_search_result(html, url, max_tweets)
+
+    @staticmethod
+    def _search_url(query: str) -> str:
+        from urllib.parse import quote_plus
+
+        return f"https://x.com/search?q={quote_plus(query)}&src=typed_query&f=live"
+
     def _scrape_search(
         self, query: str, max_tweets: int, render_js: bool, scroll_pages: int
     ) -> ScrapeResult:
-        from urllib.parse import quote_plus
-
-        url = f"https://x.com/search?q={quote_plus(query)}&src=typed_query&f=live"
-        errors: list[ScrapeError] = []
+        url = self._search_url(query)
 
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
+        return self._build_search_result(html, url, max_tweets)
+
+    def _build_search_result(self, html: str, url: str, max_tweets: int) -> ScrapeResult:
+        """Shared post-fetch tweet extraction for the sync and async paths."""
+        errors: list[ScrapeError] = []
         tweets = self._extract_tweets(html, max_tweets)
 
         if not tweets:

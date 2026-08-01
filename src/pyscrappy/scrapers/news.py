@@ -61,9 +61,35 @@ class NewsScraper(BaseScraper):
             return self._scrape_site(site_url, max_articles)
         raise ValueError("Provide at least one of: feed_url, site_url, or article_url")
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        feed_url: str | None = None,
+        site_url: str | None = None,
+        article_url: str | None = None,
+        max_articles: int = 50,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        if article_url:
+            return await self._scrape_article_async(article_url)
+        if feed_url:
+            return await self._scrape_feed_async(feed_url, max_articles)
+        if site_url:
+            return await self._scrape_site_async(site_url, max_articles)
+        raise ValueError("Provide at least one of: feed_url, site_url, or article_url")
+
     def _scrape_feed(self, url: str, max_articles: int) -> ScrapeResult:
         """Parse an RSS or Atom feed."""
         xml_text = self.http.get_html(url)
+        articles = self._parse_feed_xml(xml_text, max_articles)
+
+        return ScrapeResult(
+            data=articles,
+            metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+        )
+
+    async def _scrape_feed_async(self, url: str, max_articles: int) -> ScrapeResult:
+        """Async counterpart to :meth:`_scrape_feed`."""
+        xml_text = await self.async_http.get_html(url)
         articles = self._parse_feed_xml(xml_text, max_articles)
 
         return ScrapeResult(
@@ -75,14 +101,28 @@ class NewsScraper(BaseScraper):
         """Auto-discover an RSS feed from a website, then parse it."""
         html = self.http.get_html(url)
         soup = self.parse_html(html)
-        errors: list[ScrapeError] = []
 
         feed_url = self._discover_feed(soup, url)
         if feed_url:
             return self._scrape_feed(feed_url, max_articles)
 
-        # Fallback: extract article links from the page directly
+        return self._build_site_fallback(soup, url, max_articles)
+
+    async def _scrape_site_async(self, url: str, max_articles: int) -> ScrapeResult:
+        """Async counterpart to :meth:`_scrape_site`."""
+        html = await self.async_http.get_html(url)
+        soup = self.parse_html(html)
+
+        feed_url = self._discover_feed(soup, url)
+        if feed_url:
+            return await self._scrape_feed_async(feed_url, max_articles)
+
+        return self._build_site_fallback(soup, url, max_articles)
+
+    def _build_site_fallback(self, soup: Any, url: str, max_articles: int) -> ScrapeResult:
+        """Build the no-RSS fallback result: article links extracted from HTML."""
         self.logger.info("No RSS feed found, extracting article links from HTML")
+        errors: list[ScrapeError] = []
         articles = self._extract_article_links(soup, url)
         if not articles:
             errors.append(ScrapeError(url=url, message="No RSS feed or article links found"))
@@ -96,7 +136,15 @@ class NewsScraper(BaseScraper):
     def _scrape_article(self, url: str) -> ScrapeResult:
         """Extract the full text of a single news article."""
         soup = self.fetch_and_parse(url)
+        return self._build_article(soup, url)
 
+    async def _scrape_article_async(self, url: str) -> ScrapeResult:
+        """Async counterpart to :meth:`_scrape_article`."""
+        soup = await self.fetch_and_parse_async(url)
+        return self._build_article(soup, url)
+
+    def _build_article(self, soup: Any, url: str) -> ScrapeResult:
+        """Extract article fields from a parsed page (pure, no fetching)."""
         article: dict[str, Any] = {"url": url}
 
         # Title

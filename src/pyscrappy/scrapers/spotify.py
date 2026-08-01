@@ -65,17 +65,37 @@ class SpotifyScraper(BaseScraper):
             return self._scrape_search(query, search_type, max_results, render_js)
         raise ValueError("Provide either query or playlist_url")
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str | None = None,
+        search_type: str = "tracks",
+        playlist_url: str | None = None,
+        max_results: int = 20,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        if playlist_url:
+            html = await self.async_http.get_html(playlist_url)
+            return self._build_playlist_result(html, playlist_url, max_results)
+        if query:
+            url = f"https://open.spotify.com/search/{quote_plus(query)}/{search_type}"
+            html = await self.async_http.get_html(url)
+            return self._build_search_result(html, url, max_results)
+        raise ValueError("Provide either query or playlist_url")
+
     def _scrape_search(
         self, query: str, search_type: str, max_results: int, render_js: bool
     ) -> ScrapeResult:
         url = f"https://open.spotify.com/search/{quote_plus(query)}/{search_type}"
-        errors: list[ScrapeError] = []
 
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle")
         else:
             html = self.http.get_html(url)
 
+        return self._build_search_result(html, url, max_results)
+
+    def _build_search_result(self, html: str, url: str, max_results: int) -> ScrapeResult:
+        errors: list[ScrapeError] = []
         items = self._extract_items(html, max_results)
 
         if not items:
@@ -95,13 +115,15 @@ class SpotifyScraper(BaseScraper):
     def _scrape_playlist(
         self, url: str, max_results: int, render_js: bool, scroll_pages: int
     ) -> ScrapeResult:
-        errors: list[ScrapeError] = []
-
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
+        return self._build_playlist_result(html, url, max_results)
+
+    def _build_playlist_result(self, html: str, url: str, max_results: int) -> ScrapeResult:
+        errors: list[ScrapeError] = []
         tracks = self._extract_playlist_tracks(html, max_results)
 
         if not tracks:
