@@ -205,9 +205,13 @@ class StockScraper(BaseScraper):
                 self._ensure_crumb()
                 continue
 
-            # Rate-limited — back off and retry
+            # Rate-limited — back off and retry. This loop is 0-indexed, but
+            # backoff_delay expects 1-indexed attempts, so pass attempt + 1 (keeps
+            # the previous retry_delay * 2**attempt schedule with the defaults).
             if resp.status_code == 429:
-                delay = self.config.retry_delay * (2**attempt)
+                from pyscrappy.core.http import backoff_delay
+
+                delay = backoff_delay(self.config, attempt + 1)
                 self.logger.warning("Rate-limited by Yahoo Finance, retrying in %.1fs", delay)
                 time.sleep(delay)
                 continue
