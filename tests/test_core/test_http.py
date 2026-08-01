@@ -7,7 +7,7 @@ import pytest
 
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
-from pyscrappy.core.http import HttpClient
+from pyscrappy.core.http import HttpClient, backoff_delay
 
 
 class TestHttpClientInit:
@@ -123,6 +123,13 @@ class TestHttpClientGet:
         with pytest.raises(NetworkError, match="HTTP 403"):
             client.get("https://example.com")
         client.close()
+
+    def test_module_backoff_delay_shared_by_scrapers(self):
+        # The module-level helper (used by scrapers with their own retry loops,
+        # e.g. the stock scraper) honors the same config as HttpClient.
+        cfg = ScraperConfig(retry_delay=1.0, backoff_factor=2.0, backoff_max=5.0)
+        assert backoff_delay(cfg, 1) == 1.0
+        assert backoff_delay(cfg, 4) == 5.0  # 8.0 capped to 5.0
 
     def test_backoff_delay_defaults_to_exponential_doubling(self):
         client = HttpClient(ScraperConfig(retry_delay=1.0))  # factor 2.0 by default

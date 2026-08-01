@@ -22,7 +22,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[all]' pytest
-      # Run ONLY the integration tests. continue-on-error so one broken site
-      # doesn't mask the rest of the report; the step summary shows what failed.
+      # Run ONLY the integration tests. -rA prints a full summary of every test
+      # (including failures) so a broken scraper is visible in the logs even when
+      # others pass; a failing run marks the workflow red, which is the signal.
       - name: Run live integration tests
         run: pytest -m integration -v -rA
