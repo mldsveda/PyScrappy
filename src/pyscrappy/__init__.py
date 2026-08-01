@@ -27,6 +27,7 @@ Quick start::
 """
 
 from pyscrappy.concurrent import scrape_all, scrape_many
+from pyscrappy.core.async_http import AsyncHttpClient
 from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import (
@@ -101,7 +102,7 @@ for _cls in (
     register(_cls.name, _cls)
 del _cls
 
-__version__ = "1.3.6"
+__version__ = "1.4.0"
 
 __all__ = [
     # Core
@@ -146,8 +147,10 @@ __all__ = [
     "WikipediaScraper",
     # Convenience
     "scrape",
+    "scrape_async",
     "scrape_many",
     "scrape_all",
+    "AsyncHttpClient",
     # Plugins / registry
     "BaseScraper",
     "register_scraper",
@@ -189,3 +192,25 @@ def scrape(
             max_pages=max_pages,
             render_js=render_js,
         )
+
+
+async def scrape_async(
+    url: str,
+    selectors: "dict[str, str] | None" = None,
+    max_pages: int = 1,
+    config: "ScraperConfig | None" = None,
+) -> ScrapeResult:
+    """Async one-liner to scrape any URL, for asyncio callers.
+
+    Uses a native AsyncHttpClient (no thread pool). JS rendering is not supported
+    here; use :func:`scrape` with ``render_js=True`` for browser-rendered pages.
+
+    Example::
+
+        import asyncio
+        from pyscrappy import scrape_async
+        result = asyncio.run(scrape_async("https://example.com"))
+    """
+    return await GenericScraper(config).scrape_async(
+        url=url, selectors=selectors, max_pages=max_pages
+    )

@@ -118,6 +118,66 @@ class UberEatsScraper(BaseScraper):
         except Exception as exc:
             return self._err(feed_url, str(exc))
 
+        return self._build_feed_result(payload, feed_url, place, city, max_results)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        city: str,
+        max_results: int = 50,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        lat, lng, place = await self._geocode_async(city)
+        if lat is None:
+            return self._err(_GEOCODE, f"City {city!r} not found.")
+
+        home = "https://www.ubereats.com/"
+        try:
+            await self.async_http.get_html(home)
+        except Exception as exc:
+            return self._err(home, str(exc))
+
+        loc = {
+            "address": {"title": place or city},
+            "latitude": lat,
+            "longitude": lng,
+            "type": "google_places",
+            "source": "manual_auto_complete",
+        }
+        self.async_http.set_cookie("uev2.loc", quote(json.dumps(loc)), domain=".ubereats.com")
+
+        feed_url = _FEED.format(locale=self.locale)
+        headers = {
+            "x-csrf-token": "x",
+            "content-type": "application/json",
+            "Origin": "https://www.ubereats.com",
+            "Referer": "https://www.ubereats.com/feed",
+            "x-uber-target-location-latitude": str(lat),
+            "x-uber-target-location-longitude": str(lng),
+        }
+        body = {
+            "cacheKey": _CACHE_KEY,
+            "feedSessionCount": {"announcementCount": 0, "announcementLabel": ""},
+            "userQuery": "",
+            "sortAndFilters": [],
+        }
+
+        try:
+            raw = await self.async_http.post_json(feed_url, headers=headers, json=body)
+            payload = json.loads(raw)
+        except Exception as exc:
+            return self._err(feed_url, str(exc))
+
+        return self._build_feed_result(payload, feed_url, place, city, max_results)
+
+    def _build_feed_result(
+        self,
+        payload: dict[str, Any],
+        feed_url: str,
+        place: str | None,
+        city: str,
+        max_results: int,
+    ) -> ScrapeResult:
+        """Shared feed-payload handling for the sync and async scrape paths."""
         data = payload.get("data", {})
         stores = [
             self._parse(fi["store"])
@@ -128,8 +188,6 @@ class UberEatsScraper(BaseScraper):
 
         errors: list[ScrapeError] = []
         if not stores:
-            # The feed tells us directly whether it serves this location, so we
-            # can distinguish "Uber Eats doesn't deliver here" from a parse issue.
             if data.get("isInServiceArea") is False:
                 message = (
                     f"Uber Eats does not deliver to {place or city!r} "
@@ -238,6 +296,18 @@ class UberEatsScraper(BaseScraper):
             results = json.loads(self.http.get_html(url)).get("results") or []
         except Exception:
             return None, None, None
+        return self._pick_geocode(results)
+
+    async def _geocode_async(self, city: str) -> tuple[float | None, float | None, str | None]:
+        url = f"{_GEOCODE}?name={quote_plus(city)}&count=1"
+        try:
+            results = json.loads(await self.async_http.get_html(url)).get("results") or []
+        except Exception:
+            return None, None, None
+        return self._pick_geocode(results)
+
+    @staticmethod
+    def _pick_geocode(results: list) -> tuple[float | None, float | None, str | None]:
         if not results:
             return None, None, None
         r = results[0]

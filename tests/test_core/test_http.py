@@ -250,6 +250,35 @@ class TestHttpClientUserAgentRotation:
         # At least 2 different agents should be picked in 50 tries
         assert len(picked) >= 2
 
+    def test_config_user_agent_overrides_rotation(self):
+        # A single configured user_agent wins over user_agents rotation.
+        config = ScraperConfig(user_agent="Custom/9.9", user_agents=["A", "B", "C"])
+        client = HttpClient(config)
+        assert {client._pick_ua() for _ in range(20)} == {"Custom/9.9"}
+
+
+class TestHttpClientCustomHeaders:
+    def test_config_headers_are_sent(self):
+        config = ScraperConfig(headers={"Accept-Language": "en-US", "X-Test": "1"})
+        client = HttpClient(config)
+        merged = client._merge_headers({})
+        assert merged["Accept-Language"] == "en-US"
+        assert merged["X-Test"] == "1"
+        assert "User-Agent" in merged
+
+    def test_per_call_headers_override_config(self):
+        config = ScraperConfig(headers={"X-Test": "config"})
+        client = HttpClient(config)
+        merged = client._merge_headers({"X-Test": "call"})
+        assert merged["X-Test"] == "call"  # per-call wins
+
+    def test_config_user_agent_flows_through_merge(self):
+        config = ScraperConfig(user_agent="Custom/1.0", headers={"X": "y"})
+        client = HttpClient(config)
+        merged = client._merge_headers({})
+        assert merged["User-Agent"] == "Custom/1.0"
+        assert merged["X"] == "y"
+
 
 class TestHttpClientBuildClient:
     def test_build_client_with_proxy(self):

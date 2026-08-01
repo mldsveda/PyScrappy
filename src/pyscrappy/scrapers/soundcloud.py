@@ -49,13 +49,27 @@ class SoundCloudScraper(BaseScraper):
             ScrapeResult with track data (title, artist, plays, duration, url).
         """
         url = f"https://soundcloud.com/search/sounds?q={quote_plus(query)}"
-        errors: list[ScrapeError] = []
 
         if render_js:
             html = self.browser.get_html(url, wait_for="networkidle", scroll_pages=scroll_pages)
         else:
             html = self.http.get_html(url)
 
+        return self._build_result(html, url, max_results)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_results: int = 20,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = f"https://soundcloud.com/search/sounds?q={quote_plus(query)}"
+        html = await self.async_http.get_html(url)
+        return self._build_result(html, url, max_results)
+
+    def _build_result(self, html: str, url: str, max_results: int) -> ScrapeResult:
+        """Extract tracks from fetched HTML and build the ScrapeResult."""
+        errors: list[ScrapeError] = []
         tracks = self._extract_tracks(html, max_results)
 
         if not tracks:

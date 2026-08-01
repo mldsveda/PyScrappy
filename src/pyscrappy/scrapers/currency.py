@@ -56,6 +56,33 @@ class CurrencyScraper(BaseScraper):
         except Exception as exc:
             return self._err(url, str(exc))
 
+        return self._build_result(base, to, amount, url, payload)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        base: str = "USD",
+        to: str | None = None,
+        amount: float = 1.0,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = _API.format(base=base.upper())
+
+        try:
+            payload = json.loads(await self.async_http.get_html(url))
+        except Exception as exc:
+            return self._err(url, str(exc))
+
+        return self._build_result(base, to, amount, url, payload)
+
+    def _build_result(
+        self,
+        base: str,
+        to: str | None,
+        amount: float,
+        url: str,
+        payload: dict,
+    ) -> ScrapeResult:
+        """Build a ScrapeResult from a fetched exchange-rate payload."""
         if payload.get("result") != "success":
             msg = payload.get("error-type", "Unknown currency or API error.")
             return self._err(url, str(msg))

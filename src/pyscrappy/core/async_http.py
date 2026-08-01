@@ -1,93 +1,75 @@
-"""HTTP client with retry, rate-limiting, and User-Agent rotation."""
+"""Async HTTP client — the asyncio counterpart to ``HttpClient``.
+
+Mirrors the sync client's retry, rate-limiting, User-Agent/header handling, and
+the shared in-memory response cache, but built on ``httpx.AsyncClient`` so async
+callers (FastAPI services, async agents) get native concurrency without pushing
+blocking calls onto a thread pool.
+
+The sync ``HttpClient`` is unchanged; this is additive.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
-import threading
 import time
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 
 from pyscrappy.core import scraper_api
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
+from pyscrappy.core.http import (
+    _CACHE_LOCK,
+    _SHARED_CACHE,
+    backoff_delay,
+)
 
-logger = logging.getLogger("pyscrappy.http")
-
-
-def backoff_delay(config: ScraperConfig, attempt: int) -> float:
-    """Retry delay (seconds) before the given attempt (1-indexed), using the
-    config's base delay, backoff factor, and optional cap:
-    ``retry_delay * backoff_factor ** (attempt - 1)``, clamped to ``backoff_max``.
-
-    Module-level so scrapers with their own retry loops (e.g. the stock scraper's
-    Yahoo 429 handling) honor the same configurable backoff as HttpClient.
-    """
-    delay = config.retry_delay * (config.backoff_factor ** (attempt - 1))
-    if config.backoff_max is not None:
-        delay = min(delay, config.backoff_max)
-    return delay
+logger = logging.getLogger("pyscrappy.async_http")
 
 
-# Process-wide response cache, shared across all HttpClient instances. This lets
-# caching survive the short-lived scraper instances that callers (e.g. the MCP
-# server) create per request. Entries are (monotonic timestamp, response). Only
-# populated when a client's config.cache_ttl > 0; guarded by a lock because
-# scrapers may run in worker threads.
-_SHARED_CACHE: dict[str, tuple[float, httpx.Response]] = {}
-_CACHE_LOCK = threading.Lock()
-
-
-class HttpClient:
-    """Sync HTTP client wrapping httpx with automatic retries and rate-limiting.
+class AsyncHttpClient:
+    """Async HTTP client wrapping httpx.AsyncClient with retries and rate-limiting.
 
     Usage::
 
-        config = ScraperConfig(timeout=20, max_retries=2)
-        with HttpClient(config) as client:
-            html = client.get_html("https://example.com")
+        async with AsyncHttpClient(config) as client:
+            html = await client.get_html("https://example.com")
+
+    Shares the process-wide response cache with the sync ``HttpClient``, so a
+    value fetched by either is visible to the other within the TTL.
     """
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
-        self._client: httpx.Client | None = None
+        self._client: httpx.AsyncClient | None = None
         self._last_request_time: dict[str, float] = {}
 
-    # -- context manager --
-
-    def __enter__(self) -> HttpClient:
+    async def __aenter__(self) -> AsyncHttpClient:
         self._client = self._build_client()
         return self
 
-    def __exit__(self, *exc: Any) -> None:
-        self.close()
+    async def __aexit__(self, *exc: Any) -> None:
+        await self.aclose()
 
-    def close(self) -> None:
+    async def aclose(self) -> None:
         if self._client:
-            self._client.close()
+            await self._client.aclose()
             self._client = None
 
     # -- public API --
 
-    def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Perform a GET request with retries and rate-limiting.
-
-        When ``config.cache_ttl > 0``, a successful response is cached in memory
-        and returned for repeat requests within the TTL, skipping both the
-        network and the rate limiter.
-        """
+    async def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        """GET with retries, rate-limiting, and optional caching (see HttpClient.get)."""
         cache_key = self._cache_key(url, kwargs.get("params"))
         cached = self._cache_get(cache_key)
         if cached is not None:
             logger.debug("Cache hit for %s", url)
             return cached
 
-        # Route through a scraping-API service if configured, so blocked sites
-        # come back unblocked. Any caller params are folded into the *target*
-        # URL first, then the whole URL is handed to the service endpoint.
         if scraper_api.is_configured(self.config.scraper_api):
             caller_params = kwargs.pop("params", None)
             if caller_params:
@@ -98,24 +80,20 @@ class HttpClient:
             kwargs["params"] = api_params
 
         client = self._ensure_client()
-        self._rate_limit(url)
-
-        # Merge any caller-supplied headers on top of a rotated User-Agent,
-        # so scrapers can add site-specific headers (e.g. Referer) without
-        # colliding with the headers kwarg httpx expects.
+        await self._rate_limit(url)
         extra_headers = kwargs.pop("headers", None) or {}
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
                 headers = self._merge_headers(extra_headers)
-                resp = client.get(url, headers=headers, follow_redirects=True, **kwargs)
+                resp = await client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
                 if resp.status_code == 429:
                     retry_after = float(resp.headers.get("Retry-After", self.config.retry_delay))
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
-                        time.sleep(retry_after)
+                        await asyncio.sleep(retry_after)
                         continue
                     raise RateLimitError(f"Rate-limited by {url} after {attempt} attempts")
 
@@ -126,58 +104,48 @@ class HttpClient:
             except httpx.HTTPStatusError as exc:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
-                    delay = self._backoff_delay(attempt)
-                    logger.warning(
-                        "Server error %s on %s, retry %d in %.1fs",
-                        exc.response.status_code,
-                        url,
-                        attempt,
-                        delay,
-                    )
-                    time.sleep(delay)
+                    await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
 
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
-                    delay = self._backoff_delay(attempt)
-                    logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
-                    time.sleep(delay)
+                    await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
 
         raise NetworkError(
             f"Failed to fetch {url} after {self.config.max_retries} attempts"
         ) from last_exc
 
-    def get_raw(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Like :meth:`get` but does NOT raise on non-2xx status codes.
-
-        Useful when the caller needs to inspect the status code itself
-        (e.g. to detect auth failures and retry with new credentials).
-        """
+    async def get_raw(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Like :meth:`get` but does NOT raise on non-2xx status codes."""
         client = self._ensure_client()
-        self._rate_limit(url)
+        await self._rate_limit(url)
         extra_headers = kwargs.pop("headers", None) or {}
         headers = self._merge_headers(extra_headers)
-        return client.get(url, headers=headers, follow_redirects=True, **kwargs)
+        return await client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
-    def post_json(self, url: str, **kwargs: Any) -> str:
+    async def get_html(self, url: str, **kwargs: Any) -> str:
+        """Fetch a URL and return the response body as text."""
+        return (await self.get(url, **kwargs)).text
+
+    async def post_json(self, url: str, **kwargs: Any) -> str:
         """POST a request (JSON body via ``json=``) and return the response text.
 
         Retries on 5xx like :meth:`get`, and carries the session's cookies.
         """
         client = self._ensure_client()
-        self._rate_limit(url)
+        await self._rate_limit(url)
         extra_headers = kwargs.pop("headers", None) or {}
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
                 headers = self._merge_headers(extra_headers)
-                resp = client.post(url, headers=headers, follow_redirects=True, **kwargs)
+                resp = await client.post(url, headers=headers, follow_redirects=True, **kwargs)
                 if resp.status_code >= 500 and attempt < self.config.max_retries:
-                    time.sleep(self._backoff_delay(attempt))
+                    await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
                 resp.raise_for_status()
                 return resp.text
@@ -186,7 +154,7 @@ class HttpClient:
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
-                    time.sleep(self._backoff_delay(attempt))
+                    await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
 
         raise NetworkError(
@@ -197,47 +165,35 @@ class HttpClient:
         """Set a cookie on the underlying session (used before a request)."""
         self._ensure_client().cookies.set(name, value, domain=domain)
 
-    def get_html(self, url: str, **kwargs: Any) -> str:
-        """Fetch a URL and return the response body as text."""
-        return self.get(url, **kwargs).text
+    # -- internals (mirror the sync client) --
 
-    # -- internals --
-
-    def _build_client(self) -> httpx.Client:
+    def _build_client(self) -> httpx.AsyncClient:
         transport_kwargs: dict[str, Any] = {}
         proxy = self.config.pick_proxy()
         if proxy:
             transport_kwargs["proxy"] = proxy
-        return httpx.Client(
+        return httpx.AsyncClient(
             timeout=self.config.timeout,
             verify=self.config.verify_ssl,
             **transport_kwargs,
         )
 
-    def _ensure_client(self) -> httpx.Client:
+    def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
             self._client = self._build_client()
         return self._client
 
     def _pick_ua(self) -> str:
-        # A configured single user_agent overrides rotation.
         if self.config.user_agent:
             return self.config.user_agent
         return random.choice(self.config.user_agents)
 
     def _merge_headers(self, extra: dict[str, str]) -> dict[str, str]:
-        """Build the request headers: config.headers (lowest priority), then the
-        chosen User-Agent, then per-call headers (highest priority)."""
         return {**self.config.headers, "User-Agent": self._pick_ua(), **extra}
 
-    def _backoff_delay(self, attempt: int) -> float:
-        """Retry delay for this client's config (see module-level backoff_delay)."""
-        return backoff_delay(self.config, attempt)
-
-    # -- caching --
+    # Cache is shared with the sync client (same module-level store + lock).
 
     def _cache_key(self, url: str, params: Any) -> str:
-        """Build a cache key from the URL and any query params."""
         if not params:
             return url
         try:
@@ -255,7 +211,7 @@ class HttpClient:
                 return None
             ts, resp = entry
             if time.monotonic() - ts > self.config.cache_ttl:
-                del _SHARED_CACHE[key]  # expired
+                del _SHARED_CACHE[key]
                 return None
             return resp
 
@@ -264,20 +220,12 @@ class HttpClient:
             with _CACHE_LOCK:
                 _SHARED_CACHE[key] = (time.monotonic(), resp)
 
-    @staticmethod
-    def clear_cache() -> None:
-        """Empty the process-wide response cache."""
-        with _CACHE_LOCK:
-            _SHARED_CACHE.clear()
-
-    def _rate_limit(self, url: str) -> None:
-        from urllib.parse import urlparse
-
+    async def _rate_limit(self, url: str) -> None:
         domain = urlparse(url).netloc
         now = time.monotonic()
         last = self._last_request_time.get(domain, 0.0)
         wait = self.config.rate_limit - (now - last)
         if wait > 0:
             logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
-            time.sleep(wait)
+            await asyncio.sleep(wait)
         self._last_request_time[domain] = time.monotonic()

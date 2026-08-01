@@ -57,6 +57,23 @@ class DictionaryScraper(BaseScraper):
         except Exception as exc:
             return self._err(url, str(exc))
 
+        return self._build_result(word, url, payload)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        word: str,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = _API.format(lang=self.lang, word=quote(word))
+
+        try:
+            payload = json.loads(await self.async_http.get_html(url))
+        except Exception as exc:
+            return self._err(url, str(exc))
+
+        return self._build_result(word, url, payload)
+
+    def _build_result(self, word: str, url: str, payload: Any) -> ScrapeResult:
         # The API returns a dict (with "title") when the word isn't found.
         if isinstance(payload, dict):
             return self._err(url, payload.get("title", f"No definition for {word!r}."))

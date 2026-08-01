@@ -59,6 +59,20 @@ class WikipediaScraper(BaseScraper):
         """
         url = self._base + quote(query.replace(" ", "_"))
         html = self.fetch_html(url)
+        return self._build_result(html, url, mode)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        mode: str = "full",
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = self._base + quote(query.replace(" ", "_"))
+        html = await self.fetch_html_async(url)
+        return self._build_result(html, url, mode)
+
+    def _build_result(self, html: str, url: str, mode: str) -> ScrapeResult:
+        """Shared HTML-parsing and dispatch for the sync and async scrape paths."""
         soup = self.parse_html(html)
 
         # Check for disambiguation or missing page

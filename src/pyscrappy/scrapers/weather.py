@@ -80,26 +80,66 @@ class WeatherScraper(BaseScraper):
             return self._err(geo_url, f"Location {location!r} not found.")
 
         place = results[0]
-        lat, lon = place.get("latitude"), place.get("longitude")
-        fc_url = (
-            f"{_FORECAST}?latitude={lat}&longitude={lon}"
-            "&current=temperature_2m,relative_humidity_2m,"
-            "wind_speed_10m,weather_code"
-        )
+        fc_url = self._forecast_url(place)
 
         try:
             fc = json.loads(self.http.get_html(fc_url))
         except Exception as exc:
             return self._err(fc_url, str(exc))
 
+        return self._build_result(place, geo_url, fc_url, fc)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        location: str,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        geo_url = f"{_GEOCODE}?name={quote_plus(location)}&count=1"
+
+        try:
+            geo = json.loads(await self.async_http.get_html(geo_url))
+        except Exception as exc:
+            return self._err(geo_url, str(exc))
+
+        results = geo.get("results") or []
+        if not results:
+            return self._err(geo_url, f"Location {location!r} not found.")
+
+        place = results[0]
+        fc_url = self._forecast_url(place)
+
+        try:
+            fc = json.loads(await self.async_http.get_html(fc_url))
+        except Exception as exc:
+            return self._err(fc_url, str(exc))
+
+        return self._build_result(place, geo_url, fc_url, fc)
+
+    @staticmethod
+    def _forecast_url(place: dict) -> str:
+        lat, lon = place.get("latitude"), place.get("longitude")
+        return (
+            f"{_FORECAST}?latitude={lat}&longitude={lon}"
+            "&current=temperature_2m,relative_humidity_2m,"
+            "wind_speed_10m,weather_code"
+        )
+
+    def _build_result(
+        self,
+        place: dict,
+        geo_url: str,
+        fc_url: str,
+        fc: dict,
+    ) -> ScrapeResult:
+        """Build the weather ScrapeResult from a forecast payload (shared)."""
         current = fc.get("current") or {}
         units = fc.get("current_units") or {}
         code = current.get("weather_code")
         record = {
             "location": place.get("name"),
             "country": place.get("country"),
-            "latitude": lat,
-            "longitude": lon,
+            "latitude": place.get("latitude"),
+            "longitude": place.get("longitude"),
             "time": current.get("time"),
             "temperature": current.get("temperature_2m"),
             "temperature_unit": units.get("temperature_2m"),

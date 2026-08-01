@@ -50,12 +50,28 @@ class OpenLibraryScraper(BaseScraper):
             raw = self.http.get_html(url)
             payload = json.loads(raw)
         except Exception as exc:
-            return ScrapeResult(
-                data=[],
-                metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
-                errors=[ScrapeError(url=url, message=str(exc))],
-            )
+            return self._err(url, str(exc))
 
+        return self._build_result(payload, url)
+
+    async def scrape_async(  # type: ignore[override]
+        self,
+        query: str,
+        max_results: int = 20,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        url = f"{_API}?q={quote_plus(query)}&limit={max_results}"
+
+        try:
+            raw = await self.async_http.get_html(url)
+            payload = json.loads(raw)
+        except Exception as exc:
+            return self._err(url, str(exc))
+
+        return self._build_result(payload, url)
+
+    def _build_result(self, payload: dict[str, Any], url: str) -> ScrapeResult:
+        """Shared payload handling for the sync and async scrape paths."""
         books = [self._parse(doc) for doc in payload.get("docs", []) if isinstance(doc, dict)]
 
         errors: list[ScrapeError] = []
@@ -66,6 +82,13 @@ class OpenLibraryScraper(BaseScraper):
             data=books,
             metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
             errors=errors,
+        )
+
+    def _err(self, url: str, message: str) -> ScrapeResult:
+        return ScrapeResult(
+            data=[],
+            metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+            errors=[ScrapeError(url=url, message=message)],
         )
 
     @staticmethod

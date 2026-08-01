@@ -108,6 +108,55 @@ class IMDBScraper(BaseScraper):
             return self._lookup_by_id(query.strip())
         return self._search_by_title(query, max_pages)
 
+    async def scrape_async(  # type: ignore[override]
+        self,
+        genre: str | None = None,
+        query: str | None = None,
+        chart: str | None = None,
+        max_pages: int = 1,
+    ) -> ScrapeResult:
+        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        if genre or chart:
+            unsupported = "genre" if genre else "chart"
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(scraper=self.name),
+                errors=[
+                    ScrapeError(
+                        url=_OMDB_BASE,
+                        message=(
+                            f"{unsupported!r} browsing is not supported. IMDB data "
+                            "is served via the OMDb API, which supports title "
+                            "search and id lookup only. Use query=<title> or "
+                            "query=<imdb id, e.g. tt1375666>."
+                        ),
+                    )
+                ],
+            )
+
+        if not query:
+            raise ValueError("Provide query=<title or IMDB id>.")
+
+        if not self.api_key:
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(scraper=self.name),
+                errors=[
+                    ScrapeError(
+                        url=_OMDB_BASE,
+                        message=(
+                            "No OMDb API key. Set the OMDB_API_KEY environment "
+                            "variable or pass api_key=... to IMDBScraper. Get a "
+                            "free key at https://www.omdbapi.com/apikey.aspx"
+                        ),
+                    )
+                ],
+            )
+
+        if _IMDB_ID_RE.match(query.strip()):
+            return await self._lookup_by_id_async(query.strip())
+        return await self._search_by_title_async(query, max_pages)
+
     def _get(self, params: dict[str, str]) -> dict[str, Any]:
         """Call OMDb and return the parsed JSON object."""
         params = {**params, "apikey": self.api_key or ""}
@@ -116,9 +165,23 @@ class IMDBScraper(BaseScraper):
         raw = self.http.get_html(_OMDB_BASE, params=params)
         return json.loads(raw)
 
+    async def _get_async(self, params: dict[str, str]) -> dict[str, Any]:
+        """Async counterpart to :meth:`_get`."""
+        params = {**params, "apikey": self.api_key or ""}
+        import json
+
+        raw = await self.async_http.get_html(_OMDB_BASE, params=params)
+        return json.loads(raw)
+
     def _lookup_by_id(self, imdb_id: str) -> ScrapeResult:
+        return self._build_lookup_result(imdb_id, self._get({"i": imdb_id, "plot": "full"}))
+
+    async def _lookup_by_id_async(self, imdb_id: str) -> ScrapeResult:
+        payload = await self._get_async({"i": imdb_id, "plot": "full"})
+        return self._build_lookup_result(imdb_id, payload)
+
+    def _build_lookup_result(self, imdb_id: str, payload: dict[str, Any]) -> ScrapeResult:
         errors: list[ScrapeError] = []
-        payload = self._get({"i": imdb_id, "plot": "full"})
 
         if payload.get("Response") == "True":
             data = [self._normalise(payload)]
@@ -144,19 +207,8 @@ class IMDBScraper(BaseScraper):
         for page in range(1, max_pages + 1):
             payload = self._get({"s": query, "page": str(page)})
 
-            if payload.get("Response") != "True":
-                # OMDb returns "Movie not found!" / "Too many results." as errors.
-                if page == 1:
-                    errors.append(
-                        ScrapeError(
-                            url=_OMDB_BASE,
-                            message=f"OMDb: {payload.get('Error', 'no results')}",
-                        )
-                    )
-                break
-
-            results = payload.get("Search", [])
-            if not results:
+            results = self._search_page(payload, page, errors)
+            if results is None:
                 break
 
             # Enrich each search hit with full details (genre, rating, plot…).
@@ -170,6 +222,58 @@ class IMDBScraper(BaseScraper):
                     self._normalise(details if details.get("Response") == "True" else hit)
                 )
 
+        return self._build_search_result(movies, errors)
+
+    async def _search_by_title_async(self, query: str, max_pages: int) -> ScrapeResult:
+        movies: list[dict[str, Any]] = []
+        errors: list[ScrapeError] = []
+
+        for page in range(1, max_pages + 1):
+            payload = await self._get_async({"s": query, "page": str(page)})
+
+            results = self._search_page(payload, page, errors)
+            if results is None:
+                break
+
+            # Enrich each search hit with full details (genre, rating, plot…).
+            for hit in results:
+                imdb_id = hit.get("imdbID")
+                if not imdb_id:
+                    movies.append(self._normalise(hit))
+                    continue
+                details = await self._get_async({"i": imdb_id})
+                movies.append(
+                    self._normalise(details if details.get("Response") == "True" else hit)
+                )
+
+        return self._build_search_result(movies, errors)
+
+    def _search_page(
+        self, payload: dict[str, Any], page: int, errors: list[ScrapeError]
+    ) -> list[dict[str, Any]] | None:
+        """Validate one search-page payload; return its hits or None to stop.
+
+        Appends an error (page 1 only) when OMDb reports no results.
+        """
+        if payload.get("Response") != "True":
+            # OMDb returns "Movie not found!" / "Too many results." as errors.
+            if page == 1:
+                errors.append(
+                    ScrapeError(
+                        url=_OMDB_BASE,
+                        message=f"OMDb: {payload.get('Error', 'no results')}",
+                    )
+                )
+            return None
+
+        results = payload.get("Search", [])
+        if not results:
+            return None
+        return results
+
+    def _build_search_result(
+        self, movies: list[dict[str, Any]], errors: list[ScrapeError]
+    ) -> ScrapeResult:
         return ScrapeResult(
             data=movies,
             metadata=ScrapeMetadata(source_urls=[_OMDB_BASE], scraper=self.name),
