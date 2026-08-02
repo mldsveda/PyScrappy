@@ -271,6 +271,20 @@ class TestImageExtractor:
         assert result[0]["width"] == ""
         assert result[0]["height"] == ""
 
+    def test_non_string_attributes(self):
+        # BeautifulSoup will parse 'class' or other multi-valued attributes as a list.
+        # Although alt/width/height are not officially multi-valued, a malformed HTML
+        # or specific parser might return lists. We test by artificially setting a list.
+        soup = _soup('<html><body><img src="https://img.com/x.jpg" alt="a b"></body></html>')
+        img = soup.find("img")
+        img["alt"] = ["a", "b"]
+        img["width"] = ["100", "200"]
+        img["height"] = ["300", "400"]
+        result = self.extractor.extract(soup)
+        assert result[0]["alt"] == "['a', 'b']"
+        assert result[0]["width"] == "['100', '200']"
+        assert result[0]["height"] == "['300', '400']"
+
 
 class TestTableExtractor:
     def setup_method(self):
