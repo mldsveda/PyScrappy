@@ -55,6 +55,7 @@ class HttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.Client | None = None
         self._last_request_time: dict[str, float] = {}
+        self._robots_cache: dict[str, tuple[Any, float | None]] = {}
 
     # -- context manager --
 
@@ -72,7 +73,7 @@ class HttpClient:
 
     # -- public API --
 
-    def get(self, url: str, **kwargs: Any) -> httpx.Response:
+    def get(self, url: str, skip_robots_check: bool = False, **kwargs: Any) -> httpx.Response:
         """Perform a GET request with retries and rate-limiting.
 
         When ``config.cache_ttl > 0``, a successful response is cached in memory
@@ -97,23 +98,21 @@ class HttpClient:
             url = endpoint
             kwargs["params"] = api_params
 
+        extra_headers = kwargs.pop("headers", None) or {}
+        user_agent = extra_headers.get("User-Agent") or self._pick_ua()
+
         client = self._ensure_client()
         crawl_delay: float | None = None
-        if self.config.obey_robots:
+        if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_sync
-            crawl_delay = check_robots_sync(self, url)
+            crawl_delay = check_robots_sync(self, url, user_agent=user_agent)
 
         self._rate_limit(url, min_delay=crawl_delay)
-
-        # Merge any caller-supplied headers on top of a rotated User-Agent,
-        # so scrapers can add site-specific headers (e.g. Referer) without
-        # colliding with the headers kwarg httpx expects.
-        extra_headers = kwargs.pop("headers", None) or {}
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
-                headers = self._merge_headers(extra_headers)
+                headers = self._merge_headers(extra_headers, user_agent=user_agent)
                 resp = client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
                 if resp.status_code == 429:
@@ -230,10 +229,11 @@ class HttpClient:
             return self.config.user_agent
         return random.choice(self.config.user_agents)
 
-    def _merge_headers(self, extra: dict[str, str]) -> dict[str, str]:
+    def _merge_headers(self, extra: dict[str, str], user_agent: str | None = None) -> dict[str, str]:
         """Build the request headers: config.headers (lowest priority), then the
         chosen User-Agent, then per-call headers (highest priority)."""
-        return {**self.config.headers, "User-Agent": self._pick_ua(), **extra}
+        ua = user_agent or self._pick_ua()
+        return {**self.config.headers, "User-Agent": ua, **extra}
 
     def _backoff_delay(self, attempt: int) -> float:
         """Retry delay for this client's config (see module-level backoff_delay)."""

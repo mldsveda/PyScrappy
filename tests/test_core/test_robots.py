@@ -11,15 +11,7 @@ from pyscrappy.core.async_http import AsyncHttpClient
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import RobotsDisallowedError
 from pyscrappy.core.http import HttpClient
-from pyscrappy.core.robots import _ROBOTS_CACHE, check_robots_sync, get_host_and_robots_url
-
-
-@pytest.fixture(autouse=True)
-def _clear_robots_cache():
-    """Clear the per-host robots.txt cache before each test."""
-    _ROBOTS_CACHE.clear()
-    yield
-    _ROBOTS_CACHE.clear()
+from pyscrappy.core.robots import check_robots_sync, get_host_and_robots_url
 
 
 def test_get_host_and_robots_url():
@@ -94,7 +86,7 @@ Disallow: /admin/
             assert "disallowed" in str(exc_info.value).lower()
 
 
-def test_robots_fetched_at_most_once_per_host():
+def test_robots_fetched_at_most_once_per_host_and_cached_per_client():
     robots_txt = "User-agent: *\nDisallow: /secret/\n"
     config = ScraperConfig(obey_robots=True)
     robots_fetch_count = 0
@@ -116,9 +108,9 @@ def test_robots_fetched_at_most_once_per_host():
             client.get("https://example.com/page1")
             client.get("https://example.com/page2")
             client.get("https://example.com/page3")
+            assert "example.com" in client._robots_cache
 
     assert robots_fetch_count == 1
-    assert "example.com" in _ROBOTS_CACHE
 
 
 def test_crawl_delay_floor_honored():
@@ -137,7 +129,7 @@ Crawl-delay: 3
 
     with patch("httpx.Client.get", side_effect=fake_httpx_get):
         with HttpClient(config) as client:
-            delay = check_robots_sync(client, "https://example.com/page")
+            delay = check_robots_sync(client, "https://example.com/page", user_agent="PyScrappyBot")
             assert delay == 3.0
 
 

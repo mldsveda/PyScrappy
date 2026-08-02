@@ -47,6 +47,7 @@ class AsyncHttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.AsyncClient | None = None
         self._last_request_time: dict[str, float] = {}
+        self._robots_cache: dict[str, tuple[Any, float | None]] = {}
 
     async def __aenter__(self) -> AsyncHttpClient:
         self._client = self._build_client()
@@ -62,7 +63,7 @@ class AsyncHttpClient:
 
     # -- public API --
 
-    async def get(self, url: str, **kwargs: Any) -> httpx.Response:
+    async def get(self, url: str, skip_robots_check: bool = False, **kwargs: Any) -> httpx.Response:
         """GET with retries, rate-limiting, and optional caching (see HttpClient.get)."""
         cache_key = self._cache_key(url, kwargs.get("params"))
         cached = self._cache_get(cache_key)
@@ -79,19 +80,21 @@ class AsyncHttpClient:
             url = endpoint
             kwargs["params"] = api_params
 
+        extra_headers = kwargs.pop("headers", None) or {}
+        user_agent = extra_headers.get("User-Agent") or self._pick_ua()
+
         client = self._ensure_client()
         crawl_delay: float | None = None
-        if self.config.obey_robots:
+        if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_async
-            crawl_delay = await check_robots_async(self, url)
+            crawl_delay = await check_robots_async(self, url, user_agent=user_agent)
 
         await self._rate_limit(url, min_delay=crawl_delay)
-        extra_headers = kwargs.pop("headers", None) or {}
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
-                headers = self._merge_headers(extra_headers)
+                headers = self._merge_headers(extra_headers, user_agent=user_agent)
                 resp = await client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
                 if resp.status_code == 429:
@@ -193,8 +196,9 @@ class AsyncHttpClient:
             return self.config.user_agent
         return random.choice(self.config.user_agents)
 
-    def _merge_headers(self, extra: dict[str, str]) -> dict[str, str]:
-        return {**self.config.headers, "User-Agent": self._pick_ua(), **extra}
+    def _merge_headers(self, extra: dict[str, str], user_agent: str | None = None) -> dict[str, str]:
+        ua = user_agent or self._pick_ua()
+        return {**self.config.headers, "User-Agent": ua, **extra}
 
     # Cache is shared with the sync client (same module-level store + lock).
 
