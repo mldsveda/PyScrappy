@@ -32,7 +32,8 @@ class ScrapeResult:
 
     ``data`` is always a list of dicts — one dict per scraped item.
     Call ``.to_dataframe()`` for a pandas DataFrame, ``.to_json()`` for
-    JSON, or ``.to_markdown()`` for clean, LLM-ready Markdown.
+    JSON, ``.to_csv()`` for CSV text, ``.to_markdown()`` for clean,
+    LLM-ready Markdown, or ``.save(path)`` to write by file extension.
     """
 
     data: list[dict[str, Any]]
@@ -129,3 +130,61 @@ class ScrapeResult:
             indent=indent,
             default=str,
         )
+
+    def to_csv(self) -> str:
+        """Return ``data`` as CSV text.
+
+        Uses pandas when available (``to_dataframe().to_csv(index=False)``).
+        Nested / non-scalar cell values are stringified. Falls back to the
+        stdlib ``csv`` module when pandas is not installed.
+        """
+        # Empty data is "" in both paths (pandas' DataFrame([]).to_csv() would
+        # otherwise return a lone newline), so guard before either branch.
+        if not self.data:
+            return ""
+        try:
+            return self.to_dataframe().to_csv(index=False)
+        except ImportError:
+            import csv
+            import io
+
+            # Union of keys preserves column order from the first row, then
+            # appends any later keys in encounter order.
+            fieldnames: list[str] = []
+            seen: set[str] = set()
+            for row in self.data:
+                for key in row:
+                    if key not in seen:
+                        seen.add(key)
+                        fieldnames.append(key)
+            buf = io.StringIO()
+            # lineterminator="\n" so the stdlib fallback matches pandas' "\n"
+            # output (DictWriter defaults to "\r\n"); output is identical either way.
+            writer = csv.DictWriter(
+                buf, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n"
+            )
+            writer.writeheader()
+            for row in self.data:
+                writer.writerow({k: row.get(k, "") for k in fieldnames})
+            return buf.getvalue()
+
+    def save(self, path: str) -> None:
+        """Write the result to ``path``, choosing format from the extension.
+
+        Supported extensions: ``.json`` → :meth:`to_json`, ``.csv`` →
+        :meth:`to_csv`, ``.md`` → :meth:`to_markdown`.
+        """
+        from pathlib import Path as _Path
+
+        suffix = _Path(path).suffix.lower()
+        if suffix == ".json":
+            content = self.to_json()
+        elif suffix == ".csv":
+            content = self.to_csv()
+        elif suffix == ".md":
+            content = self.to_markdown()
+        else:
+            raise ValueError(
+                f"Unsupported extension {suffix!r} for save(); use .json, .csv, or .md"
+            )
+        _Path(path).write_text(content, encoding="utf-8")
