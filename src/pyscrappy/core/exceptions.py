@@ -13,6 +13,10 @@ class RateLimitError(NetworkError):
     """Raised when the target site returns a rate-limit response (429)."""
 
 
+class RobotsDisallowedError(PyScrappyError):
+    """Raised when a URL is disallowed by the host's robots.txt."""
+
+
 class ScraperTimeoutError(PyScrappyError):
     """Raised when a scraping operation exceeds the configured timeout."""
 
