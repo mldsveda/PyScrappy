@@ -80,7 +80,12 @@ class AsyncHttpClient:
             kwargs["params"] = api_params
 
         client = self._ensure_client()
-        await self._rate_limit(url)
+        crawl_delay: float | None = None
+        if self.config.obey_robots:
+            from pyscrappy.core.robots import check_robots_async
+            crawl_delay = await check_robots_async(self, url)
+
+        await self._rate_limit(url, min_delay=crawl_delay)
         extra_headers = kwargs.pop("headers", None) or {}
 
         last_exc: Exception | None = None
@@ -220,11 +225,17 @@ class AsyncHttpClient:
             with _CACHE_LOCK:
                 _SHARED_CACHE[key] = (time.monotonic(), resp)
 
-    async def _rate_limit(self, url: str) -> None:
+    def _get_current_user_agent(self) -> str:
+        return self._pick_ua()
+
+    async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc
         now = time.monotonic()
         last = self._last_request_time.get(domain, 0.0)
-        wait = self.config.rate_limit - (now - last)
+        delay_target = self.config.rate_limit
+        if min_delay is not None:
+            delay_target = max(delay_target, min_delay)
+        wait = delay_target - (now - last)
         if wait > 0:
             logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
             await asyncio.sleep(wait)

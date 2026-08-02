@@ -98,7 +98,12 @@ class HttpClient:
             kwargs["params"] = api_params
 
         client = self._ensure_client()
-        self._rate_limit(url)
+        crawl_delay: float | None = None
+        if self.config.obey_robots:
+            from pyscrappy.core.robots import check_robots_sync
+            crawl_delay = check_robots_sync(self, url)
+
+        self._rate_limit(url, min_delay=crawl_delay)
 
         # Merge any caller-supplied headers on top of a rotated User-Agent,
         # so scrapers can add site-specific headers (e.g. Referer) without
@@ -270,13 +275,19 @@ class HttpClient:
         with _CACHE_LOCK:
             _SHARED_CACHE.clear()
 
-    def _rate_limit(self, url: str) -> None:
+    def _get_current_user_agent(self) -> str:
+        return self._pick_ua()
+
+    def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         from urllib.parse import urlparse
 
         domain = urlparse(url).netloc
         now = time.monotonic()
         last = self._last_request_time.get(domain, 0.0)
-        wait = self.config.rate_limit - (now - last)
+        delay_target = self.config.rate_limit
+        if min_delay is not None:
+            delay_target = max(delay_target, min_delay)
+        wait = delay_target - (now - last)
         if wait > 0:
             logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
             time.sleep(wait)

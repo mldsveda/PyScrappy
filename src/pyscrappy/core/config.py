@@ -32,6 +32,8 @@ class ScraperConfig:
         backoff_max: Upper bound (seconds) on a single retry delay, so backoff
             can't grow without limit. ``None`` (the default) means no cap.
         rate_limit: Minimum seconds between requests to the same domain.
+        obey_robots: Whether to respect host robots.txt rules and Crawl-delay.
+            ``False`` (the default) does not fetch robots.txt at all.
         user_agent: A single User-Agent string to use for every request. When set,
             it overrides ``user_agents`` rotation (some sites block the default
             UAs or require a specific one). ``None`` (the default) rotates through
@@ -64,6 +66,7 @@ class ScraperConfig:
     backoff_factor: float = 2.0
     backoff_max: float | None = None
     rate_limit: float = 1.0
+    obey_robots: bool = False
     user_agent: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
     user_agents: list[str] = field(default_factory=lambda: list(_DEFAULT_USER_AGENTS))
