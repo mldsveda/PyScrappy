@@ -160,3 +160,31 @@ class TestScrapeResult:
         result = ScrapeResult(data=[], errors=errors)
         assert len(result.errors) == 2
         assert result.errors[1].selector == ".x"
+
+    def test_to_csv(self):
+        result = ScrapeResult(data=[{"name": "a", "price": 1}, {"name": "b", "price": 2}])
+        csv_text = result.to_csv()
+        assert "name,price" in csv_text.replace(" ", "")
+        assert "a,1" in csv_text.replace(" ", "")
+        assert "b,2" in csv_text.replace(" ", "")
+
+    def test_to_csv_empty(self):
+        assert ScrapeResult(data=[]).to_csv() == ""
+
+    def test_save_json_csv_md(self, tmp_path):
+        result = ScrapeResult(data=[{"title": "x", "n": 1}])
+        json_path = tmp_path / "out.json"
+        csv_path = tmp_path / "out.csv"
+        md_path = tmp_path / "out.md"
+        result.save(str(json_path))
+        result.save(str(csv_path))
+        result.save(str(md_path))
+        assert json.loads(json_path.read_text())["data"] == [{"title": "x", "n": 1}]
+        assert "title,n" in csv_path.read_text().replace(" ", "")
+        assert "**title:** x" in md_path.read_text()
+
+    def test_save_unsupported_extension(self, tmp_path):
+        result = ScrapeResult(data=[{"a": 1}])
+        with pytest.raises(ValueError, match="Unsupported extension"):
+            result.save(str(tmp_path / "out.txt"))
+
