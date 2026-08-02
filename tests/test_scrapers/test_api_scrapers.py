@@ -50,6 +50,14 @@ class TestGitHub:
         assert r.data == []
         assert "rate limited" in r.errors[0].message
 
+    def test_default_max_results_matches_mcp_tool(self):
+        """The default page size must match the MCP search_github tool (20), so
+        calling either surfaces the same number of repositories (issue #79)."""
+        s = _with(GitHubScraper(), json.dumps({"items": []}))
+        s.scrape(query="x")
+        url = s._http.get_html.call_args.args[0]
+        assert "per_page=20" in url
+
 
 class TestHackerNews:
     def test_parse(self):

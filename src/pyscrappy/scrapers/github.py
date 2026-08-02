@@ -44,7 +44,7 @@ class GitHubScraper(BaseScraper):
     def scrape(  # type: ignore[override]
         self,
         query: str,
-        max_results: int = 30,
+        max_results: int = 20,
         sort: str = "best-match",
     ) -> ScrapeResult:
         """Search GitHub repositories.
@@ -81,7 +81,7 @@ class GitHubScraper(BaseScraper):
     async def scrape_async(  # type: ignore[override]
         self,
         query: str,
-        max_results: int = 30,
+        max_results: int = 20,
         sort: str = "best-match",
     ) -> ScrapeResult:
         """Async counterpart to :meth:`scrape` (same args/returns)."""
