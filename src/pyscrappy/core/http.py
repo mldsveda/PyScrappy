@@ -55,7 +55,10 @@ class HttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.Client | None = None
         self._last_request_time: dict[str, float] = {}
-        self._robots_cache: dict[str, tuple[Any, float | None]] = {}
+        # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
+        # is computed per request from the parser, so the UA-specific value stays
+        # correct even when the client rotates User-Agents.
+        self._robots_cache: dict[str, Any] = {}
 
     # -- context manager --
 
@@ -105,6 +108,7 @@ class HttpClient:
         crawl_delay: float | None = None
         if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_sync
+
             crawl_delay = check_robots_sync(self, url, user_agent=user_agent)
 
         self._rate_limit(url, min_delay=crawl_delay)
@@ -229,7 +233,9 @@ class HttpClient:
             return self.config.user_agent
         return random.choice(self.config.user_agents)
 
-    def _merge_headers(self, extra: dict[str, str], user_agent: str | None = None) -> dict[str, str]:
+    def _merge_headers(
+        self, extra: dict[str, str], user_agent: str | None = None
+    ) -> dict[str, str]:
         """Build the request headers: config.headers (lowest priority), then the
         chosen User-Agent, then per-call headers (highest priority)."""
         ua = user_agent or self._pick_ua()
@@ -274,9 +280,6 @@ class HttpClient:
         """Empty the process-wide response cache."""
         with _CACHE_LOCK:
             _SHARED_CACHE.clear()
-
-    def _get_current_user_agent(self) -> str:
-        return self._pick_ua()
 
     def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         from urllib.parse import urlparse

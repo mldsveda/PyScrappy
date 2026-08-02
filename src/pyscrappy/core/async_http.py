@@ -47,7 +47,10 @@ class AsyncHttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.AsyncClient | None = None
         self._last_request_time: dict[str, float] = {}
-        self._robots_cache: dict[str, tuple[Any, float | None]] = {}
+        # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
+        # is computed per request from the parser, so the UA-specific value stays
+        # correct even when the client rotates User-Agents.
+        self._robots_cache: dict[str, Any] = {}
 
     async def __aenter__(self) -> AsyncHttpClient:
         self._client = self._build_client()
@@ -87,6 +90,7 @@ class AsyncHttpClient:
         crawl_delay: float | None = None
         if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_async
+
             crawl_delay = await check_robots_async(self, url, user_agent=user_agent)
 
         await self._rate_limit(url, min_delay=crawl_delay)
@@ -196,7 +200,9 @@ class AsyncHttpClient:
             return self.config.user_agent
         return random.choice(self.config.user_agents)
 
-    def _merge_headers(self, extra: dict[str, str], user_agent: str | None = None) -> dict[str, str]:
+    def _merge_headers(
+        self, extra: dict[str, str], user_agent: str | None = None
+    ) -> dict[str, str]:
         ua = user_agent or self._pick_ua()
         return {**self.config.headers, "User-Agent": ua, **extra}
 
@@ -228,9 +234,6 @@ class AsyncHttpClient:
         if self.config.cache_ttl > 0:
             with _CACHE_LOCK:
                 _SHARED_CACHE[key] = (time.monotonic(), resp)
-
-    def _get_current_user_agent(self) -> str:
-        return self._pick_ua()
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc

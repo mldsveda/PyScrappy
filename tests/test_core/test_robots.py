@@ -44,7 +44,7 @@ User-agent: *
 Disallow: /admin/
 Allow: /public/
 """
-    config = ScraperConfig(obey_robots=True)
+    config = ScraperConfig(obey_robots=True, rate_limit=0)
 
     def fake_httpx_get(url, *args, **kwargs):
         resp = MagicMock(spec=httpx.Response)
@@ -67,7 +67,7 @@ def test_obey_robots_disallowed_path_raises_error():
 User-agent: *
 Disallow: /admin/
 """
-    config = ScraperConfig(obey_robots=True)
+    config = ScraperConfig(obey_robots=True, rate_limit=0)
 
     def fake_httpx_get(url, *args, **kwargs):
         resp = MagicMock(spec=httpx.Response)
@@ -88,7 +88,7 @@ Disallow: /admin/
 
 def test_robots_fetched_at_most_once_per_host_and_cached_per_client():
     robots_txt = "User-agent: *\nDisallow: /secret/\n"
-    config = ScraperConfig(obey_robots=True)
+    config = ScraperConfig(obey_robots=True, rate_limit=0)
     robots_fetch_count = 0
 
     def fake_httpx_get(url, *args, **kwargs):
@@ -113,12 +113,12 @@ def test_robots_fetched_at_most_once_per_host_and_cached_per_client():
     assert robots_fetch_count == 1
 
 
-def test_crawl_delay_floor_honored():
+def test_crawl_delay_parsed_from_robots():
     robots_txt = """\
 User-agent: *
 Crawl-delay: 3
 """
-    config = ScraperConfig(obey_robots=True, rate_limit=1.0)
+    config = ScraperConfig(obey_robots=True, rate_limit=0)
 
     def fake_httpx_get(url, *args, **kwargs):
         resp = MagicMock(spec=httpx.Response)
@@ -133,10 +133,32 @@ Crawl-delay: 3
             assert delay == 3.0
 
 
+def test_crawl_delay_floor_passed_to_rate_limiter():
+    """The parsed Crawl-delay must actually flow into _rate_limit as min_delay,
+    not just be returned by check_robots_sync — that's the behavior that makes
+    scraping slow down for polite hosts."""
+    robots_txt = "User-agent: *\nCrawl-delay: 3\n"
+    config = ScraperConfig(obey_robots=True, rate_limit=0)
+
+    def fake_httpx_get(url, *args, **kwargs):
+        resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        resp.headers = {}
+        resp.text = robots_txt if "robots.txt" in str(url) else "OK"
+        return resp
+
+    with patch("httpx.Client.get", side_effect=fake_httpx_get):
+        with HttpClient(config) as client:
+            with patch.object(client, "_rate_limit", wraps=client._rate_limit) as spy:
+                client.get("https://example.com/page")
+    # the page fetch's rate-limit call carries the 3s Crawl-delay floor
+    assert any(call.kwargs.get("min_delay") == 3.0 for call in spy.call_args_list)
+
+
 @pytest.mark.anyio
 async def test_async_obey_robots_disallowed():
     robots_txt = "User-agent: *\nDisallow: /private/\n"
-    config = ScraperConfig(obey_robots=True)
+    config = ScraperConfig(obey_robots=True, rate_limit=0)
 
     async def fake_async_get(url, *args, **kwargs):
         resp = MagicMock(spec=httpx.Response)

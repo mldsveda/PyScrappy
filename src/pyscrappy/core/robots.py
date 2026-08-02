@@ -25,105 +25,100 @@ def get_host_and_robots_url(url: str) -> tuple[str, str]:
     return netloc.lower(), robots_url
 
 
-def _parse_robots(text: str, user_agent: str) -> tuple[RobotFileParser, float | None]:
-    """Parse robots.txt content and extract crawl_delay for the user_agent."""
+def _parse_robots(text: str) -> RobotFileParser:
+    """Parse robots.txt content into a RobotFileParser."""
     parser = RobotFileParser()
     parser.parse(text.splitlines())
+    return parser
 
-    delay: float | None = None
+
+def _crawl_delay_for(parser: RobotFileParser, user_agent: str) -> float | None:
+    """Crawl-delay this parser advertises for ``user_agent`` (None if absent).
+
+    Computed per request rather than cached as a single value, since robots.txt
+    can set different Crawl-delay values for different User-Agent groups and the
+    client may rotate UAs.
+    """
     try:
         raw_delay = parser.crawl_delay(user_agent)
-        if raw_delay is not None:
-            delay = float(raw_delay)
+        return float(raw_delay) if raw_delay is not None else None
     except Exception:
-        delay = None
-
-    return parser, delay
+        return None
 
 
 def check_robots_sync(client: HttpClient, url: str, user_agent: str) -> float | None:
     """Sync check: fetch and parse robots.txt for URL host if needed, evaluate
-    permissions, and return any Crawl-delay using per-client cache.
+    permissions, and return the Crawl-delay for ``user_agent`` using the per-client
+    cache.
 
     Raises:
         RobotsDisallowedError: If the URL is disallowed for the client's user-agent.
     """
     host, robots_url = get_host_and_robots_url(url)
 
-    if host in client._robots_cache:
-        parser, delay = client._robots_cache[host]
-    else:
-        parser, delay = _fetch_and_cache_sync(client, host, robots_url, user_agent)
+    parser = client._robots_cache.get(host)
+    if parser is None:
+        parser = _fetch_and_cache_sync(client, host, robots_url, user_agent)
 
     if not parser.can_fetch(user_agent, url):
         raise RobotsDisallowedError(
             f"URL '{url}' is disallowed for user-agent '{user_agent}' by robots.txt at {robots_url}"
         )
 
-    return delay
+    return _crawl_delay_for(parser, user_agent)
 
 
 def _fetch_and_cache_sync(
     client: HttpClient, host: str, robots_url: str, user_agent: str
-) -> tuple[RobotFileParser, float | None]:
-    """Fetch robots.txt via sync client (skipping robots check recursively) and store in per-client cache."""
-    parser = RobotFileParser()
-
+) -> RobotFileParser:
+    """Fetch robots.txt via the sync client (skipping the robots check recursively,
+    and sending the same User-Agent being enforced) and cache the parser per-client."""
     try:
-        resp = client.get(robots_url, skip_robots_check=True)
-        if resp.status_code == 200:
-            parser, delay = _parse_robots(resp.text, user_agent)
-        else:
-            parser.parse([])
-            delay = None
+        resp = client.get(robots_url, skip_robots_check=True, headers={"User-Agent": user_agent})
+        parser = _parse_robots(resp.text) if resp.status_code == 200 else _parse_robots("")
     except Exception as exc:
         logger.debug("Failed to fetch robots.txt from %s: %s", robots_url, exc)
-        parser.parse([])
-        delay = None
+        parser = _parse_robots("")
 
-    client._robots_cache[host] = (parser, delay)
-    return parser, delay
+    client._robots_cache[host] = parser
+    return parser
 
 
 async def check_robots_async(client: AsyncHttpClient, url: str, user_agent: str) -> float | None:
     """Async check: fetch and parse robots.txt for URL host if needed, evaluate
-    permissions, and return any Crawl-delay using per-client cache.
+    permissions, and return the Crawl-delay for ``user_agent`` using the per-client
+    cache.
 
     Raises:
         RobotsDisallowedError: If the URL is disallowed for the client's user-agent.
     """
     host, robots_url = get_host_and_robots_url(url)
 
-    if host in client._robots_cache:
-        parser, delay = client._robots_cache[host]
-    else:
-        parser, delay = await _fetch_and_cache_async(client, host, robots_url, user_agent)
+    parser = client._robots_cache.get(host)
+    if parser is None:
+        parser = await _fetch_and_cache_async(client, host, robots_url, user_agent)
 
     if not parser.can_fetch(user_agent, url):
         raise RobotsDisallowedError(
             f"URL '{url}' is disallowed for user-agent '{user_agent}' by robots.txt at {robots_url}"
         )
 
-    return delay
+    return _crawl_delay_for(parser, user_agent)
 
 
 async def _fetch_and_cache_async(
     client: AsyncHttpClient, host: str, robots_url: str, user_agent: str
-) -> tuple[RobotFileParser, float | None]:
-    """Fetch robots.txt via async client (skipping robots check recursively) and store in per-client cache."""
-    parser = RobotFileParser()
-
+) -> RobotFileParser:
+    """Fetch robots.txt via the async client (skipping the robots check recursively,
+    and sending the same User-Agent being enforced) and cache the parser per-client."""
     try:
-        resp = await client.get(robots_url, skip_robots_check=True)
-        if resp.status_code == 200:
-            parser, delay = _parse_robots(resp.text, user_agent)
-        else:
-            parser.parse([])
-            delay = None
+        resp = await client.get(
+            robots_url, skip_robots_check=True, headers={"User-Agent": user_agent}
+        )
+        parser = _parse_robots(resp.text) if resp.status_code == 200 else _parse_robots("")
     except Exception as exc:
         logger.debug("Failed to fetch robots.txt from %s: %s", robots_url, exc)
-        parser.parse([])
-        delay = None
+        parser = _parse_robots("")
 
-    client._robots_cache[host] = (parser, delay)
-    return parser, delay
+    client._robots_cache[host] = parser
+    return parser
