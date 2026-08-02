@@ -187,4 +187,3 @@ class TestScrapeResult:
         result = ScrapeResult(data=[{"a": 1}])
         with pytest.raises(ValueError, match="Unsupported extension"):
             result.save(str(tmp_path / "out.txt"))
-

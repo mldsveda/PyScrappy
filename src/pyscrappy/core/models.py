@@ -138,14 +138,16 @@ class ScrapeResult:
         Nested / non-scalar cell values are stringified. Falls back to the
         stdlib ``csv`` module when pandas is not installed.
         """
+        # Empty data is "" in both paths (pandas' DataFrame([]).to_csv() would
+        # otherwise return a lone newline), so guard before either branch.
+        if not self.data:
+            return ""
         try:
             return self.to_dataframe().to_csv(index=False)
         except ImportError:
             import csv
             import io
 
-            if not self.data:
-                return ""
             # Union of keys preserves column order from the first row, then
             # appends any later keys in encounter order.
             fieldnames: list[str] = []
@@ -179,7 +181,6 @@ class ScrapeResult:
             content = self.to_markdown()
         else:
             raise ValueError(
-                f"Unsupported extension {suffix!r} for save(); "
-                "use .json, .csv, or .md"
+                f"Unsupported extension {suffix!r} for save(); use .json, .csv, or .md"
             )
         _Path(path).write_text(content, encoding="utf-8")
