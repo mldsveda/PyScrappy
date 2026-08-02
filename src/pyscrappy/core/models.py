@@ -158,7 +158,11 @@ class ScrapeResult:
                         seen.add(key)
                         fieldnames.append(key)
             buf = io.StringIO()
-            writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+            # lineterminator="\n" so the stdlib fallback matches pandas' "\n"
+            # output (DictWriter defaults to "\r\n"); output is identical either way.
+            writer = csv.DictWriter(
+                buf, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n"
+            )
             writer.writeheader()
             for row in self.data:
                 writer.writerow({k: row.get(k, "") for k in fieldnames})

@@ -171,6 +171,23 @@ class TestScrapeResult:
     def test_to_csv_empty(self):
         assert ScrapeResult(data=[]).to_csv() == ""
 
+    def test_to_csv_stdlib_fallback_without_pandas(self, monkeypatch):
+        """Force the stdlib csv path (pandas unavailable) and confirm it produces
+        the same header/rows and "\n" line endings as the pandas path."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "pandas":
+                raise ImportError("no pandas")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        result = ScrapeResult(data=[{"name": "a", "price": 1}, {"name": "b", "price": 2}])
+        csv_text = result.to_csv()
+        assert csv_text == "name,price\na,1\nb,2\n"  # "\n", not "\r\n"
+
     def test_save_json_csv_md(self, tmp_path):
         result = ScrapeResult(data=[{"title": "x", "n": 1}])
         json_path = tmp_path / "out.json"
