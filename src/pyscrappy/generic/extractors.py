@@ -162,9 +162,9 @@ class ImageExtractor:
             images.append(
                 {
                     "url": absolute,
-                    "alt": img.get("alt", ""),
-                    "width": img.get("width", ""),
-                    "height": img.get("height", ""),
+                    "alt": str(img.get("alt") or ""),
+                    "width": str(img.get("width") or ""),
+                    "height": str(img.get("height") or ""),
                 }
             )
 
