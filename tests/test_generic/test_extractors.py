@@ -281,9 +281,9 @@ class TestImageExtractor:
         img["width"] = ["100", "200"]
         img["height"] = ["300", "400"]
         result = self.extractor.extract(soup)
-        assert result[0]["alt"] == "['a', 'b']"
-        assert result[0]["width"] == "['100', '200']"
-        assert result[0]["height"] == "['300', '400']"
+        assert result[0]["alt"] == str(["a", "b"])
+        assert result[0]["width"] == str(["100", "200"])
+        assert result[0]["height"] == str(["300", "400"])
 
 
 class TestTableExtractor:
