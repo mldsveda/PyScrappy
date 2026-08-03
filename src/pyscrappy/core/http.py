@@ -105,7 +105,6 @@ class HttpClient:
         extra_headers = kwargs.pop("headers", None) or {}
         user_agent = extra_headers.get("User-Agent") or self._pick_ua()
 
-        
         crawl_delay: float | None = None
         if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_sync
