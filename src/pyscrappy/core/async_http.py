@@ -117,7 +117,7 @@ class AsyncHttpClient:
             except httpx.HTTPStatusError as exc:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
-                    self._client = None
+                    await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
                     await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
@@ -125,7 +125,7 @@ class AsyncHttpClient:
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
-                    self._client = None
+                    await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
                     await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
 

@@ -143,7 +143,7 @@ class HttpClient:
                         attempt,
                         delay,
                     )
-                    self._client = None
+                    self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
@@ -153,7 +153,7 @@ class HttpClient:
                 if attempt < self.config.max_retries:
                     delay = self._backoff_delay(attempt)
                     logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
-                    self._client = None
+                    self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue
 
