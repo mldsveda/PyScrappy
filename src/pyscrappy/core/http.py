@@ -104,7 +104,7 @@ class HttpClient:
         extra_headers = kwargs.pop("headers", None) or {}
         user_agent = extra_headers.get("User-Agent") or self._pick_ua()
 
-        client = self._ensure_client()
+        
         crawl_delay: float | None = None
         if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_sync
@@ -116,6 +116,7 @@ class HttpClient:
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
+                client = self._ensure_client()
                 headers = self._merge_headers(extra_headers, user_agent=user_agent)
                 resp = client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
@@ -142,6 +143,7 @@ class HttpClient:
                         attempt,
                         delay,
                     )
+                    self._client = None
                     time.sleep(delay)
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
@@ -151,6 +153,7 @@ class HttpClient:
                 if attempt < self.config.max_retries:
                     delay = self._backoff_delay(attempt)
                     logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
+                    self._client = None
                     time.sleep(delay)
                     continue
 

@@ -86,7 +86,7 @@ class AsyncHttpClient:
         extra_headers = kwargs.pop("headers", None) or {}
         user_agent = extra_headers.get("User-Agent") or self._pick_ua()
 
-        client = self._ensure_client()
+        
         crawl_delay: float | None = None
         if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_async
@@ -98,6 +98,7 @@ class AsyncHttpClient:
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
+                client = self._ensure_client()
                 headers = self._merge_headers(extra_headers, user_agent=user_agent)
                 resp = await client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
@@ -116,6 +117,7 @@ class AsyncHttpClient:
             except httpx.HTTPStatusError as exc:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
+                    self._client = None
                     await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
@@ -123,6 +125,7 @@ class AsyncHttpClient:
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
+                    self._client = None
                     await asyncio.sleep(backoff_delay(self.config, attempt))
                     continue
 
