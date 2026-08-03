@@ -2,6 +2,7 @@
 
 import json
 from unittest.mock import MagicMock
+from urllib.parse import parse_qs, urlparse
 
 from pyscrappy.scrapers.github import GitHubScraper
 from pyscrappy.scrapers.hackernews import HackerNewsScraper
@@ -49,6 +50,15 @@ class TestGitHub:
         r = s.scrape(query="x")
         assert r.data == []
         assert "rate limited" in r.errors[0].message
+
+    def test_default_max_results_matches_mcp_tool(self):
+        """The default page size must match the MCP search_github tool (20), so
+        calling either surfaces the same number of repositories (issue #79)."""
+        s = _with(GitHubScraper(), json.dumps({"items": []}))
+        s.scrape(query="x")
+        url = s._http.get_html.call_args.args[0]
+        # exact param match, so per_page=200 can't false-positive on a substring
+        assert parse_qs(urlparse(url).query).get("per_page") == ["20"]
 
 
 class TestHackerNews:
