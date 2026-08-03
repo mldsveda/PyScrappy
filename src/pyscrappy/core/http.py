@@ -55,6 +55,7 @@ class HttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.Client | None = None
         self._last_request_time: dict[str, float] = {}
+        self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
         # is computed per request from the parser, so the UA-specific value stays
         # correct even when the client rotates User-Agents.
@@ -216,7 +217,8 @@ class HttpClient:
 
     def _build_client(self) -> httpx.Client:
         transport_kwargs: dict[str, Any] = {}
-        proxy = self.config.pick_proxy()
+        proxy = self.config.pick_proxy(exclude=self._current_proxy)
+        self._current_proxy = proxy
         if proxy:
             transport_kwargs["proxy"] = proxy
         return httpx.Client(

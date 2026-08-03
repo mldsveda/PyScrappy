@@ -18,6 +18,12 @@ class TestProxyRotation:
         cfg = ScraperConfig(proxy="http://host:8080")
         assert cfg.pick_proxy() == "http://host:8080"
 
+    def test_exclude_skips_previous_proxy_when_possible(self, monkeypatch):
+        cfg = ScraperConfig(proxy=["http://a:1", "http://b:2"])
+        monkeypatch.setattr("random.choice", lambda seq: seq[0])
+
+        assert cfg.pick_proxy(exclude="http://a:1") == "http://b:2"
+
     def test_rotating_proxy_picks_from_list(self):
         proxies = ["http://a:1", "http://b:2", "http://c:3"]
         cfg = ScraperConfig(proxy=proxies)
