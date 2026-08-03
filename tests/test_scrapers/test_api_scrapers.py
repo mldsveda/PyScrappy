@@ -2,6 +2,7 @@
 
 import json
 from unittest.mock import MagicMock
+from urllib.parse import parse_qs, urlparse
 
 from pyscrappy.scrapers.github import GitHubScraper
 from pyscrappy.scrapers.hackernews import HackerNewsScraper
@@ -56,7 +57,8 @@ class TestGitHub:
         s = _with(GitHubScraper(), json.dumps({"items": []}))
         s.scrape(query="x")
         url = s._http.get_html.call_args.args[0]
-        assert "per_page=20" in url
+        # exact param match, so per_page=200 can't false-positive on a substring
+        assert parse_qs(urlparse(url).query).get("per_page") == ["20"]
 
 
 class TestHackerNews:
