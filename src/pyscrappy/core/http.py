@@ -55,6 +55,7 @@ class HttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.Client | None = None
         self._last_request_time: dict[str, float] = {}
+        self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
         # is computed per request from the parser, so the UA-specific value stays
         # correct even when the client rotates User-Agents.
@@ -104,7 +105,6 @@ class HttpClient:
         extra_headers = kwargs.pop("headers", None) or {}
         user_agent = extra_headers.get("User-Agent") or self._pick_ua()
 
-        client = self._ensure_client()
         crawl_delay: float | None = None
         if self.config.obey_robots and not skip_robots_check:
             from pyscrappy.core.robots import check_robots_sync
@@ -116,6 +116,7 @@ class HttpClient:
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
             try:
+                client = self._ensure_client()
                 headers = self._merge_headers(extra_headers, user_agent=user_agent)
                 resp = client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
@@ -142,6 +143,7 @@ class HttpClient:
                         attempt,
                         delay,
                     )
+                    self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
@@ -151,6 +153,7 @@ class HttpClient:
                 if attempt < self.config.max_retries:
                     delay = self._backoff_delay(attempt)
                     logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
+                    self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue
 
@@ -213,7 +216,8 @@ class HttpClient:
 
     def _build_client(self) -> httpx.Client:
         transport_kwargs: dict[str, Any] = {}
-        proxy = self.config.pick_proxy()
+        proxy = self.config.pick_proxy(exclude=self._current_proxy)
+        self._current_proxy = proxy
         if proxy:
             transport_kwargs["proxy"] = proxy
         return httpx.Client(

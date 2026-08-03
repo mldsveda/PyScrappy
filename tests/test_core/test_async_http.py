@@ -65,12 +65,20 @@ async def test_async_retries_on_server_error():
     err.raise_for_status = MagicMock(
         side_effect=httpx.HTTPStatusError("500", request=MagicMock(), response=err)
     )
-    client, mock = _mock_async_client(
-        ScraperConfig(rate_limit=0, retry_delay=0, max_retries=2), [err, _resp(text="ok")]
-    )
+    ok = _resp(text="ok")
+    client = AsyncHttpClient(ScraperConfig(rate_limit=0, retry_delay=0, max_retries=2))
+    mock_1 = MagicMock()
+    mock_1.get = AsyncMock(return_value=err)
+    mock_1.aclose = AsyncMock()
+    mock_2 = MagicMock()
+    mock_2.get = AsyncMock(return_value=ok)
+    mock_2.aclose = AsyncMock()
+    client._client = mock_1
+    client._build_client = MagicMock(side_effect=[mock_2])
     resp = await client.get("https://example.com")
     assert resp.text == "ok"
-    assert mock.get.call_count == 2  # retried once
+    assert mock_1.get.call_count == 1
+    assert mock_2.get.call_count == 1
     await client.aclose()
 
 
@@ -97,6 +105,18 @@ async def test_async_config_headers_and_user_agent_applied():
     assert sent["User-Agent"] == "Custom/1.0"
     assert sent["X-Test"] == "1"
     await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_async_build_client_rotates_away_from_previous_proxy_when_possible(monkeypatch):
+    cfg = ScraperConfig(proxy=["http://proxy-a:8080", "http://proxy-b:8080"])
+    client = AsyncHttpClient(cfg)
+    client._current_proxy = "http://proxy-a:8080"
+    monkeypatch.setattr("random.choice", lambda seq: seq[0])
+
+    async_client = client._build_client()
+    assert client._current_proxy == "http://proxy-b:8080"
+    await async_client.aclose()
 
 
 @pytest.mark.anyio

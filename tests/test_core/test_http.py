@@ -178,13 +178,17 @@ class TestHttpClientGet:
         ok_response.status_code = 200
         ok_response.raise_for_status = MagicMock()
 
-        mock_httpx = MagicMock()
-        mock_httpx.get.side_effect = [error_response, ok_response]
+        mock_httpx_1 = MagicMock()
+        mock_httpx_1.get.return_value = error_response
+        mock_httpx_2 = MagicMock()
+        mock_httpx_2.get.return_value = ok_response
 
-        client._client = mock_httpx
+        client._client = mock_httpx_1
+        client._build_client = MagicMock(side_effect=[mock_httpx_2])
         resp = client.get("https://example.com")
         assert resp.status_code == 200
-        assert mock_httpx.get.call_count == 2
+        assert mock_httpx_1.get.call_count == 1
+        assert mock_httpx_2.get.call_count == 1
         client.close()
 
     def test_get_retries_on_request_error(self):
@@ -210,13 +214,17 @@ class TestHttpClientGet:
         config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=0)
         client = HttpClient(config)
 
-        mock_httpx = MagicMock()
-        mock_httpx.get.side_effect = httpx.ConnectError("refused")
+        mock_httpx_1 = MagicMock()
+        mock_httpx_1.get.side_effect = httpx.ConnectError("refused")
+        mock_httpx_2 = MagicMock()
+        mock_httpx_2.get.side_effect = httpx.ConnectError("refused")
 
-        client._client = mock_httpx
+        client._client = mock_httpx_1
+        client._build_client = MagicMock(side_effect=[mock_httpx_2])
         with pytest.raises(NetworkError, match="Failed to fetch"):
             client.get("https://example.com")
-        assert mock_httpx.get.call_count == 2
+        assert mock_httpx_1.get.call_count == 1
+        assert mock_httpx_2.get.call_count == 1
         client.close()
 
 
@@ -286,6 +294,16 @@ class TestHttpClientBuildClient:
         client = HttpClient(config)
         httpx_client = client._build_client()
         assert httpx_client is not None
+        httpx_client.close()
+
+    def test_build_client_rotates_away_from_previous_proxy_when_possible(self, monkeypatch):
+        config = ScraperConfig(proxy=["http://proxy-a:8080", "http://proxy-b:8080"])
+        client = HttpClient(config)
+        client._current_proxy = "http://proxy-a:8080"
+        monkeypatch.setattr("random.choice", lambda seq: seq[0])
+
+        httpx_client = client._build_client()
+        assert client._current_proxy == "http://proxy-b:8080"
         httpx_client.close()
 
     def test_build_client_default(self):

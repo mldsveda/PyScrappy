@@ -77,7 +77,7 @@ class ScraperConfig:
     verify_ssl: bool = True
     cache_ttl: float = 0.0
 
-    def pick_proxy(self) -> str | None:
+    def pick_proxy(self, exclude: str | None = None) -> str | None:
         """Return a single proxy URL (rotating if a list was configured)."""
         import random
 
@@ -85,4 +85,8 @@ class ScraperConfig:
             return None
         if isinstance(self.proxy, str):
             return self.proxy
-        return random.choice(self.proxy) if self.proxy else None
+
+        choices = [proxy for proxy in self.proxy if proxy != exclude]
+        if not choices:
+            return random.choice(self.proxy) if self.proxy else None
+        return random.choice(choices)
