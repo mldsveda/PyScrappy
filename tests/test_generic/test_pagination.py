@@ -70,6 +70,39 @@ class TestFindNextPageUrl:
         result = find_next_page_url(soup, "https://example.com?page=1")
         assert result == "https://example.com?page=2"
 
+    def test_numbered_pagination_offset_param(self):
+        soup = _soup(
+            "<html><body>"
+            '<a href="?offset=1">1</a>'
+            '<a href="?offset=2">2</a>'
+            '<a href="?offset=3">3</a>'
+            "</body></html>"
+        )
+        result = find_next_page_url(soup, "https://example.com?offset=2")
+        assert result == "https://example.com?offset=3"
+
+    def test_numbered_pagination_start_param(self):
+        soup = _soup(
+            "<html><body>"
+            '<a href="?start=1">1</a>'
+            '<a href="?start=2">2</a>'
+            '<a href="?start=3">3</a>'
+            "</body></html>"
+        )
+        result = find_next_page_url(soup, "https://example.com?start=1")
+        assert result == "https://example.com?start=2"
+
+    def test_numbered_pagination_p_path(self):
+        soup = _soup(
+            "<html><body>"
+            '<a href="/p/1">1</a>'
+            '<a href="/p/2">2</a>'
+            '<a href="/p/3">3</a>'
+            "</body></html>"
+        )
+        result = find_next_page_url(soup, "https://example.com/p/1")
+        assert result == "https://example.com/p/2"
+
 
 class TestExtractPageNumber:
     def test_page_param(self):
@@ -83,6 +116,15 @@ class TestExtractPageNumber:
 
     def test_page_path(self):
         assert _extract_page_number("https://example.com/page/7") == 7
+
+    def test_offset_param(self):
+        assert _extract_page_number("https://example.com?offset=4") == 4
+
+    def test_start_param(self):
+        assert _extract_page_number("https://example.com?start=6") == 6
+
+    def test_p_path(self):
+        assert _extract_page_number("https://example.com/p/8") == 8
 
     def test_no_page_number(self):
         assert _extract_page_number("https://example.com/about") is None
