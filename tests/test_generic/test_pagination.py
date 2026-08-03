@@ -94,11 +94,7 @@ class TestFindNextPageUrl:
 
     def test_numbered_pagination_p_path(self):
         soup = _soup(
-            "<html><body>"
-            '<a href="/p/1">1</a>'
-            '<a href="/p/2">2</a>'
-            '<a href="/p/3">3</a>'
-            "</body></html>"
+            '<html><body><a href="/p/1">1</a><a href="/p/2">2</a><a href="/p/3">3</a></body></html>'
         )
         result = find_next_page_url(soup, "https://example.com/p/1")
         assert result == "https://example.com/p/2"

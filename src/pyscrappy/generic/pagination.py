@@ -75,9 +75,7 @@ def _find_page_number_links(soup: BeautifulSoup, base_url: str) -> list[tuple[in
 
 # Same shapes as _PAGE_URL_PATTERNS, kept in sync so anything detected as
 # paginated also yields a number.
-_PAGE_NUMBER = re.compile(
-    r"[?&](?:page|p|pg|offset|start)=(\d+)|/(?:page|p)/(\d+)", re.IGNORECASE
-)
+_PAGE_NUMBER = re.compile(r"[?&](?:page|p|pg|offset|start)=(\d+)|/(?:page|p)/(\d+)", re.IGNORECASE)
 
 
 def _extract_page_number(url: str) -> int | None:
