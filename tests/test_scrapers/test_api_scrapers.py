@@ -95,8 +95,18 @@ class TestHackerNews:
     def test_tags_filter_flows_into_request_url(self):
         s = _with(HackerNewsScraper(), json.dumps({"hits": []}))
         s.scrape(query="python", tags="show_hn")
-        url = s._http.get_html.call_args[0][0]
-        assert "tags=show_hn" in url
+        url = s._http.get_html.call_args.args[0]
+        assert parse_qs(urlparse(url).query).get("tags") == ["show_hn"]
+
+    def test_tags_is_url_encoded_no_param_injection(self):
+        # A tags value with query-string delimiters must be encoded, not injected
+        # as extra params (it's interpolated into the Algolia URL).
+        s = _with(HackerNewsScraper(), json.dumps({"hits": []}))
+        s.scrape(query="python", tags="story&hitsPerPage=999999")
+        url = s._http.get_html.call_args.args[0]
+        params = parse_qs(urlparse(url).query)
+        assert params.get("tags") == ["story&hitsPerPage=999999"]  # one value, encoded
+        assert params.get("hitsPerPage") == ["20"]  # the injected override did NOT take effect
 
 
 class TestOpenLibrary:
