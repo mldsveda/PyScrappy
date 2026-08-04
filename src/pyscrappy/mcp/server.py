@@ -263,7 +263,7 @@ async def search_images(query: str, max_images: int = 20, engine: str = "bing") 
     Args:
         query: Search terms as a string, e.g. "golden gate bridge". Required, no default.
         max_images: Integer cap on the number of results returned, e.g. 10. Defaults to 20.
-        engine: String naming the search engine, one of "bing", "google", or "duckduckgo", e.g. "google". Defaults to "bing".
+        engine: String naming the search engine, one of "bing" or "google", e.g. "google". Defaults to "bing".
 
     Usage Guidelines:
         Use when you need image URLs or dimensions rather than a downloaded file; the returned "image_url" values can be fetched or passed to a downloader tool afterward. Raise max_images cautiously since larger values are slower and some engines cap the total available results.
