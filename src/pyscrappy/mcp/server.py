@@ -214,7 +214,7 @@ async def scrape_stock(
 
     Args:
         symbol: Ticker symbol as a string. Example: "AAPL". No default (required).
-        mode: String selecting what to fetch; one of "quote", "history", "profile". Example: "quote". No default (required).
+        mode: String selecting what to fetch; one of "quote", "history", "profile". Example: "quote". Default: "quote".
         period: String history window, used only when mode="history" and ignored otherwise; one of "1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max". Example: "1y". Default: "1mo".
         interval: Candle size for history bars, used only when mode="history"; one of "1d", "1wk", "1mo". Example: "1wk". Default: "1d".
 
@@ -225,9 +225,7 @@ async def scrape_stock(
         requests, prefer the dedicated batch scraper instead.
     """
     with StockScraper(_config()) as ss:
-        return await _run(
-            ss.scrape, symbol=symbol, mode=mode, period=period, interval=interval
-        )
+        return await _run(ss.scrape, symbol=symbol, mode=mode, period=period, interval=interval)
 
 
 @mcp.tool()
