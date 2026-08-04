@@ -92,7 +92,7 @@ class HackerNewsScraper(BaseScraper):
         endpoint = "search_by_date" if by == "date" else "search"
         base = _API.replace("/search", f"/{endpoint}")
         hits = min(max_results, 1000)
-        return f"{base}?query={quote_plus(query)}&tags={tags}&hitsPerPage={hits}"
+        return f"{base}?query={quote_plus(query)}&tags={quote_plus(tags)}&hitsPerPage={hits}"
 
     def _build_result(self, url: str, payload: dict[str, Any]) -> ScrapeResult:
         stories = [self._parse(hit) for hit in payload.get("hits", []) if isinstance(hit, dict)]
