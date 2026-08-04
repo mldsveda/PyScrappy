@@ -192,7 +192,12 @@ async def scrape_wikipedia(query: str, mode: str = "full") -> ScrapeToolResult:
 
 
 @mcp.tool()
-async def scrape_stock(symbol: str, mode: str = "quote", period: str = "1mo") -> ScrapeToolResult:
+async def scrape_stock(
+    symbol: str,
+    mode: str = "quote",
+    period: str = "1mo",
+    interval: str = "1d",
+) -> ScrapeToolResult:
     """Fetch stock market data from Yahoo Finance and return it as a dict.
 
     The returned shape depends on `mode`:
@@ -209,8 +214,9 @@ async def scrape_stock(symbol: str, mode: str = "quote", period: str = "1mo") ->
 
     Args:
         symbol: Ticker symbol as a string. Example: "AAPL". No default (required).
-        mode: String selecting what to fetch; one of "quote", "history", "profile". Example: "quote". No default (required).
+        mode: String selecting what to fetch; one of "quote", "history", "profile". Example: "quote". Default: "quote".
         period: String history window, used only when mode="history" and ignored otherwise; one of "1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max". Example: "1y". Default: "1mo".
+        interval: Candle size for history bars, used only when mode="history"; one of "1d", "1wk", "1mo". Example: "1wk". Default: "1d".
 
     Usage:
         Use for a single ticker's live quote, OHLCV history, or company profile;
@@ -219,7 +225,7 @@ async def scrape_stock(symbol: str, mode: str = "quote", period: str = "1mo") ->
         requests, prefer the dedicated batch scraper instead.
     """
     with StockScraper(_config()) as ss:
-        return await _run(ss.scrape, symbol=symbol, mode=mode, period=period)
+        return await _run(ss.scrape, symbol=symbol, mode=mode, period=period, interval=interval)
 
 
 @mcp.tool()
