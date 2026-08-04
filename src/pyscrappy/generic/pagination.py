@@ -12,8 +12,12 @@ _NEXT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-_PAGE_URL_PATTERNS = re.compile(
-    r"[?&](page|p|pg|offset|start)=\d+|/page/\d+|/p/\d+",
+# Single source of truth for numbered-pagination URLs: the capture groups yield
+# the page number, and the same pattern is used both to *detect* a paginated URL
+# and to *extract* its number — so the two can't drift apart (which was the bug
+# behind #77, where detection matched offset=/start=//p/ but extraction didn't).
+_PAGE_NUMBER = re.compile(
+    r"[?&](?:page|p|pg|offset|start)=(\d+)|/(?:page|p)/(\d+)",
     re.IGNORECASE,
 )
 
@@ -44,7 +48,7 @@ def find_next_page_url(soup: BeautifulSoup, current_url: str) -> str | None:
         if _NEXT_PATTERNS.search(text) or _NEXT_PATTERNS.search(aria):
             return urljoin(current_url, str(a["href"]))
 
-        if "next" in classes.lower() and _PAGE_URL_PATTERNS.search(str(a["href"])):
+        if "next" in classes.lower() and _PAGE_NUMBER.search(str(a["href"])):
             return urljoin(current_url, str(a["href"]))
 
     # 3. Look for numbered pagination links and pick the next number
@@ -65,17 +69,12 @@ def _find_page_number_links(soup: BeautifulSoup, base_url: str) -> list[tuple[in
     results: list[tuple[int, str]] = []
     for a in soup.find_all("a", href=True):
         href = str(a["href"])
-        if not _PAGE_URL_PATTERNS.search(href):
+        if not _PAGE_NUMBER.search(href):
             continue
         num = _extract_page_number(href)
         if num is not None:
             results.append((num, urljoin(base_url, href)))
     return results
-
-
-# Same shapes as _PAGE_URL_PATTERNS, kept in sync so anything detected as
-# paginated also yields a number.
-_PAGE_NUMBER = re.compile(r"[?&](?:page|p|pg|offset|start)=(\d+)|/(?:page|p)/(\d+)", re.IGNORECASE)
 
 
 def _extract_page_number(url: str) -> int | None:
