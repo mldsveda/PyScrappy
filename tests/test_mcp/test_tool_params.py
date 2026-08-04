@@ -35,6 +35,28 @@ async def test_search_hackernews_forwards_tags():
     assert kwargs.get("tags") == "show_hn"
 
 
+@pytest.mark.anyio
+async def test_scrape_stock_forwards_interval():
+    sig = inspect.signature(server.scrape_stock)
+    assert "interval" in sig.parameters
+    assert sig.parameters["interval"].default == "1d"
+
+    mock_scraper = MagicMock()
+    mock_scraper.scrape.return_value = MagicMock(
+        data=[],
+        metadata=MagicMock(scraper="stock", source_urls=[]),
+        errors=[],
+    )
+    mock_scraper.__enter__ = MagicMock(return_value=mock_scraper)
+    mock_scraper.__exit__ = MagicMock(return_value=False)
+
+    with patch.object(server, "StockScraper", return_value=mock_scraper):
+        await server.scrape_stock(symbol="AAPL", mode="history", period="1mo", interval="1wk")
+
+    kwargs = mock_scraper.scrape.call_args.kwargs
+    assert kwargs.get("interval") == "1wk"
+
+
 def test_search_images_doc_does_not_advertise_duckduckgo():
     doc = server.search_images.__doc__ or ""
     assert "duckduckgo" not in doc.lower()
