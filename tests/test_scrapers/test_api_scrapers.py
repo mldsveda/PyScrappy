@@ -92,6 +92,12 @@ class TestHackerNews:
         url = s._http.get_html.call_args[0][0]
         assert "search_by_date" in url
 
+    def test_tags_filter_flows_into_request_url(self):
+        s = _with(HackerNewsScraper(), json.dumps({"hits": []}))
+        s.scrape(query="python", tags="show_hn")
+        url = s._http.get_html.call_args[0][0]
+        assert "tags=show_hn" in url
+
 
 class TestOpenLibrary:
     def test_parse(self):
