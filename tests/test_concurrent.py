@@ -1,16 +1,19 @@
 """Tests for pyscrappy.concurrent (scrape_many / scrape_all)."""
 
-import time
 import asyncio
+import time
+
 import pytest
-from pyscrappy.core.base import BaseScraper
-from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
+
 from pyscrappy.concurrent import (
     scrape_all,
     scrape_all_async,
     scrape_many,
     scrape_many_async,
 )
+from pyscrappy.core.base import BaseScraper
+from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
+
 
 class _FakeScraper(BaseScraper):
     """A scraper that sleeps briefly and echoes its query, for timing tests."""
@@ -24,7 +27,7 @@ class _FakeScraper(BaseScraper):
             data=[{"query": query}],
             metadata=ScrapeMetadata(scraper=self.name),
         )
-    
+
     async def scrape_async(
         self,
         query: str = "",
@@ -60,7 +63,6 @@ class TestScrapeMany:
         elapsed = time.monotonic() - start
         assert len(results) == 4
         assert elapsed < 0.6  # well under the 0.8s serial time
-
 
 
 class TestScrapeAll:
@@ -119,10 +121,7 @@ class TestScrapeAllAsync:
         assert await scrape_all_async([]) == []
 
     async def test_concurrent(self):
-        funcs = [
-            lambda: _FakeScraper().scrape_async(query="q", delay=0.2)
-            for _ in range(4)
-        ]
+        funcs = [lambda: _FakeScraper().scrape_async(query="q", delay=0.2) for _ in range(4)]
         start = time.monotonic()
         await scrape_all_async(funcs, max_concurrency=4)
         assert time.monotonic() - start < 0.6
