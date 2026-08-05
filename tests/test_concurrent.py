@@ -1,11 +1,16 @@
 """Tests for pyscrappy.concurrent (scrape_many / scrape_all)."""
 
 import time
-
-from pyscrappy.concurrent import scrape_all, scrape_many
+import asyncio
+import pytest
 from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
-
+from pyscrappy.concurrent import (
+    scrape_all,
+    scrape_all_async,
+    scrape_many,
+    scrape_many_async,
+)
 
 class _FakeScraper(BaseScraper):
     """A scraper that sleeps briefly and echoes its query, for timing tests."""
@@ -15,6 +20,18 @@ class _FakeScraper(BaseScraper):
     def scrape(self, query: str = "", delay: float = 0.0) -> ScrapeResult:  # type: ignore[override]
         if delay:
             time.sleep(delay)
+        return ScrapeResult(
+            data=[{"query": query}],
+            metadata=ScrapeMetadata(scraper=self.name),
+        )
+    
+    async def scrape_async(
+        self,
+        query: str = "",
+        delay: float = 0.0,
+    ) -> ScrapeResult:
+        if delay:
+            await asyncio.sleep(delay)
         return ScrapeResult(
             data=[{"query": query}],
             metadata=ScrapeMetadata(scraper=self.name),
@@ -45,6 +62,7 @@ class TestScrapeMany:
         assert elapsed < 0.6  # well under the 0.8s serial time
 
 
+
 class TestScrapeAll:
     def test_runs_all_and_preserves_order(self):
         funcs = [
@@ -61,4 +79,50 @@ class TestScrapeAll:
         funcs = [lambda: _FakeScraper().scrape(query="q", delay=0.2) for _ in range(4)]
         start = time.monotonic()
         scrape_all(funcs, max_workers=4)
+        assert time.monotonic() - start < 0.6
+
+
+@pytest.mark.anyio
+class TestScrapeManyAsync:
+    async def test_order_preserved(self):
+        calls = [{"query": q} for q in ["x", "y", "z"]]
+        results = await scrape_many_async(_FakeScraper, calls)
+        assert [r.data[0]["query"] for r in results] == ["x", "y", "z"]
+
+    async def test_empty_calls(self):
+        assert await scrape_many_async(_FakeScraper, []) == []
+
+    async def test_actually_concurrent(self):
+        calls = [{"query": str(i), "delay": 0.2} for i in range(4)]
+        start = time.monotonic()
+        results = await scrape_many_async(
+            _FakeScraper,
+            calls,
+            max_concurrency=4,
+        )
+        elapsed = time.monotonic() - start
+        assert len(results) == 4
+        assert elapsed < 0.6
+
+
+@pytest.mark.anyio
+class TestScrapeAllAsync:
+    async def test_runs_all_and_preserves_order(self):
+        funcs = [
+            lambda: _FakeScraper().scrape_async(query="one"),
+            lambda: _FakeScraper().scrape_async(query="two"),
+        ]
+        results = await scrape_all_async(funcs)
+        assert [r.data[0]["query"] for r in results] == ["one", "two"]
+
+    async def test_empty(self):
+        assert await scrape_all_async([]) == []
+
+    async def test_concurrent(self):
+        funcs = [
+            lambda: _FakeScraper().scrape_async(query="q", delay=0.2)
+            for _ in range(4)
+        ]
+        start = time.monotonic()
+        await scrape_all_async(funcs, max_concurrency=4)
         assert time.monotonic() - start < 0.6
