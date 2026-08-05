@@ -438,7 +438,7 @@ async def search_books(query: str, max_results: int = 20) -> ScrapeToolResult:
 
 @mcp.tool()
 async def get_weather(location: str) -> ScrapeToolResult:
-    """Fetch the current weather conditions for a named place and return a dict with keys: temperature (number, degrees Celsius), humidity (number, percent), wind (number, wind speed), condition (str, e.g. "Clear", "Rain"), and location (str, the resolved place name).
+    """Fetch the current weather conditions for a named place and return a dict with keys: temperature (number, degrees Celsius), humidity (number, percent), wind_speed (number, wind speed), condition (str, e.g. "Clear", "Rain"), and location (str, the resolved place name).
 
     Makes a live network call to an external weather provider on each invocation, so results reflect real-time conditions and require internet access. If the location cannot be resolved or the provider returns no match, the tool returns an empty result (or an error field) rather than raising.
 
