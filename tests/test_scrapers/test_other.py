@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from pyscrappy.scrapers.image_search import ImageSearchScraper
 from pyscrappy.scrapers.linkedin import LinkedInJobsScraper
 
@@ -217,3 +219,15 @@ class TestImageSearchScraper:
         url = mock_http.get_html.call_args[0][0]
         assert "bing.com" in url
         scraper.close()
+
+    def test_unsupported_engine_raises_value_error(self):
+        scraper = ImageSearchScraper()
+        with pytest.raises(ValueError, match="unsupported engine 'googel'"):
+            scraper.scrape(query="test", engine="googel")
+
+    @pytest.mark.anyio
+    async def test_unsupported_engine_raises_value_error_async(self):
+        scraper = ImageSearchScraper()
+        with pytest.raises(ValueError, match="unsupported engine 'googel'"):
+            await scraper.scrape_async(query="test", engine="googel")
+
