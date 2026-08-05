@@ -1,6 +1,6 @@
 """Tests for pyscrappy.scrapers.news."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -77,6 +77,22 @@ SITE_WITHOUT_RSS = """
 """
 
 
+@pytest.fixture
+def anyio_backend():
+    """Run async tests on asyncio only (avoids needing trio)."""
+    return "asyncio"
+
+
+def assert_fetch_error(result, url, message):
+    """Assert the standard result returned for a transport failure."""
+    assert result.data == []
+    assert result.metadata.source_urls == [url]
+    assert result.metadata.scraper == "news"
+    assert len(result.errors) == 1
+    assert result.errors[0].url == url
+    assert result.errors[0].message == message
+
+
 class TestNewsScraperInit:
     def test_name(self):
         scraper = NewsScraper()
@@ -139,6 +155,34 @@ class TestNewsScraperFeed:
         assert result.data == []
         scraper.close()
 
+    def test_feed_transport_error_returns_structured_result(self):
+        url = "https://example.com/rss"
+        scraper = NewsScraper()
+        mock_http = MagicMock()
+        mock_http.get_html.side_effect = RuntimeError("feed unavailable")
+        scraper._http = mock_http
+
+        result = scraper.scrape(feed_url=url)
+
+        assert_fetch_error(result, url, "feed unavailable")
+        mock_http.get_html.assert_called_once_with(url)
+        scraper.close()
+
+    @pytest.mark.anyio
+    async def test_feed_async_transport_error_returns_structured_result(self):
+        url = "https://example.com/rss"
+        scraper = NewsScraper()
+        mock_http = MagicMock()
+        mock_http.get_html = AsyncMock(side_effect=RuntimeError("feed unavailable"))
+        mock_http.aclose = AsyncMock()
+        scraper._async_http = mock_http
+
+        result = await scraper.scrape_async(feed_url=url)
+
+        assert_fetch_error(result, url, "feed unavailable")
+        mock_http.get_html.assert_awaited_once_with(url)
+        await scraper.aclose()
+
 
 class TestNewsScraperArticle:
     def test_scrape_article(self):
@@ -169,6 +213,44 @@ class TestNewsScraperArticle:
         # "Short" paragraph should be filtered out
         assert "Short" not in result.data[0]["text"]
         scraper.close()
+
+    def test_article_transport_error_returns_structured_result(self):
+        url = "https://example.com/article/1"
+        scraper = NewsScraper()
+        scraper.fetch_html = MagicMock(side_effect=RuntimeError("article unavailable"))
+
+        result = scraper.scrape(article_url=url)
+
+        assert_fetch_error(result, url, "article unavailable")
+        scraper.fetch_html.assert_called_once_with(url)
+
+    @pytest.mark.anyio
+    async def test_article_async_transport_error_returns_structured_result(self):
+        url = "https://example.com/article/1"
+        scraper = NewsScraper()
+        scraper.fetch_html_async = AsyncMock(side_effect=RuntimeError("article unavailable"))
+
+        result = await scraper.scrape_async(article_url=url)
+
+        assert_fetch_error(result, url, "article unavailable")
+        scraper.fetch_html_async.assert_awaited_once_with(url)
+
+    def test_article_parse_error_propagates(self):
+        scraper = NewsScraper()
+        scraper.fetch_html = MagicMock(return_value=ARTICLE_HTML)
+        scraper.parse_html = MagicMock(side_effect=ValueError("invalid article markup"))
+
+        with pytest.raises(ValueError, match="invalid article markup"):
+            scraper.scrape(article_url="https://example.com/article/1")
+
+    @pytest.mark.anyio
+    async def test_article_async_parse_error_propagates(self):
+        scraper = NewsScraper()
+        scraper.fetch_html_async = AsyncMock(return_value=ARTICLE_HTML)
+        scraper.parse_html = MagicMock(side_effect=ValueError("invalid article markup"))
+
+        with pytest.raises(ValueError, match="invalid article markup"):
+            await scraper.scrape_async(article_url="https://example.com/article/1")
 
 
 class TestNewsScraperSite:
@@ -207,6 +289,34 @@ class TestNewsScraperSite:
         assert len(result.errors) == 1
         assert "No RSS feed or article links found" in result.errors[0].message
         scraper.close()
+
+    def test_site_transport_error_returns_structured_result(self):
+        url = "https://example.com"
+        scraper = NewsScraper()
+        mock_http = MagicMock()
+        mock_http.get_html.side_effect = RuntimeError("site unavailable")
+        scraper._http = mock_http
+
+        result = scraper.scrape(site_url=url)
+
+        assert_fetch_error(result, url, "site unavailable")
+        mock_http.get_html.assert_called_once_with(url)
+        scraper.close()
+
+    @pytest.mark.anyio
+    async def test_site_async_transport_error_returns_structured_result(self):
+        url = "https://example.com"
+        scraper = NewsScraper()
+        mock_http = MagicMock()
+        mock_http.get_html = AsyncMock(side_effect=RuntimeError("site unavailable"))
+        mock_http.aclose = AsyncMock()
+        scraper._async_http = mock_http
+
+        result = await scraper.scrape_async(site_url=url)
+
+        assert_fetch_error(result, url, "site unavailable")
+        mock_http.get_html.assert_awaited_once_with(url)
+        await scraper.aclose()
 
 
 class TestNewsScraperHelpers:
