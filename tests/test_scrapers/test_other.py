@@ -222,12 +222,11 @@ class TestImageSearchScraper:
 
     def test_unsupported_engine_raises_value_error(self):
         scraper = ImageSearchScraper()
-        with pytest.raises(ValueError, match="unsupported engine 'googel'"):
+        with pytest.raises(ValueError, match="Unsupported engine 'googel'"):
             scraper.scrape(query="test", engine="googel")
 
     @pytest.mark.anyio
     async def test_unsupported_engine_raises_value_error_async(self):
         scraper = ImageSearchScraper()
-        with pytest.raises(ValueError, match="unsupported engine 'googel'"):
+        with pytest.raises(ValueError, match="Unsupported engine 'googel'"):
             await scraper.scrape_async(query="test", engine="googel")
-

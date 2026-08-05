@@ -55,7 +55,7 @@ class ImageSearchScraper(BaseScraper):
             ScrapeResult with image URLs and metadata.
         """
         if engine not in ("bing", "google"):
-            raise ValueError(f"unsupported engine {engine!r}; use 'bing' or 'google'")
+            raise ValueError(f"Unsupported engine {engine!r}; use 'bing' or 'google'")
 
         if engine == "google":
             images, url = self._search_google(query, max_images)
@@ -79,7 +79,7 @@ class ImageSearchScraper(BaseScraper):
     ) -> ScrapeResult:
         """Async counterpart to :meth:`scrape` (same args/returns)."""
         if engine not in ("bing", "google"):
-            raise ValueError(f"unsupported engine {engine!r}; use 'bing' or 'google'")
+            raise ValueError(f"Unsupported engine {engine!r}; use 'bing' or 'google'")
 
         if engine == "google":
             images, url = await self._search_google_async(query, max_images)
