@@ -79,7 +79,10 @@ class NewsScraper(BaseScraper):
 
     def _scrape_feed(self, url: str, max_articles: int) -> ScrapeResult:
         """Parse an RSS or Atom feed."""
-        xml_text = self.http.get_html(url)
+        try:
+            xml_text = self.http.get_html(url)
+        except Exception as exc:
+            return self._fetch_error_result(url, exc)
         articles = self._parse_feed_xml(xml_text, max_articles)
 
         return ScrapeResult(
@@ -89,7 +92,10 @@ class NewsScraper(BaseScraper):
 
     async def _scrape_feed_async(self, url: str, max_articles: int) -> ScrapeResult:
         """Async counterpart to :meth:`_scrape_feed`."""
-        xml_text = await self.async_http.get_html(url)
+        try:
+            xml_text = await self.async_http.get_html(url)
+        except Exception as exc:
+            return self._fetch_error_result(url, exc)
         articles = self._parse_feed_xml(xml_text, max_articles)
 
         return ScrapeResult(
@@ -99,7 +105,10 @@ class NewsScraper(BaseScraper):
 
     def _scrape_site(self, url: str, max_articles: int) -> ScrapeResult:
         """Auto-discover an RSS feed from a website, then parse it."""
-        html = self.http.get_html(url)
+        try:
+            html = self.http.get_html(url)
+        except Exception as exc:
+            return self._fetch_error_result(url, exc)
         soup = self.parse_html(html)
 
         feed_url = self._discover_feed(soup, url)
@@ -110,7 +119,10 @@ class NewsScraper(BaseScraper):
 
     async def _scrape_site_async(self, url: str, max_articles: int) -> ScrapeResult:
         """Async counterpart to :meth:`_scrape_site`."""
-        html = await self.async_http.get_html(url)
+        try:
+            html = await self.async_http.get_html(url)
+        except Exception as exc:
+            return self._fetch_error_result(url, exc)
         soup = self.parse_html(html)
 
         feed_url = self._discover_feed(soup, url)
@@ -135,13 +147,29 @@ class NewsScraper(BaseScraper):
 
     def _scrape_article(self, url: str) -> ScrapeResult:
         """Extract the full text of a single news article."""
-        soup = self.fetch_and_parse(url)
+        try:
+            html = self.fetch_html(url)
+        except Exception as exc:
+            return self._fetch_error_result(url, exc)
+        soup = self.parse_html(html)
         return self._build_article(soup, url)
 
     async def _scrape_article_async(self, url: str) -> ScrapeResult:
         """Async counterpart to :meth:`_scrape_article`."""
-        soup = await self.fetch_and_parse_async(url)
+        try:
+            html = await self.fetch_html_async(url)
+        except Exception as exc:
+            return self._fetch_error_result(url, exc)
+        soup = self.parse_html(html)
         return self._build_article(soup, url)
+
+    def _fetch_error_result(self, url: str, exc: Exception) -> ScrapeResult:
+        """Build a structured result for a transport failure."""
+        return ScrapeResult(
+            data=[],
+            metadata=ScrapeMetadata(source_urls=[url], scraper=self.name),
+            errors=[ScrapeError(url=url, message=str(exc))],
+        )
 
     def _build_article(self, soup: Any, url: str) -> ScrapeResult:
         """Extract article fields from a parsed page (pure, no fetching)."""
