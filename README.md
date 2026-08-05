@@ -1,5 +1,7 @@
 ## PyScrappy: Python web scraping toolkit + MCP server for AI agents
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.mldsveda%2Fpyscrappy.svg)](https://mcptoplist.com/server/io.github.mldsveda%2Fpyscrappy)
+
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mldsveda/PyScrappy/blob/main/LICENSE)
