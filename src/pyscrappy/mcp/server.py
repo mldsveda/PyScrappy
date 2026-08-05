@@ -345,8 +345,8 @@ async def convert_currency(
         Queries a live external exchange-rate API over the network, so results reflect current market rates and require internet access. No local state is read or written. If a requested target code is unknown or unsupported, it is omitted from "results"; if none of the targets resolve, "results" is an empty dict.
 
     Args:
-        base: Base currency code as a 3-letter ISO 4217 string. Example: "USD". No default (required).
-        to: Target currency codes as a comma-separated string; omit or leave empty to return rates for all available currencies. Example: "EUR,GBP". Default: "" (all rates).
+        base: Base currency code as a 3-letter ISO 4217 string. Example: "USD". Default: "USD".
+        to: Target currency codes as a comma-separated string; omit or leave empty to return rates for all available currencies. Example: "EUR,GBP". Default: None (all rates).
         amount: Amount of the base currency to convert, as a number (int or float). Example: 100. Default: 1.
 
     Usage:
