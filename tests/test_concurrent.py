@@ -15,6 +15,12 @@ from pyscrappy.core.base import BaseScraper
 from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
 
 
+@pytest.fixture
+def anyio_backend():
+    # Run @pytest.mark.anyio tests on asyncio only (avoids needing trio).
+    return "asyncio"
+
+
 class _FakeScraper(BaseScraper):
     """A scraper that sleeps briefly and echoes its query, for timing tests."""
 
@@ -105,6 +111,30 @@ class TestScrapeManyAsync:
         elapsed = time.monotonic() - start
         assert len(results) == 4
         assert elapsed < 0.6
+
+    async def test_respects_max_concurrency(self):
+        """max_concurrency must actually cap in-flight scrapes, not just run fast
+        (a timing test with max_concurrency == len(calls) would pass either way)."""
+        in_flight = 0
+        max_seen = 0
+
+        class _CountingScraper(_FakeScraper):
+            async def scrape_async(self, query: str = "", delay: float = 0.05) -> ScrapeResult:
+                nonlocal in_flight, max_seen
+                in_flight += 1
+                max_seen = max(max_seen, in_flight)
+                try:
+                    await asyncio.sleep(delay)
+                    return await super().scrape_async(query=query)
+                finally:
+                    in_flight -= 1
+
+        await scrape_many_async(
+            _CountingScraper,
+            [{"query": str(i)} for i in range(6)],
+            max_concurrency=2,
+        )
+        assert max_seen <= 2  # never more than the cap in flight at once
 
 
 @pytest.mark.anyio
