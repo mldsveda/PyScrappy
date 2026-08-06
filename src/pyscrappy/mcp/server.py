@@ -261,7 +261,7 @@ async def scrape_news(
 async def search_images(query: str, max_images: int = 20, engine: str = "bing") -> ScrapeToolResult:
     """Search the web for images and return a list of result objects with image URLs and metadata.
 
-    Each result is a dict with keys: "image_url" (direct link to the image), "thumbnail_url" (small preview), "source_url" (page the image was found on), "title" (caption or alt text), "width", and "height" (pixels). Results are returned in the engine's relevance order.
+    Each result is a dict with keys: "url" (direct link to the image), "thumbnail" (small preview), "title" (caption or alt text), "source_page" (page the image was found on), "width", and "height" (pixels). Every engine returns this same key set; fields a given engine can't provide are empty ("" for text, null for width/height — e.g. the Google path fills only "url", "title", and "source_page"). Results are returned in the engine's relevance order.
 
     Behavior:
         Issues a live query to the chosen search engine over the network, so results vary by engine, region, and time. No files are downloaded and no browser is launched; only metadata and URLs are returned. Returns an empty list if the query matches nothing or the engine returns no results.
@@ -272,7 +272,7 @@ async def search_images(query: str, max_images: int = 20, engine: str = "bing") 
         engine: String naming the search engine, one of "bing" or "google", e.g. "google". Defaults to "bing".
 
     Usage Guidelines:
-        Use when you need image URLs or dimensions rather than a downloaded file; the returned "image_url" values can be fetched or passed to a downloader tool afterward. Raise max_images cautiously since larger values are slower and some engines cap the total available results.
+        Use when you need image URLs or dimensions rather than a downloaded file; the returned "url" values can be fetched or passed to a downloader tool afterward. Raise max_images cautiously since larger values are slower and some engines cap the total available results.
     """
     with ImageSearchScraper(_config()) as iss:
         return await _run(iss.scrape, query=query, max_images=max_images, engine=engine)

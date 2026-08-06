@@ -158,6 +158,31 @@ class TestImageSearchScraper:
         assert all("example.com" in d["url"] for d in result.data)
         scraper.close()
 
+    def test_both_engines_return_the_same_key_set(self):
+        """Every engine emits the canonical schema, so callers can rely on the
+        same keys regardless of engine (the Google path just leaves some empty)."""
+        expected = {"url", "thumbnail", "title", "source_page", "width", "height"}
+
+        bing = ImageSearchScraper()
+        bing._http = MagicMock()
+        bing._http.get_html.return_value = BING_HTML
+        bing_result = bing.scrape(query="q", engine="bing")
+        bing.close()
+
+        google = ImageSearchScraper()
+        google._http = MagicMock()
+        google._http.get_html.return_value = GOOGLE_HTML
+        google_result = google.scrape(query="q", engine="google")
+        google.close()
+
+        assert bing_result.data and google_result.data
+        for item in bing_result.data + google_result.data:
+            assert set(item.keys()) == expected
+
+        # the Google path can't populate every field, but the keys still exist
+        g = google_result.data[0]
+        assert g["url"] and g["thumbnail"] == "" and g["width"] is None
+
     def test_max_images_limit(self):
         scraper = ImageSearchScraper()
         mock_http = MagicMock()

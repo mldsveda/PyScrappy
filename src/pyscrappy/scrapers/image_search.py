@@ -14,6 +14,30 @@ from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
 logger = logging.getLogger("pyscrappy.image_search")
 
 
+def _image_record(
+    url: str,
+    *,
+    title: str = "",
+    thumbnail: str = "",
+    source_page: str = "",
+    width: Any = None,
+    height: Any = None,
+) -> dict[str, Any]:
+    """Build one image result with the canonical key set.
+
+    Every engine/path returns this same shape so callers can rely on it; fields a
+    particular path can't populate are left empty ("" for text, None for numbers).
+    """
+    return {
+        "url": url,
+        "thumbnail": thumbnail,
+        "title": title,
+        "source_page": source_page,
+        "width": width,
+        "height": height,
+    }
+
+
 class ImageSearchScraper(BaseScraper):
     """Search for images and optionally download them.
 
@@ -133,14 +157,14 @@ class ImageSearchScraper(BaseScraper):
                 continue
 
             images.append(
-                {
-                    "url": img_url,
-                    "thumbnail": m_data.get("turl", ""),
-                    "title": m_data.get("t", ""),
-                    "source_page": m_data.get("purl", ""),
-                    "width": m_data.get("mw"),
-                    "height": m_data.get("mh"),
-                }
+                _image_record(
+                    img_url,
+                    thumbnail=m_data.get("turl", ""),
+                    title=m_data.get("t", ""),
+                    source_page=m_data.get("purl", ""),
+                    width=m_data.get("mw"),
+                    height=m_data.get("mh"),
+                )
             )
 
             if len(images) >= max_images:
@@ -151,12 +175,7 @@ class ImageSearchScraper(BaseScraper):
             for img in soup.find_all("img", src=True):
                 src = str(img["src"])
                 if src.startswith("http") and "bing.com/th" not in src:
-                    images.append(
-                        {
-                            "url": src,
-                            "alt": img.get("alt", ""),
-                        }
-                    )
+                    images.append(_image_record(src, title=img.get("alt", ""), source_page=url))
                     if len(images) >= max_images:
                         break
 
@@ -187,12 +206,7 @@ class ImageSearchScraper(BaseScraper):
             # Skip Google's tracking pixel and logo
             if not src.startswith("http") or "google.com/images" in src:
                 continue
-            images.append(
-                {
-                    "url": src,
-                    "alt": img.get("alt", ""),
-                }
-            )
+            images.append(_image_record(src, title=img.get("alt", ""), source_page=url))
             if len(images) >= max_images:
                 break
 
