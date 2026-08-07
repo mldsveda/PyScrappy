@@ -314,7 +314,9 @@ class TestTableExtractor:
         result = self.extractor.extract(soup)
         assert len(result) == 2
 
-    def test_skips_rows_with_wrong_column_count(self):
+    def test_keeps_short_rows_padding_missing_cells(self):
+        # A row with fewer cells than the header is kept, not dropped: the
+        # missing trailing columns become "" so the row still appears. #105
         soup = _soup(
             "<html><body><table>"
             "<tr><th>A</th><th>B</th></tr>"
@@ -324,8 +326,22 @@ class TestTableExtractor:
         )
         result = self.extractor.extract(soup)
         assert len(result) == 1
-        assert len(result[0]) == 1
-        assert result[0][0] == {"A": "2", "B": "3"}
+        assert len(result[0]) == 2
+        assert result[0][0] == {"A": "1", "B": ""}
+        assert result[0][1] == {"A": "2", "B": "3"}
+
+    def test_keeps_long_rows_under_positional_keys(self):
+        # A row with more cells than the header keeps the surplus values under
+        # positional keys instead of silently discarding them. #105
+        soup = _soup(
+            "<html><body><table>"
+            "<tr><th>A</th><th>B</th></tr>"
+            "<tr><td>1</td><td>2</td><td>extra</td></tr>"
+            "</table></body></html>"
+        )
+        result = self.extractor.extract(soup)
+        assert len(result) == 1
+        assert result[0][0] == {"A": "1", "B": "2", "column_3": "extra"}
 
     def test_empty_table_skipped(self):
         soup = _soup("<html><body><table></table></body></html>")

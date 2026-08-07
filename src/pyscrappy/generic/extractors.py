@@ -191,15 +191,22 @@ class TableExtractor:
             if not headers:
                 continue
 
-            # Parse data rows
+            # Parse data rows. Real tables are ragged: a row may have fewer
+            # cells than the header (missing trailing values) or more (an extra
+            # actions column, colspans). Align by position instead of dropping
+            # the row — missing cells become "", and any surplus cells are kept
+            # under positional keys ("column_N") so no scraped data is lost.
             table_data: list[dict[str, str]] = []
             for row in rows[1:]:
                 cells = row.find_all(["td", "th"])
-                if len(cells) != len(headers):
+                if not cells:
                     continue
+                values = [cell.get_text(strip=True) for cell in cells]
                 row_dict = {}
-                for header, cell in zip(headers, cells):
-                    row_dict[header] = cell.get_text(strip=True)
+                for i, header in enumerate(headers):
+                    row_dict[header] = values[i] if i < len(values) else ""
+                for i in range(len(headers), len(values)):
+                    row_dict[f"column_{i + 1}"] = values[i]
                 table_data.append(row_dict)
 
             if table_data:
