@@ -49,7 +49,7 @@ class HackerNewsScraper(BaseScraper):
             tags: HN tag filter, e.g. ``"story"``, ``"comment"``, ``"show_hn"``.
 
         Returns:
-            ScrapeResult with story data (title, url, points, author, comments, …).
+            ScrapeResult with story data (title, url, points, author, num_comments, …).
         """
         url = self._build_url(query, max_results, by, tags)
 

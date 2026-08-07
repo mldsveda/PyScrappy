@@ -400,7 +400,7 @@ async def search_hackernews(
     by: str = "relevance",
     tags: str = "story",
 ) -> ScrapeToolResult:
-    """Search Hacker News stories and return a list of matching story dicts, each with title, url, points, author (username), and comments (comment count).
+    """Search Hacker News stories and return a list of matching story dicts, each with title, url, points, author (username), and num_comments (comment count).
 
     Queries the public Hacker News search index (Algolia HN API) over the network; makes no local changes. Returns an empty list when nothing matches or the query is empty.
 
@@ -410,7 +410,7 @@ async def search_hackernews(
         by: Result ordering; type: string; one of "relevance" or "date" ("date" sorts most recent first); example: "date"; default: "relevance".
         tags: Algolia HN tag filter; type: string; common values "story", "comment", "show_hn", "ask_hn", "poll", "job"; example: "show_hn"; default: "story".
 
-    Use this to pull real Hacker News discussion for a topic; prefer by="date" for breaking or time-sensitive topics and by="relevance" (default) otherwise, and use the returned url and comments fields to link out or gauge engagement. Set tags to narrow to Show HN, Ask HN, comments, etc.
+    Use this to pull real Hacker News discussion for a topic; prefer by="date" for breaking or time-sensitive topics and by="relevance" (default) otherwise, and use the returned url and num_comments fields to link out or gauge engagement. Set tags to narrow to Show HN, Ask HN, comments, etc.
     """
     with HackerNewsScraper(_config()) as hn:
         return await _run(hn.scrape, query=query, max_results=max_results, by=by, tags=tags)

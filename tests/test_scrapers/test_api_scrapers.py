@@ -85,6 +85,10 @@ class TestHackerNews:
         assert story["title"] == "Show HN: PyScrappy"
         assert story["points"] == 42
         assert story["hn_url"] == "https://news.ycombinator.com/item?id=12345"
+        # The comment count is emitted under "num_comments" (the Algolia field
+        # name the docstrings promise), not "comments". #106
+        assert story["num_comments"] == 7
+        assert "comments" not in story
 
     def test_by_date_uses_date_endpoint(self):
         s = _with(HackerNewsScraper(), json.dumps({"hits": []}))
