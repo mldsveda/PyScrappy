@@ -259,7 +259,8 @@ class HttpClient:
             items = sorted((str(k), str(v)) for k, v in dict(params).items())
         except (TypeError, ValueError):
             return url
-        return url + "?" + urlencode(items)
+        sep = "&" if "?" in url else "?"
+        return url + sep + urlencode(items)
 
     def _cache_get(self, key: str) -> httpx.Response | None:
         if self.config.cache_ttl <= 0:
