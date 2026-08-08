@@ -132,3 +132,11 @@ async def test_scrape_async_extracts_page_data(monkeypatch):
     assert result.metadata.scraper == "generic"
     assert result.data  # extracted a page
     assert result.metadata.source_urls == ["https://example.com"]
+
+
+def test_async_cache_key_does_not_collide_on_special_chars():
+    # Same collision guard for the async client's _cache_key (#114).
+    client = AsyncHttpClient(ScraperConfig(rate_limit=0))
+    key_a = client._cache_key("http://x", {"a": "1&b=2"})
+    key_b = client._cache_key("http://x", {"a": "1", "b": "2"})
+    assert key_a != key_b
