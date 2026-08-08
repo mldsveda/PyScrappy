@@ -380,6 +380,14 @@ class TestHttpClientCaching:
         assert mock_httpx.get.call_count == 2
         client.close()
 
+    def test_cache_key_does_not_collide_on_special_chars(self):
+        # A value containing & or = must not alias to a different param set (#114).
+        client = HttpClient(ScraperConfig(rate_limit=0))
+        key_a = client._cache_key("http://x", {"a": "1&b=2"})
+        key_b = client._cache_key("http://x", {"a": "1", "b": "2"})
+        assert key_a != key_b
+        client.close()
+
     def test_clear_cache_forces_refetch(self):
         client, mock_httpx = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60))
         client.get("https://example.com")
