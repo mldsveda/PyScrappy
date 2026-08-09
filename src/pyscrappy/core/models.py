@@ -100,13 +100,23 @@ class ScrapeResult:
     def _table_to_markdown(rows: list[dict[str, Any]]) -> str:
         if not rows:
             return ""
+
+        def escape_cell(value: Any) -> str:
+            return (
+                str(value)
+                .replace("\\", "\\\\")
+                .replace("|", "\\|")
+                .replace("\n", "<br>")
+                .replace("\r", "")
+            )
+
         headers = list(rows[0].keys())
         lines = [
-            "| " + " | ".join(headers) + " |",
+            "| " + " | ".join(escape_cell(header) for header in headers) + " |",
             "| " + " | ".join("---" for _ in headers) + " |",
         ]
         for row in rows:
-            lines.append("| " + " | ".join(str(row.get(h, "")) for h in headers) + " |")
+            lines.append("| " + " | ".join(escape_cell(row.get(h, "")) for h in headers) + " |")
         return "\n".join(lines)
 
     def to_json(self, indent: int = 2) -> str:
