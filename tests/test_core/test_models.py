@@ -145,6 +145,20 @@ class TestScrapeResult:
         assert "| Name | Age |" in md
         assert "| Alice | 30 |" in md
 
+    def test_to_markdown_escapes_table_cells(self):
+        result = ScrapeResult(
+            data=[
+                {
+                    "text": {"text": "", "headings": []},
+                    "tables": [[{"Name|Path": "Alice|C:\\Users\r\nAdmin"}]],
+                }
+            ]
+        )
+
+        assert result.to_markdown() == (
+            "| Name\\|Path |\n| --- |\n| Alice\\|C:\\\\Users<br>Admin |"
+        )
+
     def test_to_markdown_separates_items(self):
         result = ScrapeResult(data=[{"a": "1"}, {"a": "2"}])
         assert "\n\n---\n\n" in result.to_markdown()
