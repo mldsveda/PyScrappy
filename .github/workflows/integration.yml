@@ -4,9 +4,11 @@ name: Integration (live scrapers)
 # (slow, and they break when a target site changes its HTML — which is exactly
 # what we want to catch here, proactively, rather than via a user report).
 #
-# Runs on a weekly schedule and can be triggered manually. It's allowed to fail
-# without blocking anything: a failure means a site changed and a scraper needs
-# attention. Check the run summary to see which scrapers broke.
+# Runs on a weekly schedule and can be triggered manually. The job is
+# non-blocking (continue-on-error): live sites intermittently return 403 to CI
+# datacenter IPs (Wikipedia, Yahoo, Newegg, ...), which is a block, not a broken
+# scraper, so a red run would just be noise. The per-site result still lands in
+# the run's Step Summary, so a genuine break is visible without the failure email.
 
 on:
   schedule:
@@ -16,14 +18,44 @@ on:
 jobs:
   integration:
     runs-on: ubuntu-latest
+    # Non-blocking: a live-site block (403 from a CI IP) shouldn't turn the run
+    # red or send a failure email. The Step Summary below still reports which
+    # scrapers passed/failed so a real break is visible.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -e '.[all]' pytest
-      # Run ONLY the integration tests. -rA prints a full summary of every test
-      # (including failures) so a broken scraper is visible in the logs even when
-      # others pass; a failing run marks the workflow red, which is the signal.
+      # Run ONLY the integration tests. -rA prints a full per-test summary so a
+      # broken scraper is visible in the logs even when others pass. Write a JUnit
+      # report so the next step can render a per-scraper table in the Step Summary.
       - name: Run live integration tests
-        run: pytest -m integration -v -rA
+        run: pytest -m integration -v -rA --junitxml=integration-results.xml
+      # Always surface the per-scraper result in the run's Step Summary, even when
+      # the test step failed (a blocked site), so the signal survives without the
+      # red run. Best-effort: never fail the job itself.
+      - name: Summarize scraper results
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          try:
+              root = ET.parse("integration-results.xml").getroot()
+          except Exception as exc:
+              print(f"No integration report to summarize ({exc}).")
+              raise SystemExit(0)
+          print("## Live scraper results\n")
+          print("| Test | Result |")
+          print("| --- | --- |")
+          for case in root.iter("testcase"):
+              name = case.get("name")
+              if case.find("failure") is not None or case.find("error") is not None:
+                  status = "❌ failed"
+              elif case.find("skipped") is not None:
+                  status = "⏭️ skipped"
+              else:
+                  status = "✅ passed"
+              print(f"| {name} | {status} |")
+          PY
