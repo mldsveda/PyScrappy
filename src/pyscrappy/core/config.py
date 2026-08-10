@@ -58,6 +58,12 @@ class ScraperConfig:
         cache_ttl: Seconds to cache successful GET responses in memory. ``0``
             (the default) disables caching. When set, repeated requests for the
             same URL within the TTL skip the network and the rate limiter.
+        impersonate: Impersonate a real browser's TLS/JA3 fingerprint on the
+            sync HTTP path, to get past anti-bot filters that block plain clients
+            (e.g. ``"chrome"``, ``"chrome124"``, ``"safari"``, ``"firefox"``).
+            Requires the optional ``curl_cffi`` dependency (``pip install
+            pyscrappy[stealth]``). ``None`` (the default) uses the normal httpx
+            client. Not yet supported on the async path.
     """
 
     timeout: float = 30.0
@@ -76,6 +82,7 @@ class ScraperConfig:
     headless: bool = True
     verify_ssl: bool = True
     cache_ttl: float = 0.0
+    impersonate: str | None = None
 
     def pick_proxy(self, exclude: str | None = None) -> str | None:
         """Return a single proxy URL (rotating if a list was configured)."""

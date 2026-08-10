@@ -215,9 +215,22 @@ class HttpClient:
     # -- internals --
 
     def _build_client(self) -> httpx.Client:
-        transport_kwargs: dict[str, Any] = {}
         proxy = self.config.pick_proxy(exclude=self._current_proxy)
         self._current_proxy = proxy
+        # TLS impersonation: swap httpx for a curl_cffi-backed client that mimics a
+        # real browser's fingerprint. It presents the same interface HttpClient
+        # uses (get/post/cookies/close) and raises httpx exceptions, so the retry,
+        # rate-limit, cache, and robots logic around it is unchanged.
+        if self.config.impersonate:
+            from pyscrappy.core._stealth import build_stealth_client
+
+            return build_stealth_client(
+                self.config.impersonate,
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                proxy=proxy,
+            )
+        transport_kwargs: dict[str, Any] = {}
         if proxy:
             transport_kwargs["proxy"] = proxy
         return httpx.Client(
