@@ -22,6 +22,7 @@ from pyscrappy.scrapers.crypto import CryptoScraper
 from pyscrappy.scrapers.stock import StockScraper
 from pyscrappy.scrapers.twitter import TwitterScraper
 from pyscrappy.scrapers.ubereats import UberEatsScraper
+from pyscrappy.scrapers.youtube import YouTubeScraper
 
 
 @pytest.fixture
@@ -38,6 +39,20 @@ def _mock_async_http(scraper, *html_responses):
     scraper._async_http = mock
     return scraper, mock
 
+@pytest.mark.anyio
+async def test_youtube_scrape_async_uses_plain_http():
+    s, mock = _mock_async_http(
+        YouTubeScraper(),
+        "<html><body>nothing here</body></html>",
+    )
+
+    result = await s.scrape_async(
+        channel_url="https://www.youtube.com/@example/videos",
+        max_results=5,
+    )
+
+    assert mock.get_html.await_count == 1
+    assert result.metadata.scraper == "youtube"
 
 @pytest.mark.anyio
 async def test_crypto_scrape_async_top_coins():

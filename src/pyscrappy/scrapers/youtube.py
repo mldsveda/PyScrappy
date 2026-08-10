@@ -66,7 +66,12 @@ class YouTubeScraper(BaseScraper):
         channel_url: str | None = None,
         max_results: int = 20,
     ) -> ScrapeResult:
-        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        """Async counterpart to :meth:`scrape`.
+
+        The async path uses plain HTTP and does not support JavaScript rendering
+        or scrolling. Use :meth:`scrape` with ``render_js=True`` and
+        ``scroll_pages`` for JS-rendered channel pages.
+        """
         if channel_url:
             return await self._scrape_channel_async(channel_url, max_results)
         if query:
