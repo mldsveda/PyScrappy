@@ -33,12 +33,37 @@ _PSEUDO = re.compile(r"^(?P<sel>.*?)::(?P<kind>text|attr\((?P<attr>[^)]+)\))$", 
 class Selector:
     """A single HTML element (or a whole document) you can query and navigate."""
 
-    def __init__(self, html: str | Tag, _parser: str = "lxml") -> None:
+    def __init__(
+        self,
+        html: str | Tag,
+        _parser: str = "lxml",
+        *,
+        url: str | None = None,
+        adaptive_store: Any = None,
+    ) -> None:
         if isinstance(html, Tag):
             self._node: Tag = html
         else:
             self._node = BeautifulSoup(html, _parser)
         self._parser = _parser
+        # Adaptive selectors save/relocate against a store, namespaced by site so
+        # the same id on two sites doesn't collide. Lazily created on first use.
+        self._url = url
+        self._store = adaptive_store
+
+    def _adaptive_store(self):
+        if self._store is None:
+            from pyscrappy.generic.adaptive_store import AdaptiveStore
+
+            self._store = AdaptiveStore()
+        return self._store
+
+    def _namespace(self) -> str | None:
+        if not self._url:
+            return None
+        from urllib.parse import urlparse
+
+        return urlparse(self._url).netloc or None
 
     # -- basic access --
     @property
@@ -60,10 +85,30 @@ class Selector:
         return str(self._node)
 
     # -- selection --
-    def css(self, selector: str) -> SelectorList:
+    def css(
+        self,
+        selector: str,
+        *,
+        adaptive: bool = False,
+        auto_save: bool = False,
+        adaptive_id: str | None = None,
+        threshold: float = 55.0,
+    ) -> SelectorList:
         """Select descendants by CSS. Supports a trailing ``::text`` or
         ``::attr(name)`` pseudo-element (the values are read via ``.get()`` /
-        ``.getall()`` on the returned list)."""
+        ``.getall()`` on the returned list).
+
+        Adaptive (self-healing) selection — survives site markup changes:
+
+        - ``auto_save=True`` stores a fingerprint of the first matched element
+          under ``adaptive_id`` (defaults to the selector string).
+        - ``adaptive=True`` — if the selector matches nothing, relocate the saved
+          element by structural/textual similarity instead of returning empty.
+        - ``threshold`` is the minimum confidence (0-100) to accept a relocation.
+
+        The relocation confidence is available on the returned list's
+        ``adaptive_confidence`` attribute when healing occurred.
+        """
         m = _PSEUDO.match(selector)
         base, pseudo, attr = selector, None, None
         if m:
@@ -71,8 +116,29 @@ class Selector:
             pseudo = "text" if m.group("kind") == "text" else "attr"
             attr = m.group("attr")
         matches = self._node.select(base)
+
+        key = adaptive_id or selector
+        if matches and auto_save:
+            from pyscrappy.generic.adaptive import fingerprint
+
+            self._adaptive_store().save(key, fingerprint(matches[0]), namespace=self._namespace())
+
+        confidence = None
+        if not matches and adaptive:
+            from pyscrappy.generic.adaptive import relocate
+
+            fp = self._adaptive_store().retrieve(key, namespace=self._namespace())
+            if fp is not None:
+                result = relocate(fp, self._node, threshold=threshold)
+                if result.element is not None:
+                    matches = [result.element]
+                    confidence = result.confidence
+
         return SelectorList(
-            [Selector(el, self._parser) for el in matches], pseudo=pseudo, attr=attr
+            [Selector(el, self._parser) for el in matches],
+            pseudo=pseudo,
+            attr=attr,
+            adaptive_confidence=confidence,
         )
 
     def xpath(self, path: str) -> SelectorList:
@@ -158,12 +224,21 @@ class SelectorList(list):
     """
 
     def __init__(
-        self, items=(), *, pseudo: str | None = None, attr: str | None = None, _strings=None
+        self,
+        items=(),
+        *,
+        pseudo: str | None = None,
+        attr: str | None = None,
+        _strings=None,
+        adaptive_confidence: float | None = None,
     ):
         super().__init__(items)
         self._pseudo = pseudo
         self._attr = attr
         self._strings = _strings  # pre-computed string results (XPath text()/@attr)
+        #: Confidence (0-100) when these results came from an adaptive relocation,
+        #: else None (a normal, selector-matched result).
+        self.adaptive_confidence = adaptive_confidence
 
     def _values(self) -> list[str]:
         if self._strings is not None:

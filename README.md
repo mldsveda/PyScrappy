@@ -1,4 +1,8 @@
-## PyScrappy: Python web scraping toolkit (stealth, CSS/XPath, CLI) + MCP server for AI agents
+<p align="center">
+  <img src="public/logo.png" alt="PyScrappy" width="480">
+</p>
+
+<h2 align="center">Adaptive Python web scraping toolkit (self-healing, stealth) + MCP server for AI agents</h2>
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
@@ -22,6 +26,7 @@ PyScrappy is an AI-native web scraping toolkit that turns websites into structur
 - **JS rendering** — optional Playwright backend for JavaScript-heavy sites
 - **Custom selectors** — pass CSS selectors to extract exactly what you need
 - **Chainable `Selector`** — navigate HTML directly with CSS/XPath, `find_all`, `find_by_text`, and `find_similar` (Scrapy/BeautifulSoup-style)
+- **Adaptive (self-healing) selectors** — remember an element and relocate it by similarity when a site changes its markup, so scrapers don't silently break
 - **Concurrent scraping** — `scrape_many` / `scrape_all` run scrapes in parallel
 - **Proxy & scraping-API support** — route through a proxy or ScraperAPI/ScrapeOps for blocked sites
 - **TLS-fingerprint impersonation** — `impersonate="chrome"` gets past anti-bot filters that block plain clients (optional `curl_cffi` backend)
@@ -149,30 +154,18 @@ Add to your `claude_desktop_config.json` and restart the app:
 
 ### Available tools
 
-| Tool | Description |
-|------|-------------|
-| `scrape_url` | Scrape any URL — text, links, images, tables, metadata |
-| `scrape_wikipedia` | Fetch a Wikipedia article (`full` / `paragraphs` / `headers`) |
-| `scrape_stock` | Yahoo Finance quotes, history, and profiles |
-| `scrape_news` | RSS/Atom feeds, auto-discovered site feeds, or a single article |
-| `search_images` | Image search (returns URLs + metadata) |
-| `search_youtube` | YouTube video search |
-| `search_linkedin_jobs` | Public LinkedIn job listings |
-| `search_github` | GitHub repository search (stars, language, …) |
-| `search_hackernews` | Hacker News story search (points, comments) |
-| `search_books` | Book search via Open Library (title, author, year) |
-| `get_weather` | Current weather for a place (no key) |
-| `get_crypto` | Cryptocurrency prices and market data (CoinGecko) |
-| `convert_currency` | Exchange rates and currency conversion |
-| `define_word` | Word definitions and examples |
-| `search_amazon` | Amazon product search |
-| `search_newegg` | Newegg electronics / computer hardware search |
-| `search_ikea` | IKEA furniture / home search |
-| `search_soundcloud` | SoundCloud track search (uses the browser backend) |
-| `lookup_movie` | Movie/TV info from IMDB by title or id (via OMDb; needs `OMDB_API_KEY`) |
-| `scrape_zomato` | Restaurant listings by city |
-| `search_ubereats` | Uber Eats restaurants by city |
-| `get_ubereats_menu` | An Uber Eats restaurant's full menu (from its store URL) |
+The server exposes **20+ tools**. The most common ones are **`scrape_url`** (any
+URL → text, links, images, tables, metadata), **`scrape_wikipedia`**,
+**`scrape_stock`**, **`scrape_news`**, and **`search_github`** — plus many more
+covering image/YouTube/LinkedIn/Hacker News/book search, weather, crypto,
+currency, dictionary, Amazon/Newegg/IKEA/SoundCloud, IMDB, and Zomato/Uber Eats.
+
+To see the full, live list, ask the agent to call the **`list_available_scrapers`**
+tool, or from a shell:
+
+```sh
+python -c "from pyscrappy import list_scrapers; print(', '.join(sorted(list_scrapers())))"
+```
 
 The `lookup_movie` tool needs a free [OMDb](https://www.omdbapi.com/apikey.aspx) API
 key. Pass it to the server through your MCP client config, e.g. for Claude Desktop:
@@ -193,39 +186,25 @@ latest headlines from bbc.co.uk and the AAPL stock quote."*
 
 ## Built-in scrapers
 
-Every scraper that works without a proxy is also exposed as an [MCP tool](#mcp-server-use-pyscrappy-from-an-ai-agent) (last column).
+PyScrappy ships **24 built-in scrapers**, and every one that works without a
+proxy is also exposed as an [MCP tool](#mcp-server-use-pyscrappy-from-an-ai-agent).
 
-| Scraper | What it does | Browser? | MCP tool |
-|---------|-------------|----------|----------|
-| `GenericScraper` | Scrape any URL with auto-extraction | Optional | `scrape_url` |
-| **Data / Research** | | | |
-| `WikipediaScraper` | Articles, sections, infoboxes | No | `scrape_wikipedia` |
-| `IMDBScraper` | Movie/TV info by title or id (via OMDb API; needs `OMDB_API_KEY`) | No | `lookup_movie` |
-| `StockScraper` | Quotes, history, profiles (Yahoo Finance) | No | `scrape_stock` |
-| `NewsScraper` | RSS/Atom feeds, article extraction | No | `scrape_news` |
-| `ImageSearchScraper` | Image search + download | No | `search_images` |
-| `LinkedInJobsScraper` | Public job listings | No | `search_linkedin_jobs` |
-| `GitHubScraper` | Repository search (stars, language, …) via GitHub API | No | `search_github` |
-| `HackerNewsScraper` | Story search (points, comments) via HN API | No | `search_hackernews` |
-| `OpenLibraryScraper` | Book search (title, author, year) via Open Library | No | `search_books` |
-| `WeatherScraper` | Current weather by place, via Open-Meteo (no key) | No | `get_weather` |
-| `CryptoScraper` | Crypto prices / market cap via CoinGecko (no key) | No | `get_crypto` |
-| `CurrencyScraper` | Currency exchange rates + conversion (no key) | No | `convert_currency` |
-| `DictionaryScraper` | Word definitions, examples (Free Dictionary API) | No | `define_word` |
-| **E-Commerce** | | | |
-| `AmazonScraper` | Product search | No | `search_amazon` |
-| `NeweggScraper` | Electronics / computer hardware search | No | `search_newegg` |
-| `IKEAScraper` | Furniture / home search, per-country prices (JSON API) | No | `search_ikea` |
-| **Social Media** | | | |
-| `YouTubeScraper` | Video search, channel scraping | Optional | `search_youtube` |
-| `InstagramScraper` | Profiles, hashtag posts (blocked; needs proxy) | Recommended | — |
-| `TwitterScraper` | Tweet search (blocked; needs proxy) | Recommended | — |
-| **Music** | | | |
-| `SpotifyScraper` | Track/playlist search (blocked; needs proxy) | Recommended | — |
-| `SoundCloudScraper` | Track search | Optional | `search_soundcloud` |
-| **Food Delivery** | | | |
-| `ZomatoScraper` | Restaurant listings by city | Recommended | `scrape_zomato` |
-| `UberEatsScraper` | Restaurants by city + full menus (any Uber Eats country) | No | `search_ubereats`, `get_ubereats_menu` |
+A few of them:
+
+- **`GenericScraper`** — scrape any URL with auto-extraction (text, links, images, tables, metadata)
+- **Data / research** — **`WikipediaScraper`**, **`StockScraper`** (Yahoo Finance), **`NewsScraper`** (RSS/Atom), **`GitHubScraper`**, **`HackerNewsScraper`**, plus weather, crypto, currency, dictionary, image, LinkedIn-jobs, and book search
+- **E-commerce** — **`AmazonScraper`**, `NeweggScraper`, `IKEAScraper`
+- **Social / media / food** — **`YouTubeScraper`**, SoundCloud, Zomato, Uber Eats (Instagram / Twitter / Spotify also ship, but are blocked and need a proxy)
+
+…and many more. To see the full, live list:
+
+```sh
+python -c "from pyscrappy import list_scrapers; print(', '.join(sorted(list_scrapers())))"
+```
+
+**`IMDBScraper`** (`lookup_movie`) is the one exception that needs a key — a free
+[OMDb](https://www.omdbapi.com/apikey.aspx) `OMDB_API_KEY` (see the
+[MCP config](#available-tools) above for how to pass it).
 
 ## Plugins
 
@@ -337,6 +316,42 @@ first.find_similar()                               # sibling elements shaped lik
 `css()` / `xpath()` return a `SelectorList` with `.get()` / `.getall()` / `.text()`.
 `find_similar()` locates elements with the same tag and overlapping classes, handy
 for pulling every card/row once you've found one.
+
+### Adaptive (self-healing) selectors
+
+A hard-coded CSS selector silently breaks the day a site changes its markup.
+Adaptive selectors survive that: save a fingerprint of the element the first time,
+and if the selector later matches nothing, relocate it by structural and textual
+similarity instead of returning empty.
+
+```python
+from pyscrappy import Selector
+
+# First run: match normally and remember this element under an id.
+page = Selector(html_v1, url="https://shop.example.com")
+price = page.css(".price", auto_save=True, adaptive_id="price").get()
+
+# Later, after a redesign renamed ".price" — heal instead of breaking:
+page = Selector(html_v2, url="https://shop.example.com")
+result = page.css(".price", adaptive=True, adaptive_id="price")
+print(result.get(), "→ confidence:", result.adaptive_confidence)
+```
+
+How the relocation decides — and where it's stronger than a naive similarity match:
+
+- **Weighted signals, not a flat average.** A stable `id` / `data-*` hook counts
+  far more than a sibling-tag list, so weak signals can't outvote strong ones.
+- **Anchor-relative.** It remembers the nearest stable ancestor (an id'd / `data-*`
+  container) and depth, so it survives layout reshuffles that move absolute positions.
+- **Volatility-aware text.** Prices, dates, and counts are down-weighted, so
+  healing stays reliable on exactly the fields that change most between scrapes.
+- **Confidence-scored.** `SelectorList.adaptive_confidence` (0-100) tells you how
+  sure the relocation was; `threshold=` sets the minimum to accept.
+
+Fingerprints persist in a small JSON store (`~/.pyscrappy/adaptive.json` by
+default, or `$PYSCRAPPY_HOME`), namespaced by site so the same `adaptive_id` on
+two sites never collides. Adaptive is entirely opt-in: without `adaptive=True`, a
+broken selector still just returns empty, exactly as before.
 
 ### Site-specific scrapers
 
