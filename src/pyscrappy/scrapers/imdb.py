@@ -54,6 +54,7 @@ class IMDBScraper(BaseScraper):
         query: str | None = None,
         chart: str | None = None,
         max_pages: int = 1,
+        enrich: bool = True,
     ) -> ScrapeResult:
         """Fetch movie data from IMDB (via OMDb).
 
@@ -63,6 +64,9 @@ class IMDBScraper(BaseScraper):
             genre: Not supported — OMDb has no genre-browse endpoint.
             chart: Not supported — OMDb has no chart endpoint.
             max_pages: Pages of search results to fetch (10 results per page).
+            enrich: Whether to enrich search results with full OMDb details.
+                    Defaults to ``True``. Set to ``False`` to return lightweight
+                    search results and make only one request per page.
 
         Returns:
             ScrapeResult with movie data.
@@ -106,7 +110,7 @@ class IMDBScraper(BaseScraper):
 
         if _IMDB_ID_RE.match(query.strip()):
             return self._lookup_by_id(query.strip())
-        return self._search_by_title(query, max_pages)
+        return self._search_by_title(query, max_pages, enrich)
 
     async def scrape_async(  # type: ignore[override]
         self,
@@ -200,7 +204,7 @@ class IMDBScraper(BaseScraper):
             errors=errors,
         )
 
-    def _search_by_title(self, query: str, max_pages: int) -> ScrapeResult:
+    def _search_by_title(self, query: str, max_pages: int, enrich: bool) -> ScrapeResult:
         movies: list[dict[str, Any]] = []
         errors: list[ScrapeError] = []
 
@@ -214,7 +218,7 @@ class IMDBScraper(BaseScraper):
             # Enrich each search hit with full details (genre, rating, plot…).
             for hit in results:
                 imdb_id = hit.get("imdbID")
-                if not imdb_id:
+                if not enrich or not imdb_id:
                     movies.append(self._normalise(hit))
                     continue
                 details = self._get({"i": imdb_id})
