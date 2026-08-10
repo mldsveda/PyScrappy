@@ -201,9 +201,9 @@ async def scrape_stock(
     """Fetch stock market data from Yahoo Finance and return it as a dict.
 
     The returned shape depends on `mode`:
-      - "quote": {"symbol", "price", "currency", "change", "change_percent", "market_time"}.
+      - "quote":   {"symbol", "currency", "exchange", "price", "previous_close", "volume", "day_high", "day_low", "fifty_two_week_high", "fifty_two_week_low"}.
       - "history": {"symbol", "period", "rows": [{"date", "open", "high", "low", "close", "volume"}, ...]}.
-      - "profile": {"symbol", "name", "sector", "industry", "country", "website", "summary"}.
+      - "profile": {"symbol", "name", "currency", "exchange", "market", "timezone", "instrument_type"}.
 
     Behavior:
         Makes a live network request to Yahoo Finance on each call; no browser is
