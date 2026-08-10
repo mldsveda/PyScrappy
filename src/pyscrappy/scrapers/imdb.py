@@ -118,6 +118,7 @@ class IMDBScraper(BaseScraper):
         query: str | None = None,
         chart: str | None = None,
         max_pages: int = 1,
+        enrich: bool = True,
     ) -> ScrapeResult:
         """Async counterpart to :meth:`scrape` (same args/returns)."""
         if genre or chart:
@@ -159,7 +160,7 @@ class IMDBScraper(BaseScraper):
 
         if _IMDB_ID_RE.match(query.strip()):
             return await self._lookup_by_id_async(query.strip())
-        return await self._search_by_title_async(query, max_pages)
+        return await self._search_by_title_async(query, max_pages, enrich)
 
     def _get(self, params: dict[str, str]) -> dict[str, Any]:
         """Call OMDb and return the parsed JSON object."""
@@ -228,7 +229,7 @@ class IMDBScraper(BaseScraper):
 
         return self._build_search_result(movies, errors)
 
-    async def _search_by_title_async(self, query: str, max_pages: int) -> ScrapeResult:
+    async def _search_by_title_async(self, query: str, max_pages: int, enrich: bool) -> ScrapeResult:
         movies: list[dict[str, Any]] = []
         errors: list[ScrapeError] = []
 
@@ -242,7 +243,7 @@ class IMDBScraper(BaseScraper):
             # Enrich each search hit with full details (genre, rating, plot…).
             for hit in results:
                 imdb_id = hit.get("imdbID")
-                if not imdb_id:
+                if not enrich or not imdb_id:
                     movies.append(self._normalise(hit))
                     continue
                 details = await self._get_async({"i": imdb_id})
