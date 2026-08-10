@@ -39,6 +39,7 @@ def _mock_async_http(scraper, *html_responses):
     scraper._async_http = mock
     return scraper, mock
 
+
 @pytest.mark.anyio
 async def test_youtube_scrape_async_uses_plain_http():
     s, mock = _mock_async_http(
@@ -53,6 +54,7 @@ async def test_youtube_scrape_async_uses_plain_http():
 
     assert mock.get_html.await_count == 1
     assert result.metadata.scraper == "youtube"
+
 
 @pytest.mark.anyio
 async def test_crypto_scrape_async_top_coins():
