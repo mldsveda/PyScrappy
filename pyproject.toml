@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscrappy"
-version = "1.4.7"
+version = "1.5.0"
 description = "A robust, all-in-one Python web scraping toolkit"
 readme = "README.md"
 license = "MIT"
@@ -64,7 +64,7 @@ all = [
 ]
 
 [project.scripts]
-pyscrappy = "pyscrappy.mcp.agent:main"
+pyscrappy = "pyscrappy.cli:main"
 pyscrappy-mcp = "pyscrappy.mcp.server:main"
 
 [project.urls]

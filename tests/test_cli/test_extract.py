@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pyscrappy.cli import run_extract
 from pyscrappy.core.models import ScrapeMetadata, ScrapeResult
-from pyscrappy.mcp.agent import run_extract
 
 
 def _result(data):
