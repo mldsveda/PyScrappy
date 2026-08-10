@@ -246,7 +246,7 @@ class SelectorList(list):
         if self._pseudo == "text":
             return [s.text() for s in self]
         if self._pseudo == "attr":
-            return [str(s.attrs.get(self._attr, "")) for s in self]
+            return [str(s.attrs[self._attr]) for s in self if self._attr in s.attrs]
         return [s.html() for s in self]
 
     def get(self, default: str | None = None) -> str | None:

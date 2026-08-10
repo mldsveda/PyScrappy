@@ -40,6 +40,13 @@ class TestCss:
     def test_css_attr_pseudo(self):
         assert _page().css("a::attr(href)").getall() == ["/a", "/b"]
 
+    def test_css_attr_missing_attribute_uses_default(self):
+        assert Selector("<a>x</a>").css("a::attr(href)").get("MISSING") == "MISSING"
+
+    def test_css_attr_getall_skips_missing_attributes(self):
+        html = "<a href='/present'>yes</a><a>missing</a>"
+        assert Selector(html).css("a::attr(href)").getall() == ["/present"]
+
     def test_css_chaining(self):
         first = _page().css(".product")[0]
         assert first.css(".price::text").get() == "$10"
