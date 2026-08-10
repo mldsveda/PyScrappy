@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/logo.png" alt="PyScrappy" width="480">
+  <img src="https://raw.githubusercontent.com/mldsveda/PyScrappy/main/public/logo.png" alt="PyScrappy" width="480">
 </p>
 
 <h2 align="center">Adaptive Python web scraping toolkit (self-healing, stealth)<br>+ MCP server for AI agents</h2>
