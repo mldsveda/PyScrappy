@@ -4,6 +4,11 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.2] - 2026-08-10
+
+### Fixed
+- README logo uses an absolute raw-GitHub URL so it renders on the PyPI project page (a repo-relative path only resolves on GitHub).
+
 ## [1.5.1] - 2026-08-10
 
 ### Added
