@@ -2,7 +2,7 @@
   <img src="public/logo.png" alt="PyScrappy" width="480">
 </p>
 
-<h2 align="center">Adaptive Python web scraping toolkit (self-healing, stealth) + MCP server for AI agents</h2>
+<h2 align="center">Adaptive Python web scraping toolkit (self-healing, stealth)<br>+ MCP server for AI agents</h2>
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
