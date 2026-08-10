@@ -57,6 +57,19 @@ async def test_scrape_stock_forwards_interval():
     assert kwargs.get("interval") == "1wk"
 
 
+def test_scrape_stock_doc_matches_output_fields():
+    doc = server.scrape_stock.__doc__ or ""
+
+    assert (
+        '"quote": {"symbol", "currency", "exchange", "price", "previous_close", "volume", "day_high", "day_low", "fifty_two_week_high", "fifty_two_week_low"}'
+        in doc
+    )
+    assert (
+        '"profile": {"symbol", "name", "currency", "exchange", "market", "timezone", "instrument_type"}'
+        in doc
+    )
+
+
 def test_search_images_doc_does_not_advertise_duckduckgo():
     doc = server.search_images.__doc__ or ""
     assert "duckduckgo" not in doc.lower()
