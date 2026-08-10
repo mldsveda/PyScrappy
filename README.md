@@ -1,4 +1,4 @@
-## PyScrappy: Python web scraping toolkit + MCP server for AI agents
+## PyScrappy: Python web scraping toolkit (stealth, CSS/XPath, CLI) + MCP server for AI agents
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
@@ -21,8 +21,11 @@ PyScrappy is an AI-native web scraping toolkit that turns websites into structur
 - **MCP server** — expose the scrapers as tools for AI agents (Claude, Cursor, local LLMs, …)
 - **JS rendering** — optional Playwright backend for JavaScript-heavy sites
 - **Custom selectors** — pass CSS selectors to extract exactly what you need
+- **Chainable `Selector`** — navigate HTML directly with CSS/XPath, `find_all`, `find_by_text`, and `find_similar` (Scrapy/BeautifulSoup-style)
 - **Concurrent scraping** — `scrape_many` / `scrape_all` run scrapes in parallel
 - **Proxy & scraping-API support** — route through a proxy or ScraperAPI/ScrapeOps for blocked sites
+- **TLS-fingerprint impersonation** — `impersonate="chrome"` gets past anti-bot filters that block plain clients (optional `curl_cffi` backend)
+- **Command-line extract** — `pyscrappy extract <url> out.md` scrapes a URL straight to a file, no code
 - **Retry & rate-limiting** — built-in exponential backoff and per-domain rate limiting
 - **Type-safe** — full type hints, `py.typed` marker
 - **20+ built-in scrapers** — Wikipedia, IMDB, stocks, news, GitHub, Amazon/IKEA, YouTube, and [more](#built-in-scrapers)
@@ -45,6 +48,9 @@ pip install 'pyscrappy[dataframe]'
 
 # MCP server (use PyScrappy's scrapers as AI-agent tools)
 pip install 'pyscrappy[mcp]'
+
+# Stealth (TLS-fingerprint impersonation to bypass anti-bot filters)
+pip install 'pyscrappy[stealth]'
 
 # Everything
 pip install 'pyscrappy[all]'
@@ -309,6 +315,29 @@ with GenericScraper() as gs:
         print(item["title"], item.get("score", ""))
 ```
 
+### Navigate HTML with `Selector`
+
+When you want to traverse markup directly (Scrapy/BeautifulSoup-style) rather than
+get back structured dicts, use `Selector`:
+
+```python
+from pyscrappy import Selector
+
+page = Selector(html)                             # or navigate any HTML string
+page.css(".title::text").getall()                 # CSS with ::text / ::attr(name)
+page.xpath("//a/@href").getall()                   # XPath (elements, text(), @attr)
+page.find_all("h2", class_="title")                # BeautifulSoup-style search
+page.find_by_text("Add to cart", tag="button")     # search by text content
+
+first = page.css(".product")[0]
+first.css(".price::text").get()                    # chainable
+first.find_similar()                               # sibling elements shaped like this one
+```
+
+`css()` / `xpath()` return a `SelectorList` with `.get()` / `.getall()` / `.text()`.
+`find_similar()` locates elements with the same tag and overlapping classes, handy
+for pulling every card/row once you've found one.
+
 ### Site-specific scrapers
 
 Every built-in scraper follows the same pattern — instantiate, `scrape(...)`,
@@ -327,6 +356,22 @@ Amazon/Newegg/IKEA, Uber Eats, and more — see the [full list](#built-in-scrape
 For per-scraper arguments and examples, see the
 [documentation](https://pyscrappy.vercel.app/docs/scrapers/).
 
+### From the command line
+
+Scrape a URL straight to a file without writing any code — the output format is
+inferred from the file extension:
+
+```sh
+pyscrappy extract https://example.com out.md      # clean Markdown
+pyscrappy extract https://example.com out.json    # structured JSON
+pyscrappy extract https://example.com out.txt     # extracted page text
+pyscrappy extract https://example.com out.html    # raw fetched HTML
+
+# Narrow to elements matching a CSS selector, or render JS first:
+pyscrappy extract https://example.com items.txt --css-selector ".product"
+pyscrappy extract https://example.com page.md --render-js
+```
+
 ## Configuration
 
 ```python
@@ -341,6 +386,7 @@ config = ScraperConfig(
     headless=True,           # browser runs headless
     render_js="auto",        # auto-detect if JS rendering is needed
     cache_ttl=0,             # response cache TTL in seconds (0 = disabled)
+    impersonate=None,        # e.g. "chrome" to spoof a browser's TLS fingerprint (see below)
 )
 
 with GenericScraper(config) as gs:
@@ -380,6 +426,25 @@ with AmazonScraper(config) as scraper:
 ```
 
 This is the reliable way to use the scrapers marked "needs proxy" above.
+
+**TLS-fingerprint impersonation** — many anti-bot systems block a plain HTTP
+client by its TLS/JA3 fingerprint before serving any content. Set `impersonate`
+to mimic a real browser's fingerprint and get past that class of block without a
+headless browser:
+
+```python
+from pyscrappy import ScraperConfig, GenericScraper
+
+# needs the optional extra:  pip install 'pyscrappy[stealth]'
+config = ScraperConfig(impersonate="chrome")   # or "chrome124", "safari", "firefox"
+
+with GenericScraper(config) as gs:
+    result = gs.scrape("https://example.com")
+```
+
+Impersonation currently applies to the **synchronous** path only; setting it on
+an async client raises a clear error. All the usual retry, rate-limiting,
+caching, and robots handling still apply.
 
 ### Concurrent scraping
 
