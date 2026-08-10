@@ -45,6 +45,12 @@ class AsyncHttpClient:
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
+        if self.config.impersonate:
+            raise NotImplementedError(
+                "config.impersonate (TLS fingerprint impersonation) is only "
+                "supported on the sync path for now; use the sync scrapers/HttpClient, "
+                "or drop impersonate for async."
+            )
         self._client: httpx.AsyncClient | None = None
         self._last_request_time: dict[str, float] = {}
         self._current_proxy: str | None = None
