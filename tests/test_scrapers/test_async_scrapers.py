@@ -41,19 +41,28 @@ def _mock_async_http(scraper, *html_responses):
 
 
 @pytest.mark.anyio
-async def test_youtube_scrape_async_uses_plain_http():
-    s, mock = _mock_async_http(
-        YouTubeScraper(),
-        "<html><body>nothing here</body></html>",
+async def test_youtube_scrape_async_extracts_from_plain_http():
+    # The async path fetches over plain HTTP (no browser) and still extracts
+    # videos from the ytInitialData embedded in the returned HTML (#113). A
+    # minimal payload with one videoRenderer is enough to prove extraction works
+    # and doesn't silently return empty.
+    channel_url = "https://www.youtube.com/@example/videos"
+    yt_data = json.dumps(
+        {"videoRenderer": {"videoId": "abc123", "title": {"runs": [{"text": "Hello World"}]}}}
     )
+    html = f"<html><body><script>var ytInitialData = {yt_data};</script></body></html>"
+    s, mock = _mock_async_http(YouTubeScraper(), html)
 
-    result = await s.scrape_async(
-        channel_url="https://www.youtube.com/@example/videos",
-        max_results=5,
-    )
+    result = await s.scrape_async(channel_url=channel_url, max_results=5)
 
+    # Fetched exactly the channel URL over the async HTTP client (no browser).
     assert mock.get_html.await_count == 1
+    assert mock.get_html.await_args.args[0] == channel_url
     assert result.metadata.scraper == "youtube"
+    # Extraction actually produced the video, rather than an empty list.
+    assert len(result.data) == 1
+    assert result.data[0]["title"] == "Hello World"
+    assert result.data[0]["url"] == "https://www.youtube.com/watch?v=abc123"
 
 
 @pytest.mark.anyio
