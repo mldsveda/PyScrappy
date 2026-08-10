@@ -62,7 +62,12 @@ class SoundCloudScraper(BaseScraper):
         query: str,
         max_results: int = 20,
     ) -> ScrapeResult:
-        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        """Search for tracks using the async HTTP-only client.
+
+        The async path does not support the sync-only browser rendering
+        options (``render_js`` and ``scroll_pages``). Use :meth:`scrape`
+        with ``render_js=True`` when JavaScript rendering is required.
+        """
         url = f"https://soundcloud.com/search/sounds?q={quote_plus(query)}"
         html = await self.async_http.get_html(url)
         return self._build_result(html, url, max_results)

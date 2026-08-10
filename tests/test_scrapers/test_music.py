@@ -128,6 +128,15 @@ class TestSoundCloudScraper:
         assert "q=lo+fi+beats" in url
         scraper.close()
 
+    def test_async_docstring_documents_http_only_limitation(self):
+        doc = SoundCloudScraper.scrape_async.__doc__
+
+        assert doc is not None
+        assert "HTTP-only" in doc
+        assert "render_js" in doc
+        assert "scroll_pages" in doc
+        assert "same args/returns" not in doc
+
 
 # --- Spotify ---
 
