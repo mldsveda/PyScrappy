@@ -73,27 +73,60 @@ def test_scrape_stock_docstring_fields_match_actual_output():
 
     QUOTE_JSON = {
         "chart": {
-            "result": [{
-                "meta": {
-                    "symbol": "AAPL", "currency": "USD", "exchangeName": "NMS",
-                    "regularMarketPrice": 175.50, "chartPreviousClose": 174.20,
-                    "regularMarketVolume": 50000000, "regularMarketDayHigh": 176.00,
-                    "regularMarketDayLow": 173.80, "fiftyTwoWeekHigh": 199.62,
-                    "fiftyTwoWeekLow": 124.17,
+            "result": [
+                {
+                    "meta": {
+                        "symbol": "AAPL",
+                        "currency": "USD",
+                        "exchangeName": "NMS",
+                        "regularMarketPrice": 175.50,
+                        "chartPreviousClose": 174.20,
+                        "regularMarketVolume": 50000000,
+                        "regularMarketDayHigh": 176.00,
+                        "regularMarketDayLow": 173.80,
+                        "fiftyTwoWeekHigh": 199.62,
+                        "fiftyTwoWeekLow": 124.17,
+                    }
                 }
-            }]
+            ]
         }
     }
     PROFILE_JSON = {
         "chart": {
-            "result": [{
-                "meta": {
-                    "symbol": "AAPL", "longName": "Apple Inc.", "currency": "USD",
-                    "exchangeName": "NMS", "market": "us_market",
-                    "exchangeTimezoneName": "America/New_York",
-                    "instrumentType": "EQUITY",
+            "result": [
+                {
+                    "meta": {
+                        "symbol": "AAPL",
+                        "longName": "Apple Inc.",
+                        "currency": "USD",
+                        "exchangeName": "NMS",
+                        "market": "us_market",
+                        "exchangeTimezoneName": "America/New_York",
+                        "instrumentType": "EQUITY",
+                    }
                 }
-            }]
+            ]
+        }
+    }
+    HISTORY_JSON = {
+        "chart": {
+            "result": [
+                {
+                    "meta": {"symbol": "AAPL"},
+                    "timestamp": [1704067200],
+                    "indicators": {
+                        "quote": [
+                            {
+                                "open": [174.0],
+                                "high": [176.0],
+                                "low": [173.0],
+                                "close": [175.0],
+                                "volume": [50000000],
+                            }
+                        ]
+                    },
+                }
+            ]
         }
     }
 
@@ -119,7 +152,11 @@ def test_scrape_stock_docstring_fields_match_actual_output():
     actual_profile_keys = set(result2.data[0].keys())
     scraper2.close()
 
-    history_result_keys = {"date", "open", "high", "low", "close", "volume"}
+    scraper3 = StockScraper()
+    scraper3._http = _mock_http(HISTORY_JSON)
+    result3 = scraper3.scrape(symbol="AAPL", mode="history")
+    actual_history_keys = set(result3.data[0].keys())
+    scraper3.close()
 
     doc = server.scrape_stock.__doc__ or ""
     quote_match = re.search(r'"quote":\s*(\{[^}]+\})', doc)
@@ -143,6 +180,6 @@ def test_scrape_stock_docstring_fields_match_actual_output():
     doc_history_keys = {
         k.strip().strip('"') for k in doc_history_match.group(1).strip("{}").split(",")
     }
-    assert doc_history_keys == history_result_keys, (
-        f"docstring history row keys {sorted(doc_history_keys)} != expected {sorted(history_result_keys)}"
+    assert doc_history_keys == actual_history_keys, (
+        f"docstring history row keys {sorted(doc_history_keys)} != actual {sorted(actual_history_keys)}"
     )
