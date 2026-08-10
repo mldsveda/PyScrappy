@@ -1,4 +1,4 @@
-## PyScrappy: Python web scraping toolkit + MCP server for AI agents
+## PyScrappy: Python web scraping toolkit (stealth, CSS/XPath, CLI) + MCP server for AI agents
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/PyScrappy.svg)](https://pypi.org/project/PyScrappy/)
