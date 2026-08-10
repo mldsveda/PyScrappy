@@ -40,6 +40,7 @@ from pyscrappy.core.exceptions import (
 )
 from pyscrappy.core.models import ScrapeResult
 from pyscrappy.generic.scraper import GenericScraper
+from pyscrappy.generic.selector import Selector, SelectorList
 from pyscrappy.registry import (
     get_scraper,
     list_scrapers,
@@ -117,6 +118,8 @@ __all__ = [
     "BrowserNotInstalledError",
     # Generic
     "GenericScraper",
+    "Selector",
+    "SelectorList",
     # E-Commerce
     "AmazonScraper",
     "CryptoScraper",
