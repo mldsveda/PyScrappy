@@ -64,9 +64,11 @@ class IMDBScraper(BaseScraper):
             genre: Not supported — OMDb has no genre-browse endpoint.
             chart: Not supported — OMDb has no chart endpoint.
             max_pages: Pages of search results to fetch (10 results per page).
-            enrich: Whether to enrich search results with full OMDb details.
-                    Defaults to ``True``. Set to ``False`` to return lightweight
-                    search results and make only one request per page.
+            enrich: Whether to enrich each search hit with a full per-title OMDb
+                lookup (genre, rating, plot…). Defaults to ``True``, which costs
+                one extra API call per hit — roughly ``max_pages + max_pages * 10``
+                calls total (OMDb returns ~10 hits/page). Set to ``False`` to skip
+                the per-hit lookups and issue only one request per page.
 
         Returns:
             ScrapeResult with movie data.
@@ -120,7 +122,12 @@ class IMDBScraper(BaseScraper):
         max_pages: int = 1,
         enrich: bool = True,
     ) -> ScrapeResult:
-        """Async counterpart to :meth:`scrape` (same args/returns)."""
+        """Async counterpart to :meth:`scrape` (same args/returns).
+
+        Like :meth:`scrape`, ``enrich=True`` (the default) issues one extra
+        OMDb call per search hit; pass ``enrich=False`` for one request per
+        page instead.
+        """
         if genre or chart:
             unsupported = "genre" if genre else "chart"
             return ScrapeResult(
