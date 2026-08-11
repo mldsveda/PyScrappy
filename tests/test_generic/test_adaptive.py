@@ -270,10 +270,11 @@ def test_save_atomic_no_corruption_on_write_failure(tmp_path):
     # Verify the initial save worked
     assert store.retrieve("price", namespace="example.com") == fp
 
-    # Patch os.replace to simulate a crash after the temp file is written
+    # Patch os.replace on the specific module to avoid side-effects on concurrent code
     import unittest.mock as mock
 
-    with mock.patch("os.replace", side_effect=OSError("disk full")):
+    target = "pyscrappy.generic.adaptive_store.os.replace"
+    with mock.patch(target, side_effect=OSError("disk full")):
         try:
             store.save("new_key", {"fake": True}, namespace="example.com")
         except OSError:
