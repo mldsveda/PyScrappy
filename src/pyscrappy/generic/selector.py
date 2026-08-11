@@ -143,11 +143,18 @@ class Selector:
 
     def xpath(self, path: str) -> SelectorList:
         """Select descendants by XPath (via lxml). Returns elements; text/attr
-        XPath expressions (``.../text()``, ``.../@href``) yield string results."""
+        XPath expressions (``.../text()``, ``.../@href``) yield string results.
+        Scalar XPath expressions (``count(...)``, ``boolean(...)``) return the
+        value as a single-item SelectorList."""
         root = etree.HTML(str(self._node))
         if root is None:
             return SelectorList([])
         results = root.xpath(path)
+
+        # Handle scalar results (float, int, bool) from functions like count(), boolean()
+        if isinstance(results, (float, int, bool)):
+            return SelectorList([], _strings=[str(results)])
+
         selectors: list[Selector] = []
         strings: list[str] = []
         for r in results:

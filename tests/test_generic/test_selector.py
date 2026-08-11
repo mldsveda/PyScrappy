@@ -66,6 +66,14 @@ class TestXpath:
     def test_xpath_attr(self):
         assert _page().xpath("//a/@href").getall() == ["/a", "/b"]
 
+    def test_xpath_scalar_count(self):
+        # count(...) returns a float scalar from lxml; it must come back as a
+        # string result rather than crashing (#136).
+        assert _page().xpath("count(//div[contains(@class,'product')])").get() == "2.0"
+
+    def test_xpath_scalar_boolean(self):
+        assert _page().xpath("boolean(//div[contains(@class,'product')])").get() == "True"
+
 
 class TestFindAll:
     def test_find_all_by_tag(self):
