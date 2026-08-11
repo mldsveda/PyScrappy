@@ -259,3 +259,30 @@ def test_weighted_scorer_beats_uniform_on_volatile_decoy():
 
     # And end-to-end relocation picks the true element.
     assert relocate(fp, root).element is true_el
+
+
+def test_save_atomic_no_corruption_on_write_failure(tmp_path):
+    """A failed write must not corrupt the existing store."""
+    store = AdaptiveStore(tmp_path / "adaptive.json")
+    fp = fingerprint(_el(_V1, ".price"))
+    store.save("price", fp, namespace="example.com")
+
+    # Verify the initial save worked
+    assert store.retrieve("price", namespace="example.com") == fp
+
+    # Patch os.replace to simulate a crash after the temp file is written
+    import unittest.mock as mock
+
+    with mock.patch("os.replace", side_effect=OSError("disk full")):
+        try:
+            store.save("new_key", {"fake": True}, namespace="example.com")
+        except OSError:
+            pass
+
+    # The original data must survive — not be corrupted or lost
+    assert store.retrieve("price", namespace="example.com") == fp
+    # The failed key must not appear
+    assert store.retrieve("new_key", namespace="example.com") is None
+    # No leftover .tmp files
+    tmp_files = list(tmp_path.glob("*.tmp"))
+    assert len(tmp_files) == 0, f"Leftover temp files: {tmp_files}"
