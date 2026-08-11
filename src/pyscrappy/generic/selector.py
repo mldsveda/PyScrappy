@@ -150,11 +150,11 @@ class Selector:
         if root is None:
             return SelectorList([])
         results = root.xpath(path)
-        
+
         # Handle scalar results (float, int, bool) from functions like count(), boolean()
         if isinstance(results, (float, int, bool)):
             return SelectorList([], _strings=[str(results)])
-        
+
         selectors: list[Selector] = []
         strings: list[str] = []
         for r in results:
