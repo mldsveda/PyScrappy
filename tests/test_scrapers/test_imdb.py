@@ -1,10 +1,8 @@
 """Tests for pyscrappy.scrapers.imdb (OMDb-backed)."""
 
-import json
 import asyncio
-
-from unittest.mock import MagicMock, AsyncMock
-
+import json
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -58,6 +56,7 @@ def _scraper_with(responses):
     mock_http.get_html.side_effect = responses
     scraper._http = mock_http  # bypass real network
     return scraper
+
 
 def _scraper_with_async(responses):
     """Build an IMDBScraper whose async HTTP layer returns queued JSON strings."""
@@ -146,35 +145,46 @@ class TestIMDBSearchByTitle:
         assert scraper._http.get_html.call_count == 1
         assert len(result.data) == 1
         assert result.errors == []
+        # The row is the lightweight search result: search fields are populated,
+        # but detail-only fields (from the skipped per-hit lookup) are absent.
+        movie = result.data[0]
+        assert movie["title"] == "Inception"
+        assert movie["imdb_id"] == "tt1375666"
+        assert movie["type"] == "movie"
+        # detail-only fields (from the skipped per-hit lookup) are absent
+        assert "genre" not in movie
+        assert "director" not in movie
+
 
 class TestIMDBSearchByTitleAsync:
     def test_search_async_enriches_with_details(self):
         # First call: search list. Second call: details for the one hit.
         scraper = _scraper_with_async([SEARCH_JSON, DETAILS_JSON])
-        result = asyncio.run(
-            scraper.scrape_async(query="inception", max_pages=1)
-        )
+        result = asyncio.run(scraper.scrape_async(query="inception", max_pages=1))
         assert len(result.data) == 1
         assert result.data[0]["genre"] == "Action, Adventure, Sci-Fi"
         assert result.data[0]["director"] == "Christopher Nolan"
 
     def test_search_async_no_results(self):
         scraper = _scraper_with_async([NOT_FOUND_JSON])
-        result = asyncio.run(
-            scraper.scrape_async(query="zzzznotarealmovie")
-        )
+        result = asyncio.run(scraper.scrape_async(query="zzzznotarealmovie"))
         assert result.data == []
         assert result.errors
 
     def test_search_async_without_enrich_skips_details(self):
         scraper = _scraper_with_async([SEARCH_JSON])
-        result = asyncio.run(
-            scraper.scrape_async(query="inception", max_pages=1, enrich=False)
-        )
+        result = asyncio.run(scraper.scrape_async(query="inception", max_pages=1, enrich=False))
 
         assert scraper._async_http.get_html.call_count == 1
         assert len(result.data) == 1
         assert result.errors == []
+        movie = result.data[0]
+        assert movie["title"] == "Inception"
+        assert movie["imdb_id"] == "tt1375666"
+        assert movie["type"] == "movie"
+        # detail-only fields (from the skipped per-hit lookup) are absent
+        assert "genre" not in movie
+        assert "director" not in movie
 
 
 class TestNormalise:

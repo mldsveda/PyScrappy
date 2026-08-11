@@ -124,9 +124,10 @@ class IMDBScraper(BaseScraper):
     ) -> ScrapeResult:
         """Async counterpart to :meth:`scrape` (same args/returns).
 
-        Like :meth:`scrape`, ``enrich=True`` (the default) issues one extra
-        OMDb call per search hit; pass ``enrich=False`` for one request per
-        page instead.
+        Like :meth:`scrape`, ``enrich=True`` (the default) issues one extra OMDb
+        call per search hit — roughly ``max_pages + max_pages * 10`` calls total
+        (OMDb returns ~10 hits/page). Pass ``enrich=False`` to skip the per-hit
+        lookups and issue only one request per page.
         """
         if genre or chart:
             unsupported = "genre" if genre else "chart"
@@ -236,7 +237,9 @@ class IMDBScraper(BaseScraper):
 
         return self._build_search_result(movies, errors)
 
-    async def _search_by_title_async(self, query: str, max_pages: int, enrich: bool) -> ScrapeResult:
+    async def _search_by_title_async(
+        self, query: str, max_pages: int, enrich: bool
+    ) -> ScrapeResult:
         movies: list[dict[str, Any]] = []
         errors: list[ScrapeError] = []
 
