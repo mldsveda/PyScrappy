@@ -34,7 +34,7 @@ class MetadataExtractor:
             elif name == "author":
                 meta["author"] = content
             elif name in ("keywords",):
-                meta["keywords"] = [k.strip() for k in content.split(",")]
+                meta["keywords"] = [k.strip() for k in content.split(",") if k.strip()]
             elif name.startswith("og:"):
                 meta.setdefault("og", {})[name[3:]] = content
             elif name.startswith("twitter:"):
