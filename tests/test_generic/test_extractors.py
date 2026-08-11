@@ -41,6 +41,11 @@ class TestMetadataExtractor:
         result = self.extractor.extract(soup)
         assert result["keywords"] == ["python", "scraping", "web"]
 
+    def test_extract_keywords_ignores_empty_entries(self):
+        soup = _soup('<html><head><meta name="keywords" content="python, , web,,"></head></html>')
+        result = self.extractor.extract(soup)
+        assert result["keywords"] == ["python", "web"]
+
     def test_extract_og_tags(self):
         soup = _soup(
             "<html><head>"
