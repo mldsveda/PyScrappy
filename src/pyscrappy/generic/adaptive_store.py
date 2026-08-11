@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,34 @@ class AdaptiveStore:
         data = self._load()
         data[self._key(identifier, namespace)] = fingerprint
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        # Write atomically: serialize to a temp file in the same directory,
+        # then os.replace() it over the target. os.replace() is an atomic
+        # rename on both POSIX and Windows, so a reader always sees either
+        # the old complete file or the new complete file — never a partial one.
+        fd, tmp = tempfile.mkstemp(dir=self.path.parent, suffix=".tmp")
+        f = None
+        try:
+            f = os.fdopen(fd, "w", encoding="utf-8")
+            json.dump(data, f, indent=2)
+            f.close()
+            os.replace(tmp, self.path)
+        except BaseException:
+            if f is not None:
+                try:
+                    f.close()
+                except OSError:
+                    pass
+            else:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     def retrieve(self, identifier: str, namespace: str | None = None) -> dict[str, Any] | None:
         return self._load().get(self._key(identifier, namespace))
