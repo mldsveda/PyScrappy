@@ -19,7 +19,9 @@ def _el(html, selector):
 
 
 def test_fingerprint_captures_core_features():
-    el = _el('<div class="list"><span id="price" class="amount">$10</span></div>', "#price")
+    el = _el(
+        '<div class="list"><span id="price" class="amount">$10</span></div>', "#price"
+    )
     fp = fingerprint(el)
     assert fp["tag"] == "span"
     assert fp["id"] == "price"
@@ -102,7 +104,9 @@ def test_relocate_finds_title_by_text_when_class_changes():
 
 def test_relocate_returns_none_below_threshold():
     fp = fingerprint(_el(_V1, ".price"))
-    root = BeautifulSoup("<html><body><p>totally unrelated page</p></body></html>", "lxml")
+    root = BeautifulSoup(
+        "<html><body><p>totally unrelated page</p></body></html>", "lxml"
+    )
     result = relocate(fp, root)
     assert result.element is None
     assert result.confidence < 55
@@ -186,7 +190,9 @@ def test_selector_css_auto_save_then_heal(tmp_path):
 
 def test_selector_css_no_heal_without_adaptive_flag(tmp_path):
     store = AdaptiveStore(tmp_path / "a.json")
-    Selector(_V1, adaptive_store=store).css(".price", auto_save=True, adaptive_id="price")
+    Selector(_V1, adaptive_store=store).css(
+        ".price", auto_save=True, adaptive_id="price"
+    )
     # Without adaptive=True, a broken selector just returns empty (unchanged behavior).
     healed = Selector(_V2, adaptive_store=store).css(".price", adaptive_id="price")
     assert len(healed) == 0
@@ -218,7 +224,9 @@ def _uniform_score(fp, cand):
         SequenceMatcher(None, fp["text"] or "", cfp["text"] or "").ratio(),
         _jaccard_local(fp["classes"], cfp["classes"]),
         SequenceMatcher(None, "/".join(fp["path"]), "/".join(cfp["path"])).ratio(),
-        SequenceMatcher(None, "/".join(fp["siblings"]), "/".join(cfp["siblings"])).ratio(),
+        SequenceMatcher(
+            None, "/".join(fp["siblings"]), "/".join(cfp["siblings"])
+        ).ratio(),
     ]
     return sum(parts) / len(parts) * 100
 
