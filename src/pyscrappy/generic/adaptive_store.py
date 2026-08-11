@@ -74,7 +74,5 @@ class AdaptiveStore:
                 pass
             raise
 
-    def retrieve(
-        self, identifier: str, namespace: str | None = None
-    ) -> dict[str, Any] | None:
+    def retrieve(self, identifier: str, namespace: str | None = None) -> dict[str, Any] | None:
         return self._load().get(self._key(identifier, namespace))
