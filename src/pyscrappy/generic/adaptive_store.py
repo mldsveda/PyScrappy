@@ -47,18 +47,31 @@ class AdaptiveStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write atomically: serialize to a temp file in the same directory,
-        # then os.replace() it over the target.  os.replace() is an atomic
+        # then os.replace() it over the target. os.replace() is an atomic
         # rename on both POSIX and Windows, so a reader always sees either
         # the old complete file or the new complete file — never a partial one.
-        fd, tmp = tempfile.mkstemp(
-            dir=self.path.parent, suffix=".tmp"
-        )
+        fd, tmp = tempfile.mkstemp(dir=self.path.parent, suffix=".tmp")
+        f = None
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+            f = os.fdopen(fd, "w", encoding="utf-8")
+            json.dump(data, f, indent=2)
+            f.close()
             os.replace(tmp, self.path)
         except BaseException:
-            os.unlink(tmp)
+            if f is not None:
+                try:
+                    f.close()
+                except OSError:
+                    pass
+            else:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
             raise
 
     def retrieve(
