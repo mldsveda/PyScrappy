@@ -127,6 +127,14 @@ class TestIMDBSearchByTitle:
         assert result.data == []
         assert result.errors
 
+    def test_search_without_enrich_skips_details(self):
+        # Queue only the search page — a stray detail-lookup call would error out.
+        scraper = _scraper_with([SEARCH_JSON])
+        result = scraper.scrape(query="inception", max_pages=1, enrich=False)
+
+        assert scraper._http.get_html.call_count == 1
+        assert len(result.data) == 1
+        assert result.errors == []
 
 class TestNormalise:
     def test_na_becomes_absent(self):
