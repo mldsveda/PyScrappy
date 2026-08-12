@@ -4,6 +4,15 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.3] - 2026-08-12
+
+### Fixed
+- `Selector.xpath()` no longer crashes on a scalar XPath like `count(...)` or `boolean(...)`; the value is returned as a single-item string result (#136).
+- `MetadataExtractor` drops empty `keywords` entries produced by trailing or repeated commas, e.g. `"a, , b,"` -> `["a", "b"]` (#137).
+
+### Changed
+- `AdaptiveStore.save()` writes the fingerprint store atomically (temp file + `os.replace`), so a crash mid-write or a concurrent write can no longer corrupt `adaptive.json` (#138).
+
 ## [1.5.2] - 2026-08-10
 
 ### Fixed
