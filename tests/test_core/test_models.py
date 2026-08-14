@@ -218,3 +218,98 @@ class TestScrapeResult:
         result = ScrapeResult(data=[{"a": 1}])
         with pytest.raises(ValueError, match="Unsupported extension"):
             result.save(str(tmp_path / "out.txt"))
+
+    # --- to_ndjson --------------------------------------------------------- #
+
+    def test_to_ndjson_round_trip(self):
+        result = ScrapeResult(data=[{"name": "a", "v": 1}, {"name": "b", "v": 2}])
+        lines = result.to_ndjson().split("\n")
+        assert len(lines) == 2
+        assert json.loads(lines[0]) == {"name": "a", "v": 1}
+        assert json.loads(lines[1]) == {"name": "b", "v": 2}
+
+    def test_to_ndjson_unicode_preserved(self):
+        result = ScrapeResult(data=[{"city": "Zurich"}, {"city": "東京"}])
+        lines = result.to_ndjson().split("\n")
+        parsed = [json.loads(line) for line in lines]
+        assert parsed[0]["city"] == "Zurich"
+        assert parsed[1]["city"] == "東京"
+        # ensure_ascii=False means non-ASCII chars appear literally
+        assert "東京" in result.to_ndjson()
+
+    def test_to_ndjson_empty(self):
+        assert ScrapeResult(data=[]).to_ndjson() == ""
+
+    # --- to_yaml ----------------------------------------------------------- #
+
+    def test_to_yaml(self):
+        pytest.importorskip("yaml")
+        import yaml
+
+        result = ScrapeResult(
+            data=[{"name": "item1"}],
+            metadata=ScrapeMetadata(source_urls=["https://example.com"], scraper="test"),
+            errors=[ScrapeError(url="https://example.com", message="warn")],
+        )
+        parsed = yaml.safe_load(result.to_yaml())
+        assert parsed["data"] == [{"name": "item1"}]
+        assert parsed["metadata"]["source_urls"] == ["https://example.com"]
+        assert parsed["metadata"]["scraper"] == "test"
+        assert len(parsed["errors"]) == 1
+        assert parsed["errors"][0]["message"] == "warn"
+
+    def test_to_yaml_empty_data(self):
+        pytest.importorskip("yaml")
+        import yaml
+
+        result = ScrapeResult(data=[])
+        parsed = yaml.safe_load(result.to_yaml())
+        assert parsed["data"] == []
+
+    def test_to_yaml_missing_pyyaml(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError("no yaml")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        result = ScrapeResult(data=[{"a": 1}])
+        with pytest.raises(ImportError, match="PyYAML is required"):
+            result.to_yaml()
+
+    # --- save() extensions ------------------------------------------------- #
+
+    def test_save_ndjson_and_jsonl(self, tmp_path):
+        result = ScrapeResult(data=[{"x": 1}, {"x": 2}])
+        ndjson_path = tmp_path / "out.ndjson"
+        jsonl_path = tmp_path / "out.jsonl"
+        result.save(str(ndjson_path))
+        result.save(str(jsonl_path))
+        for path in (ndjson_path, jsonl_path):
+            lines = path.read_text().splitlines()
+            assert len(lines) == 2
+            assert json.loads(lines[0]) == {"x": 1}
+            assert json.loads(lines[1]) == {"x": 2}
+
+    def test_save_yaml_and_yml(self, tmp_path):
+        pytest.importorskip("yaml")
+        import yaml
+
+        result = ScrapeResult(data=[{"a": 1}])
+        yaml_path = tmp_path / "out.yaml"
+        yml_path = tmp_path / "out.yml"
+        result.save(str(yaml_path))
+        result.save(str(yml_path))
+        for path in (yaml_path, yml_path):
+            parsed = yaml.safe_load(path.read_text())
+            assert parsed["data"] == [{"a": 1}]
+
+    def test_save_ndjson_empty_data(self, tmp_path):
+        result = ScrapeResult(data=[])
+        path = tmp_path / "empty.ndjson"
+        result.save(str(path))
+        assert path.read_text() == ""
