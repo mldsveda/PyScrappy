@@ -26,6 +26,7 @@ from pyscrappy.core.http import (
     _CACHE_LOCK,
     _SHARED_CACHE,
     backoff_delay,
+    parse_retry_after,
 )
 
 logger = logging.getLogger("pyscrappy.async_http")
@@ -109,7 +110,9 @@ class AsyncHttpClient:
                 resp = await client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
                 if resp.status_code == 429:
-                    retry_after = float(resp.headers.get("Retry-After", self.config.retry_delay))
+                    retry_after = parse_retry_after(
+                        resp.headers.get("Retry-After"), self.config.retry_delay
+                    )
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
                         await asyncio.sleep(retry_after)
@@ -123,8 +126,11 @@ class AsyncHttpClient:
             except httpx.HTTPStatusError as exc:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
+                    delay = backoff_delay(self.config, attempt)
+                    if exc.response.status_code == 503 and "Retry-After" in exc.response.headers:
+                        delay = parse_retry_after(exc.response.headers.get("Retry-After"), delay)
                     await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
-                    await asyncio.sleep(backoff_delay(self.config, attempt))
+                    await asyncio.sleep(delay)
                     continue
                 raise NetworkError(f"HTTP {exc.response.status_code} from {url}") from exc
 
@@ -166,7 +172,10 @@ class AsyncHttpClient:
                 headers = self._merge_headers(extra_headers)
                 resp = await client.post(url, headers=headers, follow_redirects=True, **kwargs)
                 if resp.status_code >= 500 and attempt < self.config.max_retries:
-                    await asyncio.sleep(backoff_delay(self.config, attempt))
+                    delay = backoff_delay(self.config, attempt)
+                    if resp.status_code == 503 and "Retry-After" in resp.headers:
+                        delay = parse_retry_after(resp.headers.get("Retry-After"), delay)
+                    await asyncio.sleep(delay)
                     continue
                 resp.raise_for_status()
                 return resp.text

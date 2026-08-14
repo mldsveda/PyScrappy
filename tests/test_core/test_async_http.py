@@ -5,7 +5,7 @@ is exercised elsewhere; here we confirm the async path works and mirrors the
 sync behavior (retries, caching, header handling).
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -150,3 +150,57 @@ def test_async_cache_key_handles_url_with_existing_query_string():
     key_b = client._cache_key("http://x?a=1?b=2", None)
     assert key_a != key_b
     assert key_a == "http://x?a=1&b=2"
+@pytest.mark.anyio
+async def test_async_get_429_http_date_retry_after():
+    config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=1.0)
+    client = AsyncHttpClient(config)
+
+    resp_429 = _resp(status=429)
+    resp_429.headers = {"Retry-After": "Wed, 21 Oct 2099 07:28:00 GMT"}
+
+    resp_200 = _resp(text="ok")
+
+    mock = MagicMock()
+    mock.get = AsyncMock(side_effect=[resp_429, resp_200])
+    mock.aclose = AsyncMock()
+
+    client._client = mock
+
+    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        res = await client.get("https://example.com")
+        assert res.text == "ok"
+        assert mock_sleep.call_count == 1
+        assert mock_sleep.call_args[0][0] > 0
+    await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_async_get_503_honors_retry_after():
+    config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=1.0)
+    client = AsyncHttpClient(config)
+
+    resp_503 = _resp(status=503)
+    resp_503.headers = {"Retry-After": "25"}
+    resp_503.raise_for_status = MagicMock(
+        side_effect=httpx.HTTPStatusError("503", request=MagicMock(), response=resp_503)
+    )
+
+    resp_200 = _resp(text="ok")
+
+    mock_1 = MagicMock()
+    mock_1.get = AsyncMock(return_value=resp_503)
+    mock_1.aclose = AsyncMock()
+
+    mock_2 = MagicMock()
+    mock_2.get = AsyncMock(return_value=resp_200)
+    mock_2.aclose = AsyncMock()
+
+    client._client = mock_1
+    client._build_client = MagicMock(side_effect=[mock_2])
+
+    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        res = await client.get("https://example.com")
+        assert res.text == "ok"
+        assert mock_sleep.call_count == 1
+        assert mock_sleep.call_args[0][0] == 25.0
+    await client.aclose()

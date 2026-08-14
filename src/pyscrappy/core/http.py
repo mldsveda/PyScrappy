@@ -6,6 +6,8 @@ import logging
 import random
 import threading
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlencode
 
@@ -16,6 +18,28 @@ from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
 
 logger = logging.getLogger("pyscrappy.http")
+
+
+def parse_retry_after(value: str | None, default: float) -> float:
+    """Parse a ``Retry-After`` header value, which RFC 7231 allows as either
+    delay-seconds (e.g. ``"120"``) or an HTTP-date (e.g. ``"Wed, 21 Oct 2025 07:28:00 GMT"``).
+
+    Returns delay in seconds (>= 0.0). If value is missing or unparseable,
+    returns ``default``.
+    """
+    if not value:
+        return default
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(value)
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+    except (TypeError, ValueError, OverflowError):
+        return default
 
 
 def backoff_delay(config: ScraperConfig, attempt: int) -> float:
@@ -121,7 +145,9 @@ class HttpClient:
                 resp = client.get(url, headers=headers, follow_redirects=True, **kwargs)
 
                 if resp.status_code == 429:
-                    retry_after = float(resp.headers.get("Retry-After", self.config.retry_delay))
+                    retry_after = parse_retry_after(
+                        resp.headers.get("Retry-After"), self.config.retry_delay
+                    )
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
                         time.sleep(retry_after)
@@ -136,6 +162,8 @@ class HttpClient:
                 last_exc = exc
                 if exc.response.status_code >= 500 and attempt < self.config.max_retries:
                     delay = self._backoff_delay(attempt)
+                    if exc.response.status_code == 503 and "Retry-After" in exc.response.headers:
+                        delay = parse_retry_after(exc.response.headers.get("Retry-After"), delay)
                     logger.warning(
                         "Server error %s on %s, retry %d in %.1fs",
                         exc.response.status_code,
@@ -188,7 +216,10 @@ class HttpClient:
                 headers = self._merge_headers(extra_headers)
                 resp = client.post(url, headers=headers, follow_redirects=True, **kwargs)
                 if resp.status_code >= 500 and attempt < self.config.max_retries:
-                    time.sleep(self._backoff_delay(attempt))
+                    delay = self._backoff_delay(attempt)
+                    if resp.status_code == 503 and "Retry-After" in resp.headers:
+                        delay = parse_retry_after(resp.headers.get("Retry-After"), delay)
+                    time.sleep(delay)
                     continue
                 resp.raise_for_status()
                 return resp.text
