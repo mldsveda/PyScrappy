@@ -190,9 +190,7 @@ class ScrapeResult:
 
         if not self.data:
             return ""
-        return "\n".join(
-            json.dumps(row, default=str, ensure_ascii=False) for row in self.data
-        )
+        return "\n".join(json.dumps(row, default=str, ensure_ascii=False) for row in self.data)
 
     def to_yaml(self) -> str:
         """Return the full result envelope as YAML.
@@ -203,12 +201,13 @@ class ScrapeResult:
         Raises:
             ImportError: If PyYAML is not installed.
         """
+        import json
+
         try:
             import yaml
         except ImportError:
             raise ImportError(
-                "PyYAML is required for to_yaml(). "
-                "Install it with: pip install pyscrappy[yaml]"
+                "PyYAML is required for to_yaml(). Install it with: pip install 'pyscrappy[yaml]'"
             ) from None
 
         envelope = {
@@ -220,11 +219,16 @@ class ScrapeResult:
                 "scraper": self.metadata.scraper,
             },
             "errors": [
-                {"url": e.url, "message": e.message, "selector": e.selector}
-                for e in self.errors
+                {"url": e.url, "message": e.message, "selector": e.selector} for e in self.errors
             ],
         }
-        return yaml.dump(envelope, default_flow_style=False, allow_unicode=True)
+        # Coerce to basic types via a JSON round-trip (mirrors to_json's
+        # default=str), so safe_dump never has to emit Python-specific tags for a
+        # non-primitive value in data — the output stays safe_load round-trippable.
+        envelope = json.loads(json.dumps(envelope, default=str))
+        return yaml.safe_dump(
+            envelope, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
 
     def save(self, path: str) -> None:
         """Write the result to ``path``, choosing format from the extension.

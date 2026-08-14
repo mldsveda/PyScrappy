@@ -258,6 +258,22 @@ class TestScrapeResult:
         assert len(parsed["errors"]) == 1
         assert parsed["errors"][0]["message"] == "warn"
 
+    def test_to_yaml_non_primitive_value_is_safe_load_roundtrippable(self):
+        # A non-primitive value in data (e.g. a datetime) must not emit a
+        # python-specific tag that yaml.safe_load can't read. It's coerced to a
+        # string via the JSON round-trip, so safe_load parses it back cleanly.
+        pytest.importorskip("yaml")
+        import datetime
+
+        import yaml
+
+        result = ScrapeResult(data=[{"name": "café", "when": datetime.datetime(2026, 1, 2)}])
+        out = result.to_yaml()
+        assert "!!python" not in out  # no unsafe tags
+        parsed = yaml.safe_load(out)  # would raise if unsafe tags were present
+        assert parsed["data"][0]["name"] == "café"  # unicode preserved
+        assert isinstance(parsed["data"][0]["when"], str)  # datetime -> string
+
     def test_to_yaml_empty_data(self):
         pytest.importorskip("yaml")
         import yaml

@@ -46,6 +46,8 @@ dataframe = ["pandas>=1.5"]
 # anti-bot filters that block plain HTTP clients. curl_cffi ships a patched
 # libcurl, so it's an opt-in extra rather than a core dependency.
 stealth = ["curl_cffi>=0.6"]
+# YAML export for ScrapeResult.to_yaml() / save() to a .yaml/.yml file.
+yaml = ["PyYAML>=6.0"]
 # The MCP SDK requires Python >=3.10. The core library still supports 3.9, so
 # gate these deps behind a marker: on 3.9 they're skipped, on 3.10+ installed.
 mcp = [
@@ -59,6 +61,7 @@ all = [
     "playwright>=1.40",
     "pandas>=1.5",
     "curl_cffi>=0.6",
+    "PyYAML>=6.0",
     "fastmcp>=2.0; python_version >= '3.10'",
     "anyio>=4.0; python_version >= '3.10'",
 ]
