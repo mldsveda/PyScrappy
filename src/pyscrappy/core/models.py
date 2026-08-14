@@ -32,7 +32,8 @@ class ScrapeResult:
 
     ``data`` is always a list of dicts — one dict per scraped item.
     Call ``.to_dataframe()`` for a pandas DataFrame, ``.to_json()`` for
-    JSON, ``.to_csv()`` for CSV text, ``.to_markdown()`` for clean,
+    JSON, ``.to_csv()`` for CSV text, ``.to_ndjson()`` for NDJSON,
+    ``.to_yaml()`` for YAML, ``.to_markdown()`` for clean,
     LLM-ready Markdown, or ``.save(path)`` to write by file extension.
     """
 
@@ -178,11 +179,64 @@ class ScrapeResult:
                 writer.writerow({k: row.get(k, "") for k in fieldnames})
             return buf.getvalue()
 
+    def to_ndjson(self) -> str:
+        """Return ``data`` as NDJSON (one JSON object per line).
+
+        This is the standard interchange format for LLM fine-tuning sets,
+        log pipelines, and streaming consumers.  Only ``data`` rows are
+        emitted — no metadata/errors envelope.
+        """
+        import json
+
+        if not self.data:
+            return ""
+        return "\n".join(json.dumps(row, default=str, ensure_ascii=False) for row in self.data)
+
+    def to_yaml(self) -> str:
+        """Return the full result envelope as YAML.
+
+        Dumps ``{data, metadata, errors}`` — the same structure as
+        :meth:`to_json`.
+
+        Raises:
+            ImportError: If PyYAML is not installed.
+        """
+        import json
+
+        try:
+            import yaml
+        except ImportError:
+            raise ImportError(
+                "PyYAML is required for to_yaml(). Install it with: pip install 'pyscrappy[yaml]'"
+            ) from None
+
+        envelope = {
+            "data": self.data,
+            "metadata": {
+                "source_urls": self.metadata.source_urls,
+                "total_pages": self.metadata.total_pages,
+                "timestamp": self.metadata.timestamp,
+                "scraper": self.metadata.scraper,
+            },
+            "errors": [
+                {"url": e.url, "message": e.message, "selector": e.selector} for e in self.errors
+            ],
+        }
+        # Coerce to basic types via a JSON round-trip (mirrors to_json's
+        # default=str), so safe_dump never has to emit Python-specific tags for a
+        # non-primitive value in data — the output stays safe_load round-trippable.
+        envelope = json.loads(json.dumps(envelope, default=str))
+        return yaml.safe_dump(
+            envelope, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
+
     def save(self, path: str) -> None:
         """Write the result to ``path``, choosing format from the extension.
 
         Supported extensions: ``.json`` → :meth:`to_json`, ``.csv`` →
-        :meth:`to_csv`, ``.md`` → :meth:`to_markdown`.
+        :meth:`to_csv`, ``.md`` → :meth:`to_markdown`, ``.ndjson`` /
+        ``.jsonl`` → :meth:`to_ndjson`, ``.yaml`` / ``.yml`` →
+        :meth:`to_yaml`.
         """
         from pathlib import Path as _Path
 
@@ -193,8 +247,13 @@ class ScrapeResult:
             content = self.to_csv()
         elif suffix == ".md":
             content = self.to_markdown()
+        elif suffix in (".ndjson", ".jsonl"):
+            content = self.to_ndjson()
+        elif suffix in (".yaml", ".yml"):
+            content = self.to_yaml()
         else:
             raise ValueError(
-                f"Unsupported extension {suffix!r} for save(); use .json, .csv, or .md"
+                f"Unsupported extension {suffix!r} for save(); "
+                "use .json, .csv, .md, .ndjson, .jsonl, .yaml, or .yml"
             )
         _Path(path).write_text(content, encoding="utf-8")
