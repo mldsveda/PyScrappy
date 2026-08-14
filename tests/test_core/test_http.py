@@ -1,13 +1,14 @@
 """Tests for pyscrappy.core.http."""
 
-from unittest.mock import MagicMock
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
-from pyscrappy.core.http import HttpClient, backoff_delay
+from pyscrappy.core.http import HttpClient, backoff_delay, parse_retry_after
 
 
 class TestHttpClientInit:
@@ -226,6 +227,92 @@ class TestHttpClientGet:
         assert mock_httpx_1.get.call_count == 1
         assert mock_httpx_2.get.call_count == 1
         client.close()
+
+    def test_get_429_http_date_retry_after(self):
+        # retry_delay=0.0 so a positive sleep can only come from actually parsing
+        # the HTTP-date header, not from the fallback default.
+        config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=0.0)
+        client = HttpClient(config)
+
+        # HTTP-date in the future (e.g. +10s)
+        resp_429 = MagicMock(spec=httpx.Response)
+        resp_429.status_code = 429
+        resp_429.headers = {"Retry-After": "Wed, 21 Oct 2099 07:28:00 GMT"}
+
+        resp_200 = MagicMock(spec=httpx.Response)
+        resp_200.status_code = 200
+        resp_200.raise_for_status = MagicMock()
+
+        mock_httpx = MagicMock()
+        mock_httpx.get.side_effect = [resp_429, resp_200]
+        client._client = mock_httpx
+
+        with patch("time.sleep") as mock_sleep:
+            res = client.get("https://example.com")
+            assert res.status_code == 200
+            assert mock_sleep.call_count == 1
+            assert mock_sleep.call_args[0][0] > 0
+        client.close()
+
+    def test_get_503_honors_retry_after(self):
+        config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=1.0)
+        client = HttpClient(config)
+
+        resp_503 = MagicMock(spec=httpx.Response)
+        resp_503.status_code = 503
+        resp_503.headers = {"Retry-After": "15"}
+
+        def raise_503():
+            raise httpx.HTTPStatusError(
+                "503 Service Unavailable",
+                request=MagicMock(),
+                response=resp_503,
+            )
+
+        resp_503.raise_for_status = raise_503
+
+        resp_200 = MagicMock(spec=httpx.Response)
+        resp_200.status_code = 200
+        resp_200.raise_for_status = MagicMock()
+
+        mock_httpx_1 = MagicMock()
+        mock_httpx_1.get.return_value = resp_503
+        mock_httpx_2 = MagicMock()
+        mock_httpx_2.get.return_value = resp_200
+
+        client._client = mock_httpx_1
+        client._build_client = MagicMock(side_effect=[mock_httpx_2])
+
+        with patch("time.sleep") as mock_sleep:
+            res = client.get("https://example.com")
+            assert res.status_code == 200
+            assert mock_sleep.call_count == 1
+            assert mock_sleep.call_args[0][0] == 15.0
+        client.close()
+
+
+class TestParseRetryAfter:
+    def test_numeric_delay_seconds(self):
+        assert parse_retry_after("120", 5.0) == 120.0
+        assert parse_retry_after("0", 5.0) == 0.0
+
+    def test_negative_delay_clamped_to_zero(self):
+        assert parse_retry_after("-10", 5.0) == 0.0
+
+    def test_none_or_empty_returns_default(self):
+        assert parse_retry_after(None, 5.0) == 5.0
+        assert parse_retry_after("", 5.0) == 5.0
+
+    def test_invalid_string_returns_default(self):
+        assert parse_retry_after("garbage-header-value", 5.0) == 5.0
+
+    def test_http_date_future(self):
+        # 100 seconds in the future
+        future_ts = datetime.now(timezone.utc).timestamp() + 100
+        future_dt = datetime.fromtimestamp(future_ts, tz=timezone.utc)
+        date_str = future_dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        parsed = parse_retry_after(date_str, 5.0)
+        assert 90.0 <= parsed <= 110.0
 
 
 class TestHttpClientRateLimit:
