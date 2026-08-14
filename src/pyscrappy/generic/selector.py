@@ -65,6 +65,14 @@ class Selector:
 
         return urlparse(self._url).netloc or None
 
+    def _child(self, html: str | Tag) -> Selector:
+        return Selector(
+            html,
+            self._parser,
+            url=self._url,
+            adaptive_store=self._store,
+        )
+
     # -- basic access --
     @property
     def tag(self) -> str | None:
@@ -135,7 +143,7 @@ class Selector:
                     confidence = result.confidence
 
         return SelectorList(
-            [Selector(el, self._parser) for el in matches],
+            [self._child(el) for el in matches],
             pseudo=pseudo,
             attr=attr,
             adaptive_confidence=confidence,
@@ -161,9 +169,7 @@ class Selector:
             if isinstance(r, str):
                 strings.append(r)
             else:
-                selectors.append(
-                    Selector(BeautifulSoup(etree.tostring(r), self._parser), self._parser)
-                )
+                selectors.append(self._child(BeautifulSoup(etree.tostring(r), self._parser)))
         if strings:  # a text()/@attr XPath: expose the strings directly
             return SelectorList([], _strings=strings)
         return SelectorList(selectors)
@@ -176,7 +182,7 @@ class Selector:
         if class_ is not None:
             kwargs["class_"] = class_
         matches = self._node.find_all(name, **kwargs)
-        return SelectorList([Selector(el, self._parser) for el in matches])
+        return SelectorList([self._child(el) for el in matches])
 
     def find_by_text(self, text: str, tag: str | None = None, exact: bool = False) -> SelectorList:
         """Find elements whose text contains ``text`` (or equals it, if ``exact``).
@@ -190,7 +196,7 @@ class Selector:
         found = [
             el for el in self._node.find_all(tag or True) if isinstance(el, Tag) and matches(el)
         ]
-        return SelectorList([Selector(el, self._parser) for el in found])
+        return SelectorList([self._child(el) for el in found])
 
     def find_similar(self, limit: int | None = None) -> SelectorList:
         """Find sibling-level elements structurally similar to this one: same tag
@@ -207,7 +213,7 @@ class Selector:
             sib_classes = set(sib.get("class") or [])
             # Same tag, and (no classes to compare) or a shared class.
             if not my_classes or (my_classes & sib_classes):
-                similar.append(Selector(sib, self._parser))
+                similar.append(self._child(sib))
                 if limit is not None and len(similar) >= limit:
                     break
         return SelectorList(similar)
@@ -216,7 +222,7 @@ class Selector:
     @property
     def parent(self) -> Selector | None:
         p = getattr(self._node, "parent", None)
-        return Selector(p, self._parser) if isinstance(p, Tag) else None
+        return self._child(p) if isinstance(p, Tag) else None
 
     def __repr__(self) -> str:
         return f"<Selector {self.tag or 'document'}>"

@@ -1,6 +1,7 @@
 """Tests for the chainable Selector parser."""
 
 from pyscrappy import Selector
+from pyscrappy.generic.adaptive_store import AdaptiveStore
 
 _HTML = """
 <html><body>
@@ -129,3 +130,23 @@ def test_selector_accepts_prebuilt_html_string():
     # The documented "use the parser directly" entry point.
     page = Selector("<div><p class='x'>hi</p></div>")
     assert page.css(".x::text").get() == "hi"
+
+
+def test_derived_selectors_preserve_url_and_adaptive_store(tmp_path):
+    store = AdaptiveStore(tmp_path / "adaptive.json")
+    page = Selector(_HTML, url="https://shop.example.com/products", adaptive_store=store)
+    product = page.css(".product")[0]
+    derived = [
+        product,
+        page.xpath("//div[@id='p1']")[0],
+        page.find_all("div", id="p1")[0],
+        page.find_by_text("Alpha", tag="h2", exact=True)[0],
+        product.find_similar()[0],
+        product.parent,
+    ]
+
+    for child in derived:
+        assert child is not None
+        assert child._url == "https://shop.example.com/products"
+        assert child._store is store
+        assert child._namespace() == "shop.example.com"

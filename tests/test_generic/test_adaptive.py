@@ -204,6 +204,19 @@ def test_selector_css_namespaced_by_site(tmp_path):
     assert len(other) == 0  # no fingerprint saved for b.com
 
 
+def test_chained_selector_auto_save_can_heal_on_fresh_page(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+    page_v1 = Selector(_V1, url="https://shop.example.com/p/1", adaptive_store=store)
+    card = page_v1.css(".product-card")[0]
+    card.css(".price", auto_save=True, adaptive_id="price")
+
+    page_v2 = Selector(_V2, url="https://shop.example.com/p/2", adaptive_store=store)
+    healed = page_v2.css(".missing-price", adaptive=True, adaptive_id="price")
+
+    assert len(healed) == 1
+    assert healed[0].attrs.get("data-testid") == "price"
+
+
 # --- comparison: our weighting beats a naive uniform average ---
 
 
