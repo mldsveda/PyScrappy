@@ -229,7 +229,9 @@ class TestHttpClientGet:
         client.close()
 
     def test_get_429_http_date_retry_after(self):
-        config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=1.0)
+        # retry_delay=0.0 so a positive sleep can only come from actually parsing
+        # the HTTP-date header, not from the fallback default.
+        config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=0.0)
         client = HttpClient(config)
 
         # HTTP-date in the future (e.g. +10s)

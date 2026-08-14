@@ -150,9 +150,13 @@ def test_async_cache_key_handles_url_with_existing_query_string():
     key_b = client._cache_key("http://x?a=1?b=2", None)
     assert key_a != key_b
     assert key_a == "http://x?a=1&b=2"
+
+
 @pytest.mark.anyio
 async def test_async_get_429_http_date_retry_after():
-    config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=1.0)
+    # retry_delay=0.0 so a positive sleep can only come from actually parsing
+    # the HTTP-date header, not from the fallback default.
+    config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=0.0)
     client = AsyncHttpClient(config)
 
     resp_429 = _resp(status=429)
