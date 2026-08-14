@@ -4,6 +4,15 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.4] - 2026-08-14
+
+### Added
+- **`ScrapeResult.to_ndjson()` and `.to_yaml()` exporters**, and `save()` now infers `.ndjson`/`.jsonl` and `.yaml`/`.yml` from the file extension. YAML uses the optional `pyscrappy[yaml]` extra and is `safe_load`-round-trippable (#145).
+
+### Fixed
+- `Retry-After` is parsed for both the delay-seconds and HTTP-date forms (a date value no longer crashes the request), and it is now honored on `503` responses as well as `429`, across the sync and async clients (#143).
+- Derived/chained selectors (`page.css(...)[0]`, `find_all`, `find_similar`, `parent`, etc.) now preserve the parent's `url` and adaptive store, so per-site adaptive namespacing and healing work through a selector chain (#144).
+
 ## [1.5.3] - 2026-08-12
 
 ### Fixed
