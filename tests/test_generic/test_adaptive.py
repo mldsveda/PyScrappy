@@ -217,6 +217,90 @@ def test_chained_selector_auto_save_can_heal_on_fresh_page(tmp_path):
     assert healed[0].attrs.get("data-testid") == "price"
 
 
+# --- audit trail: every heal is recorded so drift stays observable ---
+
+
+def test_heal_is_recorded_in_audit_log(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+    Selector(_V1, url="https://shop.example.com", adaptive_store=store).css(
+        ".price", auto_save=True, adaptive_id="price"
+    )
+    # No heal yet: only a normal save happened.
+    assert store.heal_log() == []
+
+    healed = Selector(_V2, url="https://shop.example.com", adaptive_store=store).css(
+        ".price", adaptive=True, adaptive_id="price"
+    )
+    assert len(healed) == 1
+
+    log = store.heal_log()
+    assert len(log) == 1
+    entry = log[0]
+    assert entry["identifier"] == "price"
+    assert entry["namespace"] == "shop.example.com"
+    assert entry["confidence"] >= 55
+    assert "runner_up_gap" in entry
+    # before/after fingerprints make the change auditable: the price value moved
+    # from the v1 markup to the v2 markup.
+    assert entry["before"]["text"] == "$29.99"
+    assert entry["after"]["text"] == "$24.99"
+    assert "timestamp" in entry
+
+
+def test_heal_log_filters_by_identifier_and_namespace(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+    for site in ("https://a.com", "https://b.com"):
+        Selector(_V1, url=site, adaptive_store=store).css(
+            ".price", auto_save=True, adaptive_id="price"
+        )
+        Selector(_V2, url=site, adaptive_store=store).css(
+            ".price", adaptive=True, adaptive_id="price"
+        )
+
+    assert len(store.heal_log()) == 2
+    assert len(store.heal_log(namespace="a.com")) == 1
+    assert store.heal_log(namespace="a.com")[0]["namespace"] == "a.com"
+    assert len(store.heal_log(identifier="price")) == 2
+    assert store.heal_log(identifier="nope") == []
+
+
+# --- semantic contract: a heal must satisfy the caller's field invariant ---
+
+
+def test_expect_contract_accepts_a_valid_heal(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+    Selector(_V1, url="https://shop.example.com", adaptive_store=store).css(
+        ".price", auto_save=True, adaptive_id="price"
+    )
+    # Contract: the healed element's text must look like a price. It does.
+    healed = Selector(_V2, url="https://shop.example.com", adaptive_store=store).css(
+        ".price",
+        adaptive=True,
+        adaptive_id="price",
+        expect=lambda s: s.text().startswith("$"),
+    )
+    assert len(healed) == 1
+    assert healed.adaptive_confidence is not None
+
+
+def test_expect_contract_rejects_a_heal_that_fails_the_invariant(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+    Selector(_V1, url="https://shop.example.com", adaptive_store=store).css(
+        ".price", auto_save=True, adaptive_id="price"
+    )
+    # Contract the relocated element cannot satisfy: even a high structural score
+    # is rejected, and nothing is written to the audit log.
+    healed = Selector(_V2, url="https://shop.example.com", adaptive_store=store).css(
+        ".price",
+        adaptive=True,
+        adaptive_id="price",
+        expect=lambda s: "IMPOSSIBLE" in s.text(),
+    )
+    assert len(healed) == 0
+    assert healed.adaptive_confidence is None
+    assert store.heal_log() == []  # a rejected heal leaves no trail
+
+
 # --- comparison: our weighting beats a naive uniform average ---
 
 
