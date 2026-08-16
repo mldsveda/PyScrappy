@@ -6,6 +6,7 @@ import logging
 import random
 import threading
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -56,12 +57,64 @@ def backoff_delay(config: ScraperConfig, attempt: int) -> float:
     return delay
 
 
-# Process-wide response cache, shared across all HttpClient instances. This lets
-# caching survive the short-lived scraper instances that callers (e.g. the MCP
-# server) create per request. Entries are (monotonic timestamp, response). Only
-# populated when a client's config.cache_ttl > 0; guarded by a lock because
-# scrapers may run in worker threads.
-_SHARED_CACHE: dict[str, tuple[float, httpx.Response]] = {}
+# Default cap on the number of live response-cache entries. Bounds memory for
+# long-running processes (e.g. an MCP server) that fetch many distinct URLs; a
+# client may override it via config.cache_max_size.
+_DEFAULT_CACHE_MAX_SIZE = 512
+
+
+class _ResponseCache:
+    """Process-wide response cache shared across all HttpClient/AsyncHttpClient
+    instances. This lets caching survive the short-lived scraper instances that
+    callers (e.g. the MCP server) create per request.
+
+    Bounded by an LRU policy: at most ``max_size`` live entries, oldest evicted
+    first on insert. TTL is still per-entry (each client passes its own on read),
+    and expired entries are dropped on access — but the size cap guarantees the
+    cache stays bounded even for keys that are never re-requested, which a plain
+    dict could not. Guarded by a lock because scrapers may run in worker threads.
+    """
+
+    def __init__(self, max_size: int = _DEFAULT_CACHE_MAX_SIZE) -> None:
+        self._store: OrderedDict[str, tuple[float, httpx.Response]] = OrderedDict()
+        self._max_size = max_size
+        self._lock = threading.Lock()
+
+    def get(self, key: str, ttl: float) -> httpx.Response | None:
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                return None
+            ts, resp = entry
+            if time.monotonic() - ts > ttl:
+                del self._store[key]  # expired
+                return None
+            self._store.move_to_end(key)  # mark as most-recently used
+            return resp
+
+    def put(self, key: str, resp: httpx.Response, max_size: int | None = None) -> None:
+        cap = self._max_size if max_size is None else max_size
+        with self._lock:
+            self._store[key] = (time.monotonic(), resp)
+            self._store.move_to_end(key)
+            while len(self._store) > cap:
+                self._store.popitem(last=False)  # evict least-recently used
+
+    def clear(self) -> None:
+        with self._lock:
+            self._store.clear()
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._store)
+
+
+# The single shared cache instance. Kept module-level (not per-client) so it is
+# shared across every scraper/client in the process.
+_SHARED_CACHE = _ResponseCache()
+
+# Retained for backward compatibility: the async client imports this lock. The
+# cache now owns its own lock, so this is unused internally but kept exported.
 _CACHE_LOCK = threading.Lock()
 
 
@@ -309,26 +362,16 @@ class HttpClient:
     def _cache_get(self, key: str) -> httpx.Response | None:
         if self.config.cache_ttl <= 0:
             return None
-        with _CACHE_LOCK:
-            entry = _SHARED_CACHE.get(key)
-            if entry is None:
-                return None
-            ts, resp = entry
-            if time.monotonic() - ts > self.config.cache_ttl:
-                del _SHARED_CACHE[key]  # expired
-                return None
-            return resp
+        return _SHARED_CACHE.get(key, self.config.cache_ttl)
 
     def _cache_put(self, key: str, resp: httpx.Response) -> None:
         if self.config.cache_ttl > 0:
-            with _CACHE_LOCK:
-                _SHARED_CACHE[key] = (time.monotonic(), resp)
+            _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
 
     @staticmethod
     def clear_cache() -> None:
         """Empty the process-wide response cache."""
-        with _CACHE_LOCK:
-            _SHARED_CACHE.clear()
+        _SHARED_CACHE.clear()
 
     def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         from urllib.parse import urlparse
