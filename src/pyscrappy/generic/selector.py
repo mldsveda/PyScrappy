@@ -101,6 +101,7 @@ class Selector:
         auto_save: bool = False,
         adaptive_id: str | None = None,
         threshold: float = 55.0,
+        expect: Any = None,
     ) -> SelectorList:
         """Select descendants by CSS. Supports a trailing ``::text`` or
         ``::attr(name)`` pseudo-element (the values are read via ``.get()`` /
@@ -113,9 +114,16 @@ class Selector:
         - ``adaptive=True`` — if the selector matches nothing, relocate the saved
           element by structural/textual similarity instead of returning empty.
         - ``threshold`` is the minimum confidence (0-100) to accept a relocation.
+        - ``expect`` is an optional semantic contract: a callable
+          ``(Selector) -> bool`` that the relocated element must satisfy for the
+          heal to be accepted. A heal that clears ``threshold`` but fails
+          ``expect`` is rejected (returns empty), so a high structural score can't
+          smuggle in the wrong field. Use it to assert field identity, e.g.
+          ``expect=lambda s: s.text().startswith("$")``.
 
         The relocation confidence is available on the returned list's
-        ``adaptive_confidence`` attribute when healing occurred.
+        ``adaptive_confidence`` attribute when healing occurred. Every accepted
+        heal is appended to the store's audit log (see ``AdaptiveStore.heal_log``).
         """
         m = _PSEUDO.match(selector)
         base, pseudo, attr = selector, None, None
@@ -133,14 +141,30 @@ class Selector:
 
         confidence = None
         if not matches and adaptive:
-            from pyscrappy.generic.adaptive import relocate
+            from pyscrappy.generic.adaptive import fingerprint, relocate
 
-            fp = self._adaptive_store().retrieve(key, namespace=self._namespace())
+            store = self._adaptive_store()
+            ns = self._namespace()
+            fp = store.retrieve(key, namespace=ns)
             if fp is not None:
                 result = relocate(fp, self._node, threshold=threshold)
                 if result.element is not None:
-                    matches = [result.element]
-                    confidence = result.confidence
+                    healed = self._child(result.element)
+                    # Semantic contract: a strong structural score is not enough —
+                    # if the caller supplied an invariant, the relocated element
+                    # must satisfy it, or the heal is rejected as a likely misread.
+                    if expect is None or expect(healed):
+                        matches = [result.element]
+                        confidence = result.confidence
+                        # Record the heal so drift stays observable (audit trail).
+                        store.record_heal(
+                            key,
+                            namespace=ns,
+                            confidence=result.confidence,
+                            runner_up_gap=result.runner_up_gap,
+                            before=fp,
+                            after=fingerprint(result.element),
+                        )
 
         return SelectorList(
             [self._child(el) for el in matches],

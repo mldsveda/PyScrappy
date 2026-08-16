@@ -331,9 +331,16 @@ from pyscrappy import Selector
 page = Selector(html_v1, url="https://shop.example.com")
 price = page.css(".price", auto_save=True, adaptive_id="price").get()
 
-# Later, after a redesign renamed ".price" — heal instead of breaking:
+# Later, after a redesign renamed ".price" — heal instead of breaking.
+# `expect` is an optional contract: the relocated element must satisfy it,
+# so a good structural score can't smuggle in the wrong field.
 page = Selector(html_v2, url="https://shop.example.com")
-result = page.css(".price", adaptive=True, adaptive_id="price")
+result = page.css(
+    ".price",
+    adaptive=True,
+    adaptive_id="price",
+    expect=lambda s: s.text().startswith("$"),
+)
 print(result.get(), "→ confidence:", result.adaptive_confidence)
 ```
 
@@ -347,6 +354,16 @@ How the relocation decides — and where it's stronger than a naive similarity m
   healing stays reliable on exactly the fields that change most between scrapes.
 - **Confidence-scored.** `SelectorList.adaptive_confidence` (0-100) tells you how
   sure the relocation was; `threshold=` sets the minimum to accept.
+- **Contract-enforced (opt-in).** Pass `expect=<callable>` to require the healed
+  element to satisfy an invariant (e.g. "text looks like a price"). A heal that
+  clears the threshold but fails the contract is rejected, so structural
+  similarity alone never redefines what a field means.
+
+A heal is a change to what a selector resolves to, so **every accepted heal is
+recorded**. The store keeps an append-only audit log (`adaptive.heal.ndjson`
+beside the fingerprint store) with the confidence, the runner-up gap, and the
+before/after fingerprint, readable via `store.heal_log()` — so drift stays
+observable instead of being silently absorbed.
 
 Fingerprints persist in a small JSON store (`~/.pyscrappy/adaptive.json` by
 default, or `$PYSCRAPPY_HOME`), namespaced by site so the same `adaptive_id` on
@@ -501,6 +518,15 @@ with WikipediaScraper(config) as ws:
 The cache is in memory and shared across scraper instances in the same process
 (so it also speeds up repeated calls through the MCP server), and is cleared
 when the process exits. Call `HttpClient.clear_cache()` to empty it manually.
+
+It is **LRU-bounded**: at most `cache_max_size` live entries (default `512`),
+with the least-recently-used entry evicted once the cap is reached. So a
+long-running process (e.g. the MCP server) that fetches many distinct URLs stays
+bounded rather than growing until restart. Raise or lower the cap as needed:
+
+```python
+config = ScraperConfig(cache_ttl=300, cache_max_size=2000)
+```
 
 ## Dependencies
 

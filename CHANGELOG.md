@@ -4,6 +4,13 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.5] - 2026-08-17
+
+### Added
+- **Semantic contract on adaptive heals.** `Selector.css(..., expect=<callable>)` requires a relocated element to satisfy a caller-supplied invariant (e.g. text looks like a price); a heal that clears the structural threshold but fails the contract is rejected, so structural similarity alone can't redefine what a field means.
+- **Heal audit log.** Every accepted heal is appended to an append-only NDJSON log beside the fingerprint store (`adaptive.heal.ndjson`), recording confidence, runner-up gap, and the before/after fingerprint. Read it via `AdaptiveStore.heal_log(identifier=None, namespace=None)` so selector drift stays observable.
+- **`cache_max_size` config field** (default `512`). The in-memory response cache is now LRU-bounded, so a long-running process (e.g. the MCP server) that fetches many distinct URLs no longer grows without limit.
+
 ## [1.5.4] - 2026-08-14
 
 ### Added
