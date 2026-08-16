@@ -58,6 +58,10 @@ class ScraperConfig:
         cache_ttl: Seconds to cache successful GET responses in memory. ``0``
             (the default) disables caching. When set, repeated requests for the
             same URL within the TTL skip the network and the rate limiter.
+        cache_max_size: Maximum number of live entries in the shared response
+            cache. The cache is LRU-bounded, so a long-running process (e.g. an
+            MCP server) that fetches many distinct URLs stays within this cap
+            rather than growing until restart. Defaults to ``512``.
         impersonate: Impersonate a real browser's TLS/JA3 fingerprint on the
             sync HTTP path, to get past anti-bot filters that block plain clients
             (e.g. ``"chrome"``, ``"chrome124"``, ``"safari"``, ``"firefox"``).
@@ -82,6 +86,7 @@ class ScraperConfig:
     headless: bool = True
     verify_ssl: bool = True
     cache_ttl: float = 0.0
+    cache_max_size: int = 512
     impersonate: str | None = None
 
     def pick_proxy(self, exclude: str | None = None) -> str | None:

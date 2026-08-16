@@ -23,7 +23,6 @@ from pyscrappy.core import scraper_api
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
 from pyscrappy.core.http import (
-    _CACHE_LOCK,
     _SHARED_CACHE,
     backoff_delay,
     parse_retry_after,
@@ -240,20 +239,11 @@ class AsyncHttpClient:
     def _cache_get(self, key: str) -> httpx.Response | None:
         if self.config.cache_ttl <= 0:
             return None
-        with _CACHE_LOCK:
-            entry = _SHARED_CACHE.get(key)
-            if entry is None:
-                return None
-            ts, resp = entry
-            if time.monotonic() - ts > self.config.cache_ttl:
-                del _SHARED_CACHE[key]
-                return None
-            return resp
+        return _SHARED_CACHE.get(key, self.config.cache_ttl)
 
     def _cache_put(self, key: str, resp: httpx.Response) -> None:
         if self.config.cache_ttl > 0:
-            with _CACHE_LOCK:
-                _SHARED_CACHE[key] = (time.monotonic(), resp)
+            _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc

@@ -500,3 +500,31 @@ class TestHttpClientCaching:
         client.get_raw("https://example.com")
         assert mock_httpx.get.call_count == 2
         client.close()
+
+    def test_cache_is_bounded_by_max_size(self):
+        # A long-running process that fetches many distinct URLs must not grow the
+        # cache without limit: only the last `cache_max_size` entries stay live.
+        import pyscrappy.core.http as http_mod
+
+        client, _ = self._mock_client(ScraperConfig(rate_limit=0, cache_ttl=60, cache_max_size=3))
+        for i in range(10):
+            client.get(f"https://example.com/{i}")
+        assert len(http_mod._SHARED_CACHE) == 3
+        client.close()
+
+    def test_lru_evicts_least_recently_used(self):
+        # Re-reading an entry marks it most-recently-used, so it survives eviction
+        # while an untouched neighbour is dropped.
+        client, mock_httpx = self._mock_client(
+            ScraperConfig(rate_limit=0, cache_ttl=60, cache_max_size=2)
+        )
+        client.get("https://example.com/a")  # network
+        client.get("https://example.com/b")  # network; cache = [a, b]
+        client.get("https://example.com/a")  # cache hit; a now MRU, b now LRU
+        client.get("https://example.com/c")  # network; evicts b, cache = [a, c]
+        assert mock_httpx.get.call_count == 3
+        client.get("https://example.com/a")  # still cached -> no network
+        assert mock_httpx.get.call_count == 3
+        client.get("https://example.com/b")  # evicted -> re-fetch
+        assert mock_httpx.get.call_count == 4
+        client.close()
