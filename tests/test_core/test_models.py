@@ -329,3 +329,18 @@ class TestScrapeResult:
         path = tmp_path / "empty.ndjson"
         result.save(str(path))
         assert path.read_text() == ""
+
+    def test_save_creates_parent_directories(self, tmp_path):
+        result = ScrapeResult(data=[{"a": 1}])
+        nested_path = tmp_path / "nested" / "deeply" / "out.json"
+        result.save(str(nested_path))
+        assert nested_path.exists()
+        assert json.loads(nested_path.read_text())["data"] == [{"a": 1}]
+
+    def test_save_bare_filename(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        result = ScrapeResult(data=[{"b": 2}])
+        result.save("bare_out.json")
+        saved = tmp_path / "bare_out.json"
+        assert saved.exists()
+        assert json.loads(saved.read_text())["data"] == [{"b": 2}]

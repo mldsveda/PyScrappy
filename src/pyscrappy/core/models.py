@@ -240,7 +240,8 @@ class ScrapeResult:
         """
         from pathlib import Path as _Path
 
-        suffix = _Path(path).suffix.lower()
+        p = _Path(path)
+        suffix = p.suffix.lower()
         if suffix == ".json":
             content = self.to_json()
         elif suffix == ".csv":
@@ -256,4 +257,5 @@ class ScrapeResult:
                 f"Unsupported extension {suffix!r} for save(); "
                 "use .json, .csv, .md, .ndjson, .jsonl, .yaml, or .yml"
             )
-        _Path(path).write_text(content, encoding="utf-8")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
