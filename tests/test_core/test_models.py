@@ -344,4 +344,3 @@ class TestScrapeResult:
         saved = tmp_path / "bare_out.json"
         assert saved.exists()
         assert json.loads(saved.read_text())["data"] == [{"b": 2}]
-
