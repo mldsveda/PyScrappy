@@ -256,4 +256,6 @@ class ScrapeResult:
                 f"Unsupported extension {suffix!r} for save(); "
                 "use .json, .csv, .md, .ndjson, .jsonl, .yaml, or .yml"
             )
-        _Path(path).write_text(content, encoding="utf-8")
+        path_obj = _Path(path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        path_obj.write_text(content, encoding="utf-8")

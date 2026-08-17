@@ -214,6 +214,13 @@ class TestScrapeResult:
         assert "title,n" in csv_path.read_text().replace(" ", "")
         assert "**title:** x" in md_path.read_text()
 
+    def test_save_creates_parent_directories(self, tmp_path):
+        """save() must create missing parent directories instead of raising."""
+        result = ScrapeResult(data=[{"title": "x", "n": 1}])
+        json_path = tmp_path / "nested" / "deep" / "dir" / "out.json"
+        result.save(str(json_path))
+        assert json.loads(json_path.read_text())["data"] == [{"title": "x", "n": 1}]
+
     def test_save_unsupported_extension(self, tmp_path):
         result = ScrapeResult(data=[{"a": 1}])
         with pytest.raises(ValueError, match="Unsupported extension"):
