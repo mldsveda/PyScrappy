@@ -202,9 +202,11 @@ A few of them:
 python -c "from pyscrappy import list_scrapers; print(', '.join(sorted(list_scrapers())))"
 ```
 
-**`IMDBScraper`** (`lookup_movie`) is the one exception that needs a key — a free
-[OMDb](https://www.omdbapi.com/apikey.aspx) `OMDB_API_KEY` (see the
-[MCP config](#available-tools) above for how to pass it).
+Two scrapers need a key. **`IMDBScraper`** (`lookup_movie`) uses a free
+[OMDb](https://www.omdbapi.com/apikey.aspx) `OMDB_API_KEY`, and
+**`GoogleSearchScraper`** uses a SerpBase `SERPBASE_API_KEY` (free trial at
+[serpbase.dev](https://serpbase.dev), see the
+[MCP config](#available-tools) above for how to pass keys).
 
 ## Plugins
 

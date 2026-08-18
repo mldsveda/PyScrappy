@@ -8,9 +8,8 @@ organic results as clean JSON, so this scraper needs no browser, no CAPTCHA
 handling, and no selector upkeep.
 
 Set a SerpBase API key in the ``SERPBASE_API_KEY`` environment variable, or
-pass ``api_key`` to the constructor. New accounts start with 100 free searches
-(no credit card required); afterwards it is pay-as-you-go ($0.30 per 1k
-queries).
+pass ``api_key`` to the constructor. See https://serpbase.dev for current
+pricing and a free trial.
 """
 
 from __future__ import annotations
@@ -90,8 +89,8 @@ class GoogleSearchScraper(BaseScraper):
                         message=(
                             "No SerpBase API key. Set the SERPBASE_API_KEY "
                             "environment variable or pass api_key=... to "
-                            "GoogleSearchScraper. Get a free key (100 free "
-                            "searches, no credit card) at https://serpbase.dev"
+                            "GoogleSearchScraper. Get a key at "
+                            "https://serpbase.dev"
                         ),
                     )
                 ],
@@ -131,8 +130,8 @@ class GoogleSearchScraper(BaseScraper):
                         message=(
                             "No SerpBase API key. Set the SERPBASE_API_KEY "
                             "environment variable or pass api_key=... to "
-                            "GoogleSearchScraper. Get a free key (100 free "
-                            "searches, no credit card) at https://serpbase.dev"
+                            "GoogleSearchScraper. Get a key at "
+                            "https://serpbase.dev"
                         ),
                     )
                 ],
@@ -151,9 +150,7 @@ class GoogleSearchScraper(BaseScraper):
         )
         return self._build_result(json.loads(raw), max_results=max_results)
 
-    def _build_result(
-        self, payload: dict[str, Any], max_results: int
-    ) -> ScrapeResult:
+    def _build_result(self, payload: dict[str, Any], max_results: int) -> ScrapeResult:
         """Map the SerpBase envelope to a ScrapeResult.
 
         The API always answers 200 and reports failures through the business
@@ -165,7 +162,7 @@ class GoogleSearchScraper(BaseScraper):
             detail = payload.get("error") or payload.get("message") or "request failed"
             return ScrapeResult(
                 data=[],
-                metadata=ScrapeMetadata(scraper=self.name),
+                metadata=ScrapeMetadata(source_urls=[_SERP_BASE_URL], scraper=self.name),
                 errors=[
                     ScrapeError(
                         url=_SERP_BASE_URL,

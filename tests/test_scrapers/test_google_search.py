@@ -44,7 +44,10 @@ class TestGoogleSearch:
         assert first["position"] == 1
         assert r.errors == []
 
-    def test_missing_key_returns_helpful_error(self):
+    def test_missing_key_returns_helpful_error(self, monkeypatch):
+        # Deterministic regardless of the runner's environment: an externally
+        # set SERPBASE_API_KEY would otherwise trigger a real HTTP request.
+        monkeypatch.delenv("SERPBASE_API_KEY", raising=False)
         s = GoogleSearchScraper()
         r = s.scrape(query="anything")
         assert r.data == []
