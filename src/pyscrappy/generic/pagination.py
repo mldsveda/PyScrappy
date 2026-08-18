@@ -67,8 +67,7 @@ def find_next_page_url(soup: BeautifulSoup, current_url: str) -> str | None:
     return None
 
 
-def _page_step(current_url: str,
-               page_links: list[tuple[int, str]]) -> int | None:
+def _page_step(current_url: str, page_links: list[tuple[int, str]]) -> int | None:
     """Increment between numbered pages.
 
     For offset=/start= URLs the step is the page size, inferred from the gaps
@@ -89,7 +88,7 @@ def _is_offset_style(url: str) -> bool:
     match = _PAGE_NUMBER.search(url)
     if not match or match.group(1) is None:
         return False
-    key = url[match.start():match.start(1)].lstrip("?&").rstrip("=").lower()
+    key = url[match.start() : match.start(1)].lstrip("?&").rstrip("=").lower()
     return key in ("offset", "start")
 
 
