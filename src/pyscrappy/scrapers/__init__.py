@@ -3,6 +3,7 @@ from pyscrappy.scrapers.crypto import CryptoScraper
 from pyscrappy.scrapers.currency import CurrencyScraper
 from pyscrappy.scrapers.dictionary import DictionaryScraper
 from pyscrappy.scrapers.github import GitHubScraper
+from pyscrappy.scrapers.google_search import GoogleSearchScraper
 from pyscrappy.scrapers.hackernews import HackerNewsScraper
 from pyscrappy.scrapers.ikea import IKEAScraper
 from pyscrappy.scrapers.image_search import ImageSearchScraper
@@ -28,6 +29,7 @@ __all__ = [
     "CurrencyScraper",
     "DictionaryScraper",
     "GitHubScraper",
+    "GoogleSearchScraper",
     "HackerNewsScraper",
     "OpenLibraryScraper",
     "WeatherScraper",

@@ -186,13 +186,13 @@ latest headlines from bbc.co.uk and the AAPL stock quote."*
 
 ## Built-in scrapers
 
-PyScrappy ships **24 built-in scrapers**, and every one that works without a
+PyScrappy ships **25 built-in scrapers**, and every one that works without a
 proxy is also exposed as an [MCP tool](#mcp-server-use-pyscrappy-from-an-ai-agent).
 
 A few of them:
 
 - **`GenericScraper`** — scrape any URL with auto-extraction (text, links, images, tables, metadata)
-- **Data / research** — **`WikipediaScraper`**, **`StockScraper`** (Yahoo Finance), **`NewsScraper`** (RSS/Atom), **`GitHubScraper`**, **`HackerNewsScraper`**, plus weather, crypto, currency, dictionary, image, LinkedIn-jobs, and book search
+- **Data / research** — **`WikipediaScraper`**, **`StockScraper`** (Yahoo Finance), **`NewsScraper`** (RSS/Atom), **`GitHubScraper`**, **`HackerNewsScraper`**, **`GoogleSearchScraper`** (Google organic results as JSON via the SerpBase API), plus weather, crypto, currency, dictionary, image, LinkedIn-jobs, and book search
 - **E-commerce** — **`AmazonScraper`**, `NeweggScraper`, `IKEAScraper`
 - **Social / media / food** — **`YouTubeScraper`**, SoundCloud, Zomato, Uber Eats (Instagram / Twitter / Spotify also ship, but are blocked and need a proxy)
 
