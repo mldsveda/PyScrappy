@@ -4,6 +4,12 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`GoogleSearchScraper`.** Google web search organic results as clean JSON via the SerpBase Search API (`SERPBASE_API_KEY`, 100 free searches). No browser, CAPTCHA handling, or selector maintenance; supports optional `language`/`country` (hl/gl) parameters and graceful degradation when no API key is configured.
+
 ## [1.5.5] - 2026-08-17
 
 ### Added
