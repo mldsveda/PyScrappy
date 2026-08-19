@@ -32,6 +32,30 @@ def _parse_robots(text: str) -> RobotFileParser:
     return parser
 
 
+def _disallow_all() -> RobotFileParser:
+    """A parser that forbids everything, for transient robots.txt failures."""
+    return _parse_robots("User-agent: *\nDisallow: /")
+
+
+def _parser_for_response(status_code: int, text: str) -> tuple[RobotFileParser, bool]:
+    """Decide the parser for a robots.txt HTTP response, and whether it may be
+    cached, following RFC 9309 / Googlebot conventions:
+
+    - 2xx: use the returned rules (cacheable).
+    - 4xx (e.g. 404/410 "no robots.txt"): allow-all (cacheable).
+    - 5xx: disallow-all, and *not* cacheable, because a server error is transient
+      and a later request should re-fetch rather than reuse a temporary block.
+
+    Returns ``(parser, cacheable)``.
+    """
+    if 200 <= status_code < 300:
+        return _parse_robots(text), True
+    if 400 <= status_code < 500:
+        return _parse_robots(""), True
+    # 5xx (and any other unexpected status): fail closed, don't cache.
+    return _disallow_all(), False
+
+
 def _crawl_delay_for(parser: RobotFileParser, user_agent: str) -> float | None:
     """Crawl-delay this parser advertises for ``user_agent`` (None if absent).
 
@@ -72,15 +96,23 @@ def _fetch_and_cache_sync(
     client: HttpClient, host: str, robots_url: str, user_agent: str
 ) -> RobotFileParser:
     """Fetch robots.txt via the sync client (skipping the robots check recursively,
-    and sending the same User-Agent being enforced) and cache the parser per-client."""
+    and sending the same User-Agent being enforced) and cache the parser per-client.
+
+    Transient failures (5xx or a network error) fail closed with a disallow-all
+    parser that is *not* cached, so the next request re-fetches instead of reusing
+    a temporary block."""
+    # get_raw (not get) so a non-200 returns its status code instead of raising,
+    # letting us tell 4xx (allow-all) apart from 5xx (fail closed). It performs a
+    # bare fetch with no robots check, so there is no recursion.
     try:
-        resp = client.get(robots_url, skip_robots_check=True, headers={"User-Agent": user_agent})
-        parser = _parse_robots(resp.text) if resp.status_code == 200 else _parse_robots("")
+        resp = client.get_raw(robots_url, headers={"User-Agent": user_agent})
+        parser, cacheable = _parser_for_response(resp.status_code, resp.text)
     except Exception as exc:
         logger.debug("Failed to fetch robots.txt from %s: %s", robots_url, exc)
-        parser = _parse_robots("")
+        parser, cacheable = _disallow_all(), False
 
-    client._robots_cache[host] = parser
+    if cacheable:
+        client._robots_cache[host] = parser
     return parser
 
 
@@ -110,15 +142,21 @@ async def _fetch_and_cache_async(
     client: AsyncHttpClient, host: str, robots_url: str, user_agent: str
 ) -> RobotFileParser:
     """Fetch robots.txt via the async client (skipping the robots check recursively,
-    and sending the same User-Agent being enforced) and cache the parser per-client."""
+    and sending the same User-Agent being enforced) and cache the parser per-client.
+
+    Transient failures (5xx or a network error) fail closed with a disallow-all
+    parser that is *not* cached, so the next request re-fetches instead of reusing
+    a temporary block."""
+    # get_raw (not get) so a non-200 returns its status code instead of raising,
+    # letting us tell 4xx (allow-all) apart from 5xx (fail closed). It performs a
+    # bare fetch with no robots check, so there is no recursion.
     try:
-        resp = await client.get(
-            robots_url, skip_robots_check=True, headers={"User-Agent": user_agent}
-        )
-        parser = _parse_robots(resp.text) if resp.status_code == 200 else _parse_robots("")
+        resp = await client.get_raw(robots_url, headers={"User-Agent": user_agent})
+        parser, cacheable = _parser_for_response(resp.status_code, resp.text)
     except Exception as exc:
         logger.debug("Failed to fetch robots.txt from %s: %s", robots_url, exc)
-        parser = _parse_robots("")
+        parser, cacheable = _disallow_all(), False
 
-    client._robots_cache[host] = parser
+    if cacheable:
+        client._robots_cache[host] = parser
     return parser

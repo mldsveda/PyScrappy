@@ -4,6 +4,13 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.6] - 2026-08-19
+
+### Fixed
+- **robots.txt server errors now fail closed.** A `5xx` (or a connection error / timeout) while fetching `robots.txt` is treated as disallow-all and is *not* cached, so a later request re-fetches — instead of the previous behavior of parsing an empty body as allow-all and caching that for the session. `4xx` (e.g. a missing `robots.txt`) still means allow-all, and `2xx` rules are unchanged. Sync and async paths are kept in lockstep (#152).
+- **Offset-based pagination advances by the page size, not by 1.** For `offset=`/`start=` URLs, `find_next_page_url` now infers the step from the gaps between the page links (e.g. `0/20/40/60` → `+20`) instead of `+1`, which silently under-collected on offset-paginated sites. `page`/`p` URLs still advance by 1 (#151).
+- **`ScrapeResult.save()` creates parent directories.** Saving to a path whose directory does not exist (e.g. `out/nested/data.json`) now creates the directory tree instead of raising `FileNotFoundError` (#150).
+
 ## [1.5.5] - 2026-08-17
 
 ### Added
