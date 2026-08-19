@@ -171,3 +171,98 @@ async def test_async_obey_robots_disallowed():
         async with AsyncHttpClient(config) as async_client:
             with pytest.raises(RobotsDisallowedError):
                 await async_client.get("https://example.com/private/data")
+
+
+# --- transient robots.txt failures fail closed and are not cached (#152) ---
+
+
+def _resp(status_code: int, text: str = "") -> MagicMock:
+    """A fake httpx.Response. The robots fetch uses get_raw(), which does not call
+    raise_for_status(), so a non-2xx simply comes back with its status code."""
+    resp = MagicMock(spec=httpx.Response)
+    resp.status_code = status_code
+    resp.headers = {}
+    resp.text = text
+    return resp
+
+
+def test_robots_5xx_disallows_and_is_not_cached_then_200_is_honored():
+    # First robots.txt fetch 500s -> fail closed (disallow-all), and crucially do
+    # not cache that block; the next fetch returns real rules and is honored.
+    config = ScraperConfig(obey_robots=True, rate_limit=0, max_retries=1)
+    robots_calls = 0
+
+    def fake_httpx_get(url, *args, **kwargs):
+        nonlocal robots_calls
+        if "robots.txt" in str(url):
+            robots_calls += 1
+            if robots_calls == 1:
+                return _resp(500)
+            return _resp(200, "User-agent: *\nDisallow: /admin/\n")
+        return _resp(200, "OK")
+
+    with patch("httpx.Client.get", side_effect=fake_httpx_get):
+        with HttpClient(config) as client:
+            # While robots.txt is 500ing, everything is blocked.
+            with pytest.raises(RobotsDisallowedError):
+                client.get("https://example.com/anything")
+            # The transient failure must not have been cached.
+            assert "example.com" not in client._robots_cache
+            # Next request re-fetches; now robots.txt is healthy and allows /public/.
+            resp = client.get("https://example.com/public/page")
+            assert resp.text == "OK"
+            assert "example.com" in client._robots_cache
+
+    assert robots_calls == 2  # the block was re-fetched, not served from cache
+
+
+def test_robots_network_error_disallows_and_is_not_cached():
+    config = ScraperConfig(obey_robots=True, rate_limit=0, max_retries=1)
+
+    def fake_httpx_get(url, *args, **kwargs):
+        if "robots.txt" in str(url):
+            raise httpx.ConnectError("boom")
+        return _resp(200, "OK")
+
+    with patch("httpx.Client.get", side_effect=fake_httpx_get):
+        with HttpClient(config) as client:
+            with pytest.raises(RobotsDisallowedError):
+                client.get("https://example.com/anything")
+            assert "example.com" not in client._robots_cache
+
+
+def test_robots_404_still_allows_all_and_is_cached():
+    # No regression: a missing robots.txt (404) means allow-all, and that is cached.
+    config = ScraperConfig(obey_robots=True, rate_limit=0, max_retries=1)
+    robots_calls = 0
+
+    def fake_httpx_get(url, *args, **kwargs):
+        nonlocal robots_calls
+        if "robots.txt" in str(url):
+            robots_calls += 1
+            return _resp(404)
+        return _resp(200, "OK")
+
+    with patch("httpx.Client.get", side_effect=fake_httpx_get):
+        with HttpClient(config) as client:
+            assert client.get("https://example.com/a").text == "OK"
+            assert client.get("https://example.com/b").text == "OK"
+            assert "example.com" in client._robots_cache
+
+    assert robots_calls == 1  # allow-all was cached, not re-fetched
+
+
+@pytest.mark.anyio
+async def test_async_robots_5xx_disallows_and_is_not_cached():
+    config = ScraperConfig(obey_robots=True, rate_limit=0, max_retries=1)
+
+    async def fake_async_get(url, *args, **kwargs):
+        if "robots.txt" in str(url):
+            return _resp(500)
+        return _resp(200, "OK")
+
+    with patch("httpx.AsyncClient.get", side_effect=fake_async_get):
+        async with AsyncHttpClient(config) as async_client:
+            with pytest.raises(RobotsDisallowedError):
+                await async_client.get("https://example.com/anything")
+            assert "example.com" not in async_client._robots_cache
