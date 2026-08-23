@@ -633,3 +633,21 @@ class TestHttpClientCaching:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{ not valid json", encoding="utf-8")
         assert dc.get("k", 60) is None
+
+    def test_disk_cache_preserves_duplicate_headers(self, tmp_path):
+        # Duplicate headers (e.g. multiple Set-Cookie) must survive the round-trip;
+        # dict(headers) would collapse them.
+        import pyscrappy.core.http as http_mod
+
+        resp = httpx.Response(
+            200,
+            headers=[("Set-Cookie", "a=1"), ("Set-Cookie", "b=2"), ("Content-Type", "text/html")],
+            content=b"ok",
+            request=httpx.Request("GET", "http://x"),
+        )
+        dc = http_mod._DiskCache(str(tmp_path / "hdr"))
+        dc.put("k", resp)
+        hit = dc.get("k", 60)
+        assert hit is not None
+        assert hit.headers.get_list("Set-Cookie") == ["a=1", "b=2"]
+        assert hit.headers.get("Content-Type") == "text/html"

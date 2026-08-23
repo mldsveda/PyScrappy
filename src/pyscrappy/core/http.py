@@ -151,9 +151,15 @@ class _DiskCache:
             # responses round-trip losslessly. Reconstruct guardedly — a
             # malformed entry must behave as a miss, never raise (best-effort).
             content = base64.b64decode(data["body"])
+            # Headers were stored as [[name, value], ...] to preserve duplicates
+            # (e.g. multiple Set-Cookie); httpx.Response takes a list of tuples.
+            raw_headers = data.get("headers", [])
+            headers = (
+                [(k, v) for k, v in raw_headers] if isinstance(raw_headers, list) else raw_headers
+            )
             return httpx.Response(
                 status_code=data["status"],
-                headers=data.get("headers", {}),
+                headers=headers,
                 content=content,
                 request=httpx.Request("GET", data.get("url") or "http://cached"),
             )
@@ -171,10 +177,18 @@ class _DiskCache:
             url = str(request.url) if request is not None else str(getattr(resp, "url", ""))
             # Store the raw bytes (base64) so binary / non-UTF-8 bodies survive
             # the round-trip intact — re-encoding resp.text would corrupt them.
+            # Store headers as a list of pairs so duplicates (e.g. multiple
+            # Set-Cookie) survive, which dict(headers) would collapse. httpx.Headers
+            # exposes multi_items(); a plain dict (stealth/curl_cffi) uses .items().
+            headers = resp.headers
+            if hasattr(headers, "multi_items"):
+                header_pairs = [[k, v] for k, v in headers.multi_items()]
+            else:
+                header_pairs = [[k, v] for k, v in dict(headers).items()]
             payload = {
                 "ts": time.time(),
                 "status": resp.status_code,
-                "headers": dict(resp.headers),
+                "headers": header_pairs,
                 "url": url,
                 "body": base64.b64encode(resp.content).decode("ascii"),
             }
