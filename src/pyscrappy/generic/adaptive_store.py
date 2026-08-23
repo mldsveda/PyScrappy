@@ -165,7 +165,10 @@ class AdaptiveStore:
                     "identifier": identifier,
                     "namespace": ns,
                     "heals": len(heals),
-                    "last_confidence": confidences[-1] if confidences else None,
+                    # last_confidence is the most recent heal's own value (kept in
+                    # step with last_healed), even if it's None; min/avg aggregate
+                    # only the recorded (non-None) values.
+                    "last_confidence": heals[-1].get("confidence"),
                     "min_confidence": min(confidences) if confidences else None,
                     "avg_confidence": (
                         round(sum(confidences) / len(confidences), 2) if confidences else None

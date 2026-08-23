@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -141,14 +142,18 @@ class _DiskCache:
                 if time.time() - data["ts"] > ttl:
                     path.unlink(missing_ok=True)  # expired
                     return None
-        except (OSError, json.JSONDecodeError, KeyError):
+            # Body is stored base64 of the raw bytes, so binary / non-UTF-8
+            # responses round-trip losslessly. Reconstruct guardedly — a
+            # malformed entry must behave as a miss, never raise (best-effort).
+            content = base64.b64decode(data["body"])
+            return httpx.Response(
+                status_code=data["status"],
+                headers=data.get("headers", {}),
+                content=content,
+                request=httpx.Request("GET", data.get("url") or "http://cached"),
+            )
+        except Exception:  # noqa: BLE001 - a bad cache entry is a miss, not an error
             return None
-        return httpx.Response(
-            status_code=data["status"],
-            headers=data.get("headers", {}),
-            content=data["body"].encode("utf-8"),
-            request=httpx.Request("GET", data.get("url", "")),
-        )
 
     def put(self, key: str, resp: httpx.Response) -> None:
         tmp = None
@@ -159,12 +164,14 @@ class _DiskCache:
             # it defensively so caching never raises on a stealth response.
             request = getattr(resp, "request", None)
             url = str(request.url) if request is not None else str(getattr(resp, "url", ""))
+            # Store the raw bytes (base64) so binary / non-UTF-8 bodies survive
+            # the round-trip intact — re-encoding resp.text would corrupt them.
             payload = {
                 "ts": time.time(),
                 "status": resp.status_code,
                 "headers": dict(resp.headers),
                 "url": url,
-                "body": resp.text,
+                "body": base64.b64encode(resp.content).decode("ascii"),
             }
             path = self._path(key)
             tmp = path.with_suffix(".tmp")

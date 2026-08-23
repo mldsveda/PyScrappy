@@ -37,8 +37,9 @@ class _StealthResponse:
     """Wrap a curl_cffi response with the httpx surface HttpClient relies on
     (``.text``, ``.status_code``, ``.headers``, ``.cookies``, ``raise_for_status``)."""
 
-    def __init__(self, raw: Any) -> None:
+    def __init__(self, raw: Any, method: str = "GET") -> None:
         self._raw = raw
+        self._method = method
 
     @property
     def text(self) -> str:
@@ -61,9 +62,11 @@ class _StealthResponse:
         return self._raw.cookies
 
     def raise_for_status(self) -> None:
-        # Normalize to httpx.HTTPStatusError so HttpClient's except clause catches it.
+        # Normalize to httpx.HTTPStatusError so HttpClient's except clause catches
+        # it. Report the real request method (GET/POST) so errors on an async POST
+        # don't misreport as GET.
         if self.status_code >= 400:
-            request = httpx.Request("GET", str(getattr(self._raw, "url", "")))
+            request = httpx.Request(self._method, str(getattr(self._raw, "url", "")))
             response = httpx.Response(self.status_code, request=request)
             raise httpx.HTTPStatusError(
                 f"HTTP {self.status_code}", request=request, response=response
@@ -124,7 +127,7 @@ class StealthClient:
         except self._cffi_errors as exc:  # network/transport failure
             request = httpx.Request(method, url)
             raise httpx.RequestError(str(exc), request=request) from exc
-        return _StealthResponse(raw)
+        return _StealthResponse(raw, method)
 
     def get(self, url: str, **kwargs: Any) -> _StealthResponse:
         return self._request("GET", url, **kwargs)
@@ -191,7 +194,7 @@ class AsyncStealthClient:
         except self._cffi_errors as exc:  # network/transport failure
             request = httpx.Request(method, url)
             raise httpx.RequestError(str(exc), request=request) from exc
-        return _StealthResponse(raw)
+        return _StealthResponse(raw, method)
 
     async def get(self, url: str, **kwargs: Any) -> _StealthResponse:
         return await self._request("GET", url, **kwargs)

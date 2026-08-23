@@ -531,10 +531,13 @@ class TestHttpClientCaching:
         client.close()
 
     def _disk_mock_client(self, config):
-        # like _mock_client but sets real (empty) headers so the disk cache can
-        # serialize dict(resp.headers).
+        # like _mock_client but sets real headers/content so the disk cache can
+        # serialize dict(resp.headers) and base64(resp.content).
         client, mock = self._mock_client(config)
-        mock.get.return_value.headers = {}
+        resp = mock.get.return_value
+        resp.headers = {}
+        resp.content = resp.text.encode("utf-8")
+        resp.request = httpx.Request("GET", "https://example.com")
         return client, mock
 
     def test_disk_cache_survives_a_fresh_client(self, tmp_path):
@@ -562,12 +565,17 @@ class TestHttpClientCaching:
         client2.close()
 
     def test_disk_cache_off_by_default(self, tmp_path):
-        # No cache_dir => nothing written to disk (in-memory only).
+        # No cache_dir => the disk-cache path factory is never invoked (in-memory
+        # only). Assert against the registry, not a path the code never used.
+        import pyscrappy.core.http as http_mod
+
         cfg = ScraperConfig(rate_limit=0, cache_ttl=60)
         client, _ = self._disk_mock_client(cfg)
-        client.get("https://example.com")
+        with patch.object(http_mod, "_disk_cache_for") as disk:
+            client.get("https://example.com")
+            client.get("https://example.com")  # cache hit, still no disk
         client.close()
-        assert not (tmp_path / "httpcache").exists()
+        disk.assert_not_called()
 
     def test_disk_cache_handles_stealth_response_without_request_attr(self, tmp_path):
         # The stealth adapter returns a _StealthResponse (no .request); disk put
@@ -597,3 +605,31 @@ class TestHttpClientCaching:
         assert a is b  # ~ and expanded path map to one instance
         assert "~" not in str(a._dir)
         http_mod._DISK_CACHES.clear()
+
+    def test_disk_cache_roundtrips_binary_body_losslessly(self, tmp_path):
+        # Body is stored base64 of the raw bytes, so a non-UTF-8 / binary body
+        # survives the round-trip intact (re-encoding resp.text would corrupt it).
+        import pyscrappy.core.http as http_mod
+
+        binary = bytes(range(256))  # includes invalid-UTF-8 sequences
+        resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        resp.content = binary
+        resp.headers = {}
+        resp.request = httpx.Request("GET", "http://x")
+
+        dc = http_mod._DiskCache(str(tmp_path / "bin"))
+        dc.put("k", resp)
+        hit = dc.get("k", 60)
+        assert hit is not None
+        assert hit.content == binary  # byte-for-byte
+
+    def test_disk_cache_get_bad_entry_is_a_miss(self, tmp_path):
+        # A malformed cache file must behave as a miss, never raise.
+        import pyscrappy.core.http as http_mod
+
+        dc = http_mod._DiskCache(str(tmp_path / "bad"))
+        path = dc._path("k")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{ not valid json", encoding="utf-8")
+        assert dc.get("k", 60) is None
