@@ -528,3 +528,42 @@ class TestHttpClientCaching:
         client.get("https://example.com/b")  # evicted -> re-fetch
         assert mock_httpx.get.call_count == 4
         client.close()
+
+    def _disk_mock_client(self, config):
+        # like _mock_client but sets real (empty) headers so the disk cache can
+        # serialize dict(resp.headers).
+        client, mock = self._mock_client(config)
+        mock.get.return_value.headers = {}
+        return client, mock
+
+    def test_disk_cache_survives_a_fresh_client(self, tmp_path):
+        # The whole point of cache_dir: a hit persists across process restarts.
+        # Simulate a restart by clearing the in-memory cache + disk registry.
+        import pyscrappy.core.http as http_mod
+
+        cache_dir = str(tmp_path / "httpcache")
+        cfg = ScraperConfig(rate_limit=0, cache_ttl=60, cache_dir=cache_dir)
+
+        client, mock = self._disk_mock_client(cfg)
+        client.get("https://example.com")
+        client.get("https://example.com")
+        assert mock.get.call_count == 1  # second served from memory
+        client.close()
+
+        # "restart": wipe memory and the shared disk-cache instances.
+        http_mod._SHARED_CACHE.clear()
+        http_mod._DISK_CACHES.clear()
+
+        client2, mock2 = self._disk_mock_client(cfg)
+        resp = client2.get("https://example.com")
+        assert mock2.get.call_count == 0  # served from disk, no network
+        assert resp.text == "<html>OK</html>"
+        client2.close()
+
+    def test_disk_cache_off_by_default(self, tmp_path):
+        # No cache_dir => nothing written to disk (in-memory only).
+        cfg = ScraperConfig(rate_limit=0, cache_ttl=60)
+        client, _ = self._disk_mock_client(cfg)
+        client.get("https://example.com")
+        client.close()
+        assert not (tmp_path / "httpcache").exists()

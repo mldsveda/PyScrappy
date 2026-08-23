@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import random
 import threading
@@ -9,6 +11,7 @@ import time
 from collections import OrderedDict
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
@@ -109,9 +112,89 @@ class _ResponseCache:
             return len(self._store)
 
 
+class _DiskCache:
+    """Optional on-disk response cache, so hits survive process restarts and
+    separate runs — the missing half of the in-memory :class:`_ResponseCache`.
+
+    Each entry is a small JSON file under ``cache_dir``, named by the SHA-256 of
+    the cache key: ``{ts, status, headers, url, body}`` with ``ts`` a wall-clock
+    time (not monotonic, which wouldn't survive a restart). TTL is checked per
+    read against the caller's ``ttl``; an expired file is deleted lazily. All ops
+    are best-effort — a caching layer must never break a scrape, so any OS/JSON
+    error just behaves as a miss.
+    """
+
+    def __init__(self, cache_dir: str) -> None:
+        self._dir = Path(cache_dir)
+        self._lock = threading.Lock()
+
+    def _path(self, key: str) -> Path:
+        return self._dir / (hashlib.sha256(key.encode("utf-8")).hexdigest() + ".json")
+
+    def get(self, key: str, ttl: float) -> httpx.Response | None:
+        path = self._path(key)
+        try:
+            with self._lock:
+                if not path.exists():
+                    return None
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if time.time() - data["ts"] > ttl:
+                    path.unlink(missing_ok=True)  # expired
+                    return None
+        except (OSError, json.JSONDecodeError, KeyError):
+            return None
+        return httpx.Response(
+            status_code=data["status"],
+            headers=data.get("headers", {}),
+            content=data["body"].encode("utf-8"),
+            request=httpx.Request("GET", data.get("url", "")),
+        )
+
+    def put(self, key: str, resp: httpx.Response) -> None:
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "ts": time.time(),
+                "status": resp.status_code,
+                "headers": dict(resp.headers),
+                "url": str(resp.request.url) if resp.request else "",
+                "body": resp.text,
+            }
+            path = self._path(key)
+            tmp = path.with_suffix(".tmp")
+            with self._lock:
+                tmp.write_text(json.dumps(payload), encoding="utf-8")
+                tmp.replace(path)  # atomic
+        except OSError:
+            pass  # best-effort: a cache write must never fail a scrape
+
+    def clear(self) -> None:
+        try:
+            with self._lock:
+                for f in self._dir.glob("*.json"):
+                    f.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 # The single shared cache instance. Kept module-level (not per-client) so it is
 # shared across every scraper/client in the process.
 _SHARED_CACHE = _ResponseCache()
+
+# Disk caches keyed by directory, shared process-wide so every client pointed at
+# the same cache_dir reuses one instance (and its lock).
+_DISK_CACHES: dict[str, _DiskCache] = {}
+_DISK_CACHES_LOCK = threading.Lock()
+
+
+def _disk_cache_for(cache_dir: str) -> _DiskCache:
+    with _DISK_CACHES_LOCK:
+        dc = _DISK_CACHES.get(cache_dir)
+        if dc is None:
+            dc = _DiskCache(cache_dir)
+            _DISK_CACHES[cache_dir] = dc
+        return dc
+
 
 # Retained for backward compatibility: the async client imports this lock. The
 # cache now owns its own lock, so this is unused internally but kept exported.
@@ -362,15 +445,28 @@ class HttpClient:
     def _cache_get(self, key: str) -> httpx.Response | None:
         if self.config.cache_ttl <= 0:
             return None
-        return _SHARED_CACHE.get(key, self.config.cache_ttl)
+        # Memory first (fast); fall back to disk (survives restarts) and promote
+        # a disk hit back into memory so the next read is fast.
+        hit = _SHARED_CACHE.get(key, self.config.cache_ttl)
+        if hit is not None:
+            return hit
+        if self.config.cache_dir:
+            hit = _disk_cache_for(self.config.cache_dir).get(key, self.config.cache_ttl)
+            if hit is not None:
+                _SHARED_CACHE.put(key, hit, self.config.cache_max_size)
+            return hit
+        return None
 
     def _cache_put(self, key: str, resp: httpx.Response) -> None:
         if self.config.cache_ttl > 0:
             _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
+            if self.config.cache_dir:
+                _disk_cache_for(self.config.cache_dir).put(key, resp)
 
     @staticmethod
     def clear_cache() -> None:
-        """Empty the process-wide response cache."""
+        """Empty the process-wide in-memory response cache. (The on-disk cache,
+        if configured, persists by design — delete its ``cache_dir`` to clear it.)"""
         _SHARED_CACHE.clear()
 
     def _rate_limit(self, url: str, min_delay: float | None = None) -> None:

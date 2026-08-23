@@ -148,3 +148,70 @@ def build_stealth_client(
 
         raise PyScrappyError(_INSTALL_HINT)
     return StealthClient(impersonate, timeout, verify, proxy)
+
+
+class AsyncStealthClient:
+    """Async counterpart of :class:`StealthClient`, presenting the subset of the
+    ``httpx.AsyncClient`` surface that ``AsyncHttpClient`` calls (``get``,
+    ``post``, ``cookies``, ``aclose``) over ``curl_cffi``'s ``AsyncSession``.
+
+    Like the sync adapter, transport failures are re-raised as
+    ``httpx.RequestError`` and non-2xx normalize to ``httpx.HTTPStatusError``, so
+    the async retry/rate-limit/cache/robots machinery works unchanged.
+    """
+
+    def __init__(
+        self,
+        impersonate: str,
+        timeout: float,
+        verify: bool,
+        proxy: str | None = None,
+    ) -> None:
+        from curl_cffi.requests import AsyncSession
+
+        self._cffi_errors = StealthClient._import_errors()
+        session_kwargs: dict[str, Any] = {
+            "impersonate": impersonate,
+            "timeout": timeout,
+            "verify": verify,
+        }
+        if proxy:
+            session_kwargs["proxies"] = {"http": proxy, "https": proxy}
+        self._session = AsyncSession(**session_kwargs)
+
+    @property
+    def cookies(self) -> Any:
+        return self._session.cookies
+
+    async def _request(self, method: str, url: str, **kwargs: Any) -> _StealthResponse:
+        if "follow_redirects" in kwargs:
+            kwargs["allow_redirects"] = kwargs.pop("follow_redirects")
+        try:
+            raw = await self._session.request(method, url, **kwargs)
+        except self._cffi_errors as exc:  # network/transport failure
+            request = httpx.Request(method, url)
+            raise httpx.RequestError(str(exc), request=request) from exc
+        return _StealthResponse(raw)
+
+    async def get(self, url: str, **kwargs: Any) -> _StealthResponse:
+        return await self._request("GET", url, **kwargs)
+
+    async def post(self, url: str, **kwargs: Any) -> _StealthResponse:
+        return await self._request("POST", url, **kwargs)
+
+    async def aclose(self) -> None:
+        try:
+            await self._session.close()
+        except Exception:  # noqa: BLE001 - closing should never raise upward
+            pass
+
+
+def build_async_stealth_client(
+    impersonate: str, timeout: float, verify: bool, proxy: str | None = None
+) -> AsyncStealthClient:
+    """Build an AsyncStealthClient, raising a clear error if curl_cffi is absent."""
+    if not stealth_available():
+        from pyscrappy.core.exceptions import PyScrappyError
+
+        raise PyScrappyError(_INSTALL_HINT)
+    return AsyncStealthClient(impersonate, timeout, verify, proxy)

@@ -384,3 +384,37 @@ def test_save_atomic_no_corruption_on_write_failure(tmp_path):
     # No leftover .tmp files
     tmp_files = list(tmp_path.glob("*.tmp"))
     assert len(tmp_files) == 0, f"Leftover temp files: {tmp_files}"
+
+
+def test_heal_report_summarizes_by_selector(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+
+    def rec(identifier, ns, conf):
+        store.record_heal(
+            identifier,
+            namespace=ns,
+            confidence=conf,
+            runner_up_gap=5.0,
+            before={"text": "old"},
+            after={"text": "new"},
+        )
+
+    # price heals twice (drifts most), title once.
+    rec("price", "shop.com", 80.0)
+    rec("price", "shop.com", 60.0)
+    rec("title", "shop.com", 90.0)
+
+    report = store.heal_report()
+    assert [r["identifier"] for r in report] == ["price", "title"]  # most-healed first
+    price = report[0]
+    assert price["heals"] == 2
+    assert price["last_confidence"] == 60.0
+    assert price["min_confidence"] == 60.0  # the shaky heal surfaces
+    assert price["avg_confidence"] == 70.0
+    assert price["namespace"] == "shop.com"
+    assert price["last_healed"] is not None
+
+
+def test_heal_report_empty_when_no_heals(tmp_path):
+    store = AdaptiveStore(tmp_path / "a.json")
+    assert store.heal_report() == []
