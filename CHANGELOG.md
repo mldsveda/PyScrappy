@@ -4,6 +4,11 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **Retry backoff uses full jitter by default.** Concurrent failures now spread each exponential retry across the interval from zero to its capped delay instead of retrying in lockstep. Set `ScraperConfig(retry_jitter=False)` to preserve the deterministic schedule; explicit server `Retry-After` values remain unchanged.
+
 ## [1.5.7] - 2026-08-23
 
 ### Added

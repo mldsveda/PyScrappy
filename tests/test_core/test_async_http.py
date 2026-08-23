@@ -83,6 +83,34 @@ async def test_async_retries_on_server_error():
 
 
 @pytest.mark.anyio
+async def test_async_get_sleeps_for_the_jittered_backoff():
+    err = _resp(status=500)
+    err.raise_for_status = MagicMock(
+        side_effect=httpx.HTTPStatusError("500", request=MagicMock(), response=err)
+    )
+    ok = _resp(text="ok")
+    client = AsyncHttpClient(ScraperConfig(rate_limit=0, retry_delay=4.0, max_retries=2))
+
+    first_client = MagicMock()
+    first_client.get = AsyncMock(return_value=err)
+    first_client.aclose = AsyncMock()
+    second_client = MagicMock()
+    second_client.get = AsyncMock(return_value=ok)
+    second_client.aclose = AsyncMock()
+    client._client = first_client
+    client._build_client = MagicMock(side_effect=[second_client])
+
+    with patch("pyscrappy.core.http.random.uniform", return_value=1.25) as mock_uniform:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            response = await client.get("https://example.com")
+
+    assert response.text == "ok"
+    mock_uniform.assert_called_once_with(0.0, 4.0)
+    mock_sleep.assert_awaited_once_with(1.25)
+    await client.aclose()
+
+
+@pytest.mark.anyio
 async def test_async_shares_cache_with_sync_client():
     # A value cached by the async client is visible to the sync client (shared store).
     HttpClient.clear_cache()

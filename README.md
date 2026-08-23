@@ -416,6 +416,7 @@ from pyscrappy import ScraperConfig, GenericScraper
 config = ScraperConfig(
     timeout=20.0,            # request timeout in seconds
     max_retries=3,           # retry failed requests
+    retry_jitter=True,       # spread exponential retries to avoid lockstep traffic
     rate_limit=2.0,          # seconds between requests per domain
     proxy="http://...",      # proxy URL, or a list to rotate through
     scraper_api=None,        # route via a scraping-API service (see below)

@@ -56,6 +56,8 @@ def backoff_delay(config: ScraperConfig, attempt: int) -> float:
     """Retry delay (seconds) before the given attempt (1-indexed), using the
     config's base delay, backoff factor, and optional cap:
     ``retry_delay * backoff_factor ** (attempt - 1)``, clamped to ``backoff_max``.
+    With ``retry_jitter`` enabled, full jitter then selects a value uniformly
+    between zero and that capped delay so concurrent retries spread out.
 
     Module-level so scrapers with their own retry loops (e.g. the stock scraper's
     Yahoo 429 handling) honor the same configurable backoff as HttpClient.
@@ -63,7 +65,7 @@ def backoff_delay(config: ScraperConfig, attempt: int) -> float:
     delay = config.retry_delay * (config.backoff_factor ** (attempt - 1))
     if config.backoff_max is not None:
         delay = min(delay, config.backoff_max)
-    return delay
+    return random.uniform(0.0, delay) if config.retry_jitter else delay
 
 
 # Default cap on the number of live response-cache entries. Bounds memory for
