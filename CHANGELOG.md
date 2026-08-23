@@ -4,6 +4,13 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.7] - 2026-08-23
+
+### Added
+- **TLS-fingerprint impersonation on the async path.** `ScraperConfig(impersonate=...)` now works with the async client (`AsyncHttpClient` / `scrape_async`), backed by `curl_cffi`'s `AsyncSession`, instead of raising `NotImplementedError`. Stealth and high-throughput async scraping can finally be combined.
+- **Optional on-disk response cache.** Set `ScraperConfig(cache_dir=...)` (with `cache_ttl > 0`) to persist successful GETs to disk, so cache hits survive process restarts and separate runs. The in-memory LRU cache still fronts it; a disk hit is promoted back into memory.
+- **`AdaptiveStore.heal_report()`** — aggregates the heal audit log into one row per selector (heal count, latest/lowest/average confidence, last-healed time), sorted most-healed first, so the most-drifted selectors and shakiest relocations surface for review.
+
 ## [1.5.6] - 2026-08-19
 
 ### Fixed
