@@ -151,13 +151,19 @@ class _DiskCache:
         )
 
     def put(self, key: str, resp: httpx.Response) -> None:
+        tmp = None
         try:
             self._dir.mkdir(parents=True, exist_ok=True)
+            # The URL may come from an httpx.Response (resp.request.url) or from
+            # the stealth adapter's _StealthResponse (raw .url, no .request). Read
+            # it defensively so caching never raises on a stealth response.
+            request = getattr(resp, "request", None)
+            url = str(request.url) if request is not None else str(getattr(resp, "url", ""))
             payload = {
                 "ts": time.time(),
                 "status": resp.status_code,
                 "headers": dict(resp.headers),
-                "url": str(resp.request.url) if resp.request else "",
+                "url": url,
                 "body": resp.text,
             }
             path = self._path(key)
@@ -165,8 +171,13 @@ class _DiskCache:
             with self._lock:
                 tmp.write_text(json.dumps(payload), encoding="utf-8")
                 tmp.replace(path)  # atomic
-        except OSError:
-            pass  # best-effort: a cache write must never fail a scrape
+        except Exception:  # noqa: BLE001 - caching is best-effort, must never fail a scrape
+            # Clean up a stray temp file if the atomic replace didn't happen.
+            if tmp is not None:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def clear(self) -> None:
         try:
@@ -188,6 +199,10 @@ _DISK_CACHES_LOCK = threading.Lock()
 
 
 def _disk_cache_for(cache_dir: str) -> _DiskCache:
+    # Expand ~ and normalise so "~/.cache/x" and its expanded form map to one
+    # instance (and one lock), and files land in the intended home dir rather
+    # than a literal "~" relative directory.
+    cache_dir = str(Path(cache_dir).expanduser())
     with _DISK_CACHES_LOCK:
         dc = _DISK_CACHES.get(cache_dir)
         if dc is None:

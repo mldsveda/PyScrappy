@@ -1,5 +1,6 @@
 """Tests for pyscrappy.core.http."""
 
+import os
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -567,3 +568,32 @@ class TestHttpClientCaching:
         client.get("https://example.com")
         client.close()
         assert not (tmp_path / "httpcache").exists()
+
+    def test_disk_cache_handles_stealth_response_without_request_attr(self, tmp_path):
+        # The stealth adapter returns a _StealthResponse (no .request); disk put
+        # must not raise on it (best-effort caching, must never break a scrape).
+        import pyscrappy.core.http as http_mod
+        from pyscrappy.core._stealth import _StealthResponse
+
+        class _FakeRaw:
+            text = "ok"
+            content = b"ok"
+            status_code = 200
+            headers = {}
+            cookies = {}
+            url = "http://x"
+
+        dc = http_mod._DiskCache(str(tmp_path / "sc"))
+        dc.put("k", _StealthResponse(_FakeRaw()))  # must not raise
+        hit = dc.get("k", 60)
+        assert hit is not None and hit.text == "ok"
+
+    def test_disk_cache_for_expands_home(self):
+        import pyscrappy.core.http as http_mod
+
+        http_mod._DISK_CACHES.clear()
+        a = http_mod._disk_cache_for("~/.cache/pyscrappy_test_expand")
+        b = http_mod._disk_cache_for(os.path.expanduser("~/.cache/pyscrappy_test_expand"))
+        assert a is b  # ~ and expanded path map to one instance
+        assert "~" not in str(a._dir)
+        http_mod._DISK_CACHES.clear()
