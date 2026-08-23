@@ -62,12 +62,18 @@ class ScraperConfig:
             cache. The cache is LRU-bounded, so a long-running process (e.g. an
             MCP server) that fetches many distinct URLs stays within this cap
             rather than growing until restart. Defaults to ``512``.
-        impersonate: Impersonate a real browser's TLS/JA3 fingerprint on the
-            sync HTTP path, to get past anti-bot filters that block plain clients
-            (e.g. ``"chrome"``, ``"chrome124"``, ``"safari"``, ``"firefox"``).
+        cache_dir: Directory for an optional on-disk response cache. When set (and
+            ``cache_ttl > 0``), successful GETs are also persisted here so cache
+            hits survive across process restarts and separate runs — the in-memory
+            cache still fronts it for speed. ``None`` (the default) keeps caching
+            in memory only.
+        impersonate: Impersonate a real browser's TLS/JA3 fingerprint, to get
+            past anti-bot filters that block plain clients (e.g. ``"chrome"``,
+            ``"chrome124"``, ``"safari"``, ``"firefox"``). Works on both the sync
+            and async HTTP paths (async uses ``curl_cffi``'s ``AsyncSession``).
             Requires the optional ``curl_cffi`` dependency (``pip install
             pyscrappy[stealth]``). ``None`` (the default) uses the normal httpx
-            client. Not yet supported on the async path.
+            client.
     """
 
     timeout: float = 30.0
@@ -87,6 +93,7 @@ class ScraperConfig:
     verify_ssl: bool = True
     cache_ttl: float = 0.0
     cache_max_size: int = 512
+    cache_dir: str | None = None
     impersonate: str | None = None
 
     def pick_proxy(self, exclude: str | None = None) -> str | None:

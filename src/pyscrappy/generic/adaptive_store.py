@@ -139,3 +139,42 @@ class AdaptiveStore:
                 continue
             entries.append(entry)
         return entries
+
+    def heal_report(self, namespace: str | None = None) -> list[dict]:
+        """Summarize recorded heals, one row per (identifier, namespace) selector.
+
+        Turns the append-only heal log into an at-a-glance drift report: how often
+        each selector has healed, its latest and lowest confidence (a low value is
+        where relocation was shakiest and worth a human look), and when it last
+        healed. Rows are sorted by heal count, most-healed first — the selectors
+        that have drifted the most surface at the top.
+
+        Each row: ``identifier``, ``namespace``, ``heals``, ``last_confidence``,
+        ``min_confidence``, ``avg_confidence``, ``last_healed`` (timestamp).
+        """
+        grouped: dict[tuple[str, str | None], list[dict]] = {}
+        for e in self.heal_log(namespace=namespace):
+            key = (e.get("identifier", ""), e.get("namespace"))
+            grouped.setdefault(key, []).append(e)
+
+        report: list[dict] = []
+        for (identifier, ns), heals in grouped.items():
+            confidences = [h["confidence"] for h in heals if h.get("confidence") is not None]
+            report.append(
+                {
+                    "identifier": identifier,
+                    "namespace": ns,
+                    "heals": len(heals),
+                    # last_confidence is the most recent heal's own value (kept in
+                    # step with last_healed), even if it's None; min/avg aggregate
+                    # only the recorded (non-None) values.
+                    "last_confidence": heals[-1].get("confidence"),
+                    "min_confidence": min(confidences) if confidences else None,
+                    "avg_confidence": (
+                        round(sum(confidences) / len(confidences), 2) if confidences else None
+                    ),
+                    "last_healed": heals[-1].get("timestamp"),
+                }
+            )
+        report.sort(key=lambda r: r["heals"], reverse=True)
+        return report

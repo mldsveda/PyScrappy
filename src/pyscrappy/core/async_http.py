@@ -14,7 +14,7 @@ import asyncio
 import logging
 import random
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode, urlparse
 
 import httpx
@@ -24,9 +24,15 @@ from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
 from pyscrappy.core.http import (
     _SHARED_CACHE,
+    _disk_cache_for,
     backoff_delay,
     parse_retry_after,
 )
+
+if TYPE_CHECKING:
+    # When impersonate is set, the client is the curl_cffi-backed adapter, which
+    # presents the same async surface (get/post/cookies/aclose) as AsyncClient.
+    from pyscrappy.core._stealth import AsyncStealthClient
 
 logger = logging.getLogger("pyscrappy.async_http")
 
@@ -45,13 +51,7 @@ class AsyncHttpClient:
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
-        if self.config.impersonate:
-            raise NotImplementedError(
-                "config.impersonate (TLS fingerprint impersonation) is only "
-                "supported on the sync path for now; use the sync scrapers/HttpClient, "
-                "or drop impersonate for async."
-            )
-        self._client: httpx.AsyncClient | None = None
+        self._client: httpx.AsyncClient | AsyncStealthClient | None = None
         self._last_request_time: dict[str, float] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
@@ -196,10 +196,23 @@ class AsyncHttpClient:
 
     # -- internals (mirror the sync client) --
 
-    def _build_client(self) -> httpx.AsyncClient:
-        transport_kwargs: dict[str, Any] = {}
+    def _build_client(self) -> httpx.AsyncClient | AsyncStealthClient:
         proxy = self.config.pick_proxy(exclude=self._current_proxy)
         self._current_proxy = proxy
+        # TLS impersonation: swap httpx for a curl_cffi AsyncSession that mimics a
+        # real browser's fingerprint. It presents the same async surface
+        # (get/post/cookies/aclose) and raises httpx exceptions, so the retry,
+        # rate-limit, cache, and robots logic around it is unchanged.
+        if self.config.impersonate:
+            from pyscrappy.core._stealth import build_async_stealth_client
+
+            return build_async_stealth_client(
+                self.config.impersonate,
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                proxy=proxy,
+            )
+        transport_kwargs: dict[str, Any] = {}
         if proxy:
             transport_kwargs["proxy"] = proxy
         return httpx.AsyncClient(
@@ -208,7 +221,7 @@ class AsyncHttpClient:
             **transport_kwargs,
         )
 
-    def _ensure_client(self) -> httpx.AsyncClient:
+    def _ensure_client(self) -> httpx.AsyncClient | AsyncStealthClient:
         if self._client is None:
             self._client = self._build_client()
         return self._client
@@ -239,11 +252,21 @@ class AsyncHttpClient:
     def _cache_get(self, key: str) -> httpx.Response | None:
         if self.config.cache_ttl <= 0:
             return None
-        return _SHARED_CACHE.get(key, self.config.cache_ttl)
+        hit = _SHARED_CACHE.get(key, self.config.cache_ttl)
+        if hit is not None:
+            return hit
+        if self.config.cache_dir:
+            hit = _disk_cache_for(self.config.cache_dir).get(key, self.config.cache_ttl)
+            if hit is not None:
+                _SHARED_CACHE.put(key, hit, self.config.cache_max_size)
+            return hit
+        return None
 
     def _cache_put(self, key: str, resp: httpx.Response) -> None:
         if self.config.cache_ttl > 0:
             _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
+            if self.config.cache_dir:
+                _disk_cache_for(self.config.cache_dir).put(key, resp)
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc

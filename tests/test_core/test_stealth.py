@@ -10,7 +10,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from pyscrappy.core._stealth import StealthClient, build_stealth_client, stealth_available
+from pyscrappy.core._stealth import (
+    StealthClient,
+    build_async_stealth_client,
+    build_stealth_client,
+    stealth_available,
+)
 from pyscrappy.core.async_http import AsyncHttpClient
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import PyScrappyError
@@ -24,11 +29,25 @@ def test_build_stealth_client_errors_when_curl_cffi_missing():
         build_stealth_client("chrome", timeout=10, verify=True)
 
 
-def test_async_client_rejects_impersonate():
-    # Async path doesn't support impersonation yet; constructing must fail loudly
-    # rather than silently ignore the setting.
-    with pytest.raises(NotImplementedError, match="sync path"):
-        AsyncHttpClient(ScraperConfig(impersonate="chrome"))
+def test_build_async_stealth_client_errors_when_curl_cffi_missing():
+    if stealth_available():
+        pytest.skip("curl_cffi is installed; not-installed path can't be exercised")
+    with pytest.raises(PyScrappyError, match="pyscrappy\\[stealth\\]"):
+        build_async_stealth_client("chrome", timeout=10, verify=True)
+
+
+def test_async_client_builds_stealth_client_when_impersonate_set():
+    # When impersonate is set, AsyncHttpClient._build_client routes through the
+    # async stealth adapter instead of httpx.AsyncClient. Patch it so no curl_cffi
+    # is needed. (Previously this raised NotImplementedError — now supported.)
+    cfg = ScraperConfig(impersonate="chrome", rate_limit=0)
+    client = AsyncHttpClient(cfg)
+    sentinel = MagicMock(name="async_stealth_client")
+    with patch("pyscrappy.core._stealth.build_async_stealth_client", return_value=sentinel) as b:
+        built = client._build_client()
+    assert built is sentinel
+    b.assert_called_once()
+    assert b.call_args.args[0] == "chrome" or b.call_args.kwargs.get("impersonate") == "chrome"
 
 
 def test_httpclient_builds_stealth_client_when_impersonate_set():
@@ -98,3 +117,67 @@ def test_stealth_translates_follow_redirects_kwarg():
     _, kwargs = fake.request.call_args
     assert kwargs.get("allow_redirects") is True
     assert "follow_redirects" not in kwargs
+
+
+# -- async adapter: mirror the sync coverage on AsyncStealthClient --
+
+
+@pytest.fixture
+def anyio_backend():
+    # Run @pytest.mark.anyio tests on asyncio only (avoids needing trio).
+    return "asyncio"
+
+
+class _FakeAsyncSession:
+    def __init__(self, response=None, error=None):
+        self._response = response
+        self._error = error
+        self.request_calls = []
+
+    async def request(self, method, url, **kwargs):
+        self.request_calls.append((method, url, kwargs))
+        if self._error is not None:
+            raise self._error
+        return self._response
+
+
+def _async_stealth_with_fake_session(fake_session):
+    from pyscrappy.core._stealth import AsyncStealthClient
+
+    sc = AsyncStealthClient.__new__(AsyncStealthClient)
+    sc._session = fake_session
+    sc._cffi_errors = (RuntimeError,)
+    return sc
+
+
+@pytest.mark.anyio
+async def test_async_stealth_response_maps_to_httpx():
+    fake = _FakeAsyncSession(response=_FakeCffiResponse(status_code=403))
+    sc = _async_stealth_with_fake_session(fake)
+    resp = await sc.get("http://x", follow_redirects=True)
+    assert resp.status_code == 403
+    with pytest.raises(httpx.HTTPStatusError):
+        resp.raise_for_status()
+    # follow_redirects is translated to curl_cffi's allow_redirects on the async
+    # path too.
+    _, _, kwargs = fake.request_calls[0]
+    assert kwargs.get("allow_redirects") is True
+    assert "follow_redirects" not in kwargs
+
+
+@pytest.mark.anyio
+async def test_async_stealth_connection_error_maps_to_httpx_request_error():
+    fake = _FakeAsyncSession(error=RuntimeError("connection reset"))
+    sc = _async_stealth_with_fake_session(fake)
+    with pytest.raises(httpx.RequestError, match="connection reset"):
+        await sc.get("http://x")
+
+
+def test_stealth_response_exposes_url_for_caching():
+    # _StealthResponse exposes .url (from the raw curl_cffi response) so the disk
+    # cache can persist the real URL — a stealth response has no .request.
+    fake = MagicMock()
+    fake.request.return_value = _FakeCffiResponse(url="https://real.example.com/x")
+    sc = _stealth_with_fake_session(fake)
+    resp = sc.get("https://real.example.com/x")
+    assert resp.url == "https://real.example.com/x"

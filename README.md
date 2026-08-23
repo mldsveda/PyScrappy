@@ -363,7 +363,11 @@ A heal is a change to what a selector resolves to, so **every accepted heal is
 recorded**. The store keeps an append-only audit log (`adaptive.heal.ndjson`
 beside the fingerprint store) with the confidence, the runner-up gap, and the
 before/after fingerprint, readable via `store.heal_log()` — so drift stays
-observable instead of being silently absorbed.
+observable instead of being silently absorbed. For an at-a-glance summary,
+`store.heal_report()` aggregates the log into one row per selector (heal count,
+latest/lowest/average confidence, when it last healed), sorted most-healed first
+— so the selectors that have drifted the most, and the shakiest relocations
+(lowest confidence), surface at the top for a human to review.
 
 Fingerprints persist in a small JSON store (`~/.pyscrappy/adaptive.json` by
 default, or `$PYSCRAPPY_HOME`), namespaced by site so the same `adaptive_id` on
@@ -418,6 +422,7 @@ config = ScraperConfig(
     headless=True,           # browser runs headless
     render_js="auto",        # auto-detect if JS rendering is needed
     cache_ttl=0,             # response cache TTL in seconds (0 = disabled)
+    cache_dir=None,          # also persist the cache to disk (survives restarts)
     impersonate=None,        # e.g. "chrome" to spoof a browser's TLS fingerprint (see below)
 )
 
@@ -474,9 +479,21 @@ with GenericScraper(config) as gs:
     result = gs.scrape("https://example.com")
 ```
 
-Impersonation currently applies to the **synchronous** path only; setting it on
-an async client raises a clear error. All the usual retry, rate-limiting,
-caching, and robots handling still apply.
+Impersonation works on **both the sync and async paths** (async uses
+`curl_cffi`'s `AsyncSession`), so you can combine stealth with high-throughput
+async scraping. All the usual retry, rate-limiting, caching, and robots handling
+still apply.
+
+```python
+import asyncio
+from pyscrappy import scrape_async, ScraperConfig
+
+async def main():
+    cfg = ScraperConfig(impersonate="chrome")
+    return await scrape_async("https://example.com", config=cfg)
+
+asyncio.run(main())
+```
 
 ### Concurrent scraping
 
@@ -527,6 +544,18 @@ bounded rather than growing until restart. Raise or lower the cap as needed:
 ```python
 config = ScraperConfig(cache_ttl=300, cache_max_size=2000)
 ```
+
+**Persistent (on-disk) cache.** Set `cache_dir` to also persist responses to
+disk, so cache hits survive across process restarts and separate runs — useful
+for re-running a scrape or a CLI job without re-fetching. The in-memory cache
+still fronts it for speed; a disk hit is promoted back into memory.
+
+```python
+config = ScraperConfig(cache_ttl=3600, cache_dir="~/.cache/pyscrappy")
+```
+
+`clear_cache()` empties the in-memory cache; the on-disk cache persists by
+design — delete its `cache_dir` to clear it.
 
 ## Dependencies
 

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import logging
 import random
 import threading
@@ -9,7 +12,8 @@ import time
 from collections import OrderedDict
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -17,6 +21,11 @@ import httpx
 from pyscrappy.core import scraper_api
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
+
+if TYPE_CHECKING:
+    # With impersonate set, the client is the curl_cffi-backed adapter, which
+    # presents the same surface (get/post/cookies/close) as httpx.Client.
+    from pyscrappy.core._stealth import StealthClient
 
 logger = logging.getLogger("pyscrappy.http")
 
@@ -109,9 +118,124 @@ class _ResponseCache:
             return len(self._store)
 
 
+class _DiskCache:
+    """Optional on-disk response cache, so hits survive process restarts and
+    separate runs — the missing half of the in-memory :class:`_ResponseCache`.
+
+    Each entry is a small JSON file under ``cache_dir``, named by the SHA-256 of
+    the cache key: ``{ts, status, headers, url, body}`` with ``ts`` a wall-clock
+    time (not monotonic, which wouldn't survive a restart). TTL is checked per
+    read against the caller's ``ttl``; an expired file is deleted lazily. All ops
+    are best-effort — a caching layer must never break a scrape, so any OS/JSON
+    error just behaves as a miss.
+    """
+
+    def __init__(self, cache_dir: str) -> None:
+        self._dir = Path(cache_dir)
+        self._lock = threading.Lock()
+
+    def _path(self, key: str) -> Path:
+        return self._dir / (hashlib.sha256(key.encode("utf-8")).hexdigest() + ".json")
+
+    def get(self, key: str, ttl: float) -> httpx.Response | None:
+        path = self._path(key)
+        try:
+            with self._lock:
+                if not path.exists():
+                    return None
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if time.time() - data["ts"] > ttl:
+                    path.unlink(missing_ok=True)  # expired
+                    return None
+            # Body is stored base64 of the raw bytes, so binary / non-UTF-8
+            # responses round-trip losslessly. Reconstruct guardedly — a
+            # malformed entry must behave as a miss, never raise (best-effort).
+            content = base64.b64decode(data["body"])
+            # Headers were stored as [[name, value], ...] to preserve duplicates
+            # (e.g. multiple Set-Cookie); httpx.Response takes a list of tuples.
+            raw_headers = data.get("headers", [])
+            headers = (
+                [(k, v) for k, v in raw_headers] if isinstance(raw_headers, list) else raw_headers
+            )
+            return httpx.Response(
+                status_code=data["status"],
+                headers=headers,
+                content=content,
+                request=httpx.Request("GET", data.get("url") or "http://cached"),
+            )
+        except Exception:  # noqa: BLE001 - a bad cache entry is a miss, not an error
+            return None
+
+    def put(self, key: str, resp: httpx.Response) -> None:
+        tmp = None
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+            # The URL may come from an httpx.Response (resp.request.url) or from
+            # the stealth adapter's _StealthResponse (raw .url, no .request). Read
+            # it defensively so caching never raises on a stealth response.
+            request = getattr(resp, "request", None)
+            url = str(request.url) if request is not None else str(getattr(resp, "url", ""))
+            # Store the raw bytes (base64) so binary / non-UTF-8 bodies survive
+            # the round-trip intact — re-encoding resp.text would corrupt them.
+            # Store headers as a list of pairs so duplicates (e.g. multiple
+            # Set-Cookie) survive, which dict(headers) would collapse. httpx.Headers
+            # exposes multi_items(); a plain dict (stealth/curl_cffi) uses .items().
+            headers = resp.headers
+            if hasattr(headers, "multi_items"):
+                header_pairs = [[k, v] for k, v in headers.multi_items()]
+            else:
+                header_pairs = [[k, v] for k, v in dict(headers).items()]
+            payload = {
+                "ts": time.time(),
+                "status": resp.status_code,
+                "headers": header_pairs,
+                "url": url,
+                "body": base64.b64encode(resp.content).decode("ascii"),
+            }
+            path = self._path(key)
+            tmp = path.with_suffix(".tmp")
+            with self._lock:
+                tmp.write_text(json.dumps(payload), encoding="utf-8")
+                tmp.replace(path)  # atomic
+        except Exception:  # noqa: BLE001 - caching is best-effort, must never fail a scrape
+            # Clean up a stray temp file if the atomic replace didn't happen.
+            if tmp is not None:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    def clear(self) -> None:
+        try:
+            with self._lock:
+                for f in self._dir.glob("*.json"):
+                    f.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 # The single shared cache instance. Kept module-level (not per-client) so it is
 # shared across every scraper/client in the process.
 _SHARED_CACHE = _ResponseCache()
+
+# Disk caches keyed by directory, shared process-wide so every client pointed at
+# the same cache_dir reuses one instance (and its lock).
+_DISK_CACHES: dict[str, _DiskCache] = {}
+_DISK_CACHES_LOCK = threading.Lock()
+
+
+def _disk_cache_for(cache_dir: str) -> _DiskCache:
+    # Expand ~ and normalise so "~/.cache/x" and its expanded form map to one
+    # instance (and one lock), and files land in the intended home dir rather
+    # than a literal "~" relative directory.
+    cache_dir = str(Path(cache_dir).expanduser())
+    with _DISK_CACHES_LOCK:
+        dc = _DISK_CACHES.get(cache_dir)
+        if dc is None:
+            dc = _DiskCache(cache_dir)
+            _DISK_CACHES[cache_dir] = dc
+        return dc
+
 
 # Retained for backward compatibility: the async client imports this lock. The
 # cache now owns its own lock, so this is unused internally but kept exported.
@@ -130,7 +254,7 @@ class HttpClient:
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
-        self._client: httpx.Client | None = None
+        self._client: httpx.Client | StealthClient | None = None
         self._last_request_time: dict[str, float] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
@@ -298,7 +422,7 @@ class HttpClient:
 
     # -- internals --
 
-    def _build_client(self) -> httpx.Client:
+    def _build_client(self) -> httpx.Client | StealthClient:
         proxy = self.config.pick_proxy(exclude=self._current_proxy)
         self._current_proxy = proxy
         # TLS impersonation: swap httpx for a curl_cffi-backed client that mimics a
@@ -323,7 +447,7 @@ class HttpClient:
             **transport_kwargs,
         )
 
-    def _ensure_client(self) -> httpx.Client:
+    def _ensure_client(self) -> httpx.Client | StealthClient:
         if self._client is None:
             self._client = self._build_client()
         return self._client
@@ -362,15 +486,28 @@ class HttpClient:
     def _cache_get(self, key: str) -> httpx.Response | None:
         if self.config.cache_ttl <= 0:
             return None
-        return _SHARED_CACHE.get(key, self.config.cache_ttl)
+        # Memory first (fast); fall back to disk (survives restarts) and promote
+        # a disk hit back into memory so the next read is fast.
+        hit = _SHARED_CACHE.get(key, self.config.cache_ttl)
+        if hit is not None:
+            return hit
+        if self.config.cache_dir:
+            hit = _disk_cache_for(self.config.cache_dir).get(key, self.config.cache_ttl)
+            if hit is not None:
+                _SHARED_CACHE.put(key, hit, self.config.cache_max_size)
+            return hit
+        return None
 
     def _cache_put(self, key: str, resp: httpx.Response) -> None:
         if self.config.cache_ttl > 0:
             _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
+            if self.config.cache_dir:
+                _disk_cache_for(self.config.cache_dir).put(key, resp)
 
     @staticmethod
     def clear_cache() -> None:
-        """Empty the process-wide response cache."""
+        """Empty the process-wide in-memory response cache. (The on-disk cache,
+        if configured, persists by design — delete its ``cache_dir`` to clear it.)"""
         _SHARED_CACHE.clear()
 
     def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
