@@ -171,3 +171,13 @@ async def test_async_stealth_connection_error_maps_to_httpx_request_error():
     sc = _async_stealth_with_fake_session(fake)
     with pytest.raises(httpx.RequestError, match="connection reset"):
         await sc.get("http://x")
+
+
+def test_stealth_response_exposes_url_for_caching():
+    # _StealthResponse exposes .url (from the raw curl_cffi response) so the disk
+    # cache can persist the real URL — a stealth response has no .request.
+    fake = MagicMock()
+    fake.request.return_value = _FakeCffiResponse(url="https://real.example.com/x")
+    sc = _stealth_with_fake_session(fake)
+    resp = sc.get("https://real.example.com/x")
+    assert resp.url == "https://real.example.com/x"

@@ -13,7 +13,7 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -21,6 +21,11 @@ import httpx
 from pyscrappy.core import scraper_api
 from pyscrappy.core.config import ScraperConfig
 from pyscrappy.core.exceptions import NetworkError, RateLimitError
+
+if TYPE_CHECKING:
+    # With impersonate set, the client is the curl_cffi-backed adapter, which
+    # presents the same surface (get/post/cookies/close) as httpx.Client.
+    from pyscrappy.core._stealth import StealthClient
 
 logger = logging.getLogger("pyscrappy.http")
 
@@ -235,7 +240,7 @@ class HttpClient:
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
-        self._client: httpx.Client | None = None
+        self._client: httpx.Client | StealthClient | None = None
         self._last_request_time: dict[str, float] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
@@ -403,7 +408,7 @@ class HttpClient:
 
     # -- internals --
 
-    def _build_client(self) -> httpx.Client:
+    def _build_client(self) -> httpx.Client | StealthClient:
         proxy = self.config.pick_proxy(exclude=self._current_proxy)
         self._current_proxy = proxy
         # TLS impersonation: swap httpx for a curl_cffi-backed client that mimics a
@@ -428,7 +433,7 @@ class HttpClient:
             **transport_kwargs,
         )
 
-    def _ensure_client(self) -> httpx.Client:
+    def _ensure_client(self) -> httpx.Client | StealthClient:
         if self._client is None:
             self._client = self._build_client()
         return self._client

@@ -61,6 +61,13 @@ class _StealthResponse:
     def cookies(self) -> Any:
         return self._raw.cookies
 
+    @property
+    def url(self) -> str:
+        """The final response URL, mirroring httpx.Response.url. Lets the disk
+        cache persist the real URL for a stealth response (which has no
+        ``.request``)."""
+        return str(getattr(self._raw, "url", ""))
+
     def raise_for_status(self) -> None:
         # Normalize to httpx.HTTPStatusError so HttpClient's except clause catches
         # it. Report the real request method (GET/POST) so errors on an async POST

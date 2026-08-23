@@ -14,7 +14,7 @@ import asyncio
 import logging
 import random
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode, urlparse
 
 import httpx
@@ -28,6 +28,11 @@ from pyscrappy.core.http import (
     backoff_delay,
     parse_retry_after,
 )
+
+if TYPE_CHECKING:
+    # When impersonate is set, the client is the curl_cffi-backed adapter, which
+    # presents the same async surface (get/post/cookies/aclose) as AsyncClient.
+    from pyscrappy.core._stealth import AsyncStealthClient
 
 logger = logging.getLogger("pyscrappy.async_http")
 
@@ -46,7 +51,7 @@ class AsyncHttpClient:
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
-        self._client: httpx.AsyncClient | None = None
+        self._client: httpx.AsyncClient | AsyncStealthClient | None = None
         self._last_request_time: dict[str, float] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
@@ -191,7 +196,7 @@ class AsyncHttpClient:
 
     # -- internals (mirror the sync client) --
 
-    def _build_client(self) -> httpx.AsyncClient:
+    def _build_client(self) -> httpx.AsyncClient | AsyncStealthClient:
         proxy = self.config.pick_proxy(exclude=self._current_proxy)
         self._current_proxy = proxy
         # TLS impersonation: swap httpx for a curl_cffi AsyncSession that mimics a
@@ -216,7 +221,7 @@ class AsyncHttpClient:
             **transport_kwargs,
         )
 
-    def _ensure_client(self) -> httpx.AsyncClient:
+    def _ensure_client(self) -> httpx.AsyncClient | AsyncStealthClient:
         if self._client is None:
             self._client = self._build_client()
         return self._client
