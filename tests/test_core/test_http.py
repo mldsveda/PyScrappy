@@ -1,6 +1,7 @@
 """Tests for pyscrappy.core.http."""
 
 import os
+import random
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -129,32 +130,72 @@ class TestHttpClientGet:
     def test_module_backoff_delay_shared_by_scrapers(self):
         # The module-level helper (used by scrapers with their own retry loops,
         # e.g. the stock scraper) honors the same config as HttpClient.
-        cfg = ScraperConfig(retry_delay=1.0, backoff_factor=2.0, backoff_max=5.0)
+        cfg = ScraperConfig(
+            retry_delay=1.0,
+            backoff_factor=2.0,
+            backoff_max=5.0,
+            retry_jitter=False,
+        )
         assert backoff_delay(cfg, 1) == 1.0
         assert backoff_delay(cfg, 4) == 5.0  # 8.0 capped to 5.0
 
+    def test_backoff_delay_defaults_to_full_jitter_within_capped_bound(self):
+        cfg = ScraperConfig(retry_delay=1.0, backoff_factor=2.0, backoff_max=5.0)
+        seeded_random = random.Random(7)
+
+        with patch(
+            "pyscrappy.core.http.random.uniform", side_effect=seeded_random.uniform
+        ) as mock_uniform:
+            delays = [backoff_delay(cfg, 4) for _ in range(50)]
+
+        assert len(set(delays)) > 1
+        assert all(0.0 <= delay <= 5.0 for delay in delays)
+        assert {mock_call.args for mock_call in mock_uniform.call_args_list} == {(0.0, 5.0)}
+
+    def test_backoff_delay_can_disable_jitter(self):
+        cfg = ScraperConfig(
+            retry_delay=2.0,
+            backoff_factor=3.0,
+            backoff_max=10.0,
+            retry_jitter=False,
+        )
+
+        with patch("pyscrappy.core.http.random.uniform") as mock_uniform:
+            assert backoff_delay(cfg, 3) == 10.0
+
+        mock_uniform.assert_not_called()
+
     def test_backoff_delay_defaults_to_exponential_doubling(self):
-        client = HttpClient(ScraperConfig(retry_delay=1.0))  # factor 2.0 by default
+        client = HttpClient(
+            ScraperConfig(retry_delay=1.0, retry_jitter=False)
+        )  # factor 2.0 by default
         assert client._backoff_delay(1) == 1.0
         assert client._backoff_delay(2) == 2.0
         assert client._backoff_delay(3) == 4.0
         client.close()
 
     def test_backoff_factor_is_configurable(self):
-        client = HttpClient(ScraperConfig(retry_delay=2.0, backoff_factor=3.0))
+        client = HttpClient(ScraperConfig(retry_delay=2.0, backoff_factor=3.0, retry_jitter=False))
         assert client._backoff_delay(1) == 2.0
         assert client._backoff_delay(2) == 6.0
         assert client._backoff_delay(3) == 18.0
         client.close()
 
     def test_backoff_factor_one_keeps_delay_constant(self):
-        client = HttpClient(ScraperConfig(retry_delay=1.5, backoff_factor=1.0))
+        client = HttpClient(ScraperConfig(retry_delay=1.5, backoff_factor=1.0, retry_jitter=False))
         assert client._backoff_delay(1) == 1.5
         assert client._backoff_delay(5) == 1.5
         client.close()
 
     def test_backoff_max_caps_the_delay(self):
-        client = HttpClient(ScraperConfig(retry_delay=1.0, backoff_factor=2.0, backoff_max=5.0))
+        client = HttpClient(
+            ScraperConfig(
+                retry_delay=1.0,
+                backoff_factor=2.0,
+                backoff_max=5.0,
+                retry_jitter=False,
+            )
+        )
         assert client._backoff_delay(3) == 4.0  # under the cap
         assert client._backoff_delay(4) == 5.0  # 8.0 clamped to 5.0
         assert client._backoff_delay(10) == 5.0  # stays capped
@@ -191,6 +232,41 @@ class TestHttpClientGet:
         assert resp.status_code == 200
         assert mock_httpx_1.get.call_count == 1
         assert mock_httpx_2.get.call_count == 1
+        client.close()
+
+    def test_get_sleeps_for_the_jittered_backoff(self):
+        config = ScraperConfig(max_retries=2, rate_limit=0, retry_delay=4.0)
+        client = HttpClient(config)
+
+        error_response = MagicMock(spec=httpx.Response)
+        error_response.status_code = 500
+
+        def raise_500():
+            raise httpx.HTTPStatusError(
+                "500 Server Error",
+                request=MagicMock(),
+                response=error_response,
+            )
+
+        error_response.raise_for_status = raise_500
+        ok_response = MagicMock(spec=httpx.Response)
+        ok_response.status_code = 200
+        ok_response.raise_for_status = MagicMock()
+
+        first_client = MagicMock()
+        first_client.get.return_value = error_response
+        second_client = MagicMock()
+        second_client.get.return_value = ok_response
+        client._client = first_client
+        client._build_client = MagicMock(side_effect=[second_client])
+
+        with patch("pyscrappy.core.http.random.uniform", return_value=1.25) as mock_uniform:
+            with patch("time.sleep") as mock_sleep:
+                response = client.get("https://example.com")
+
+        assert response.status_code == 200
+        mock_uniform.assert_called_once_with(0.0, 4.0)
+        mock_sleep.assert_called_once_with(1.25)
         client.close()
 
     def test_get_retries_on_request_error(self):

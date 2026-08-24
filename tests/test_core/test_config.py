@@ -9,6 +9,7 @@ class TestScraperConfig:
         assert config.timeout == 30.0
         assert config.max_retries == 3
         assert config.retry_delay == 1.0
+        assert config.retry_jitter is True
         assert config.rate_limit == 1.0
         assert config.proxy is None
         assert config.render_js is False
@@ -31,6 +32,7 @@ class TestScraperConfig:
             timeout=10.0,
             max_retries=5,
             retry_delay=2.0,
+            retry_jitter=False,
             rate_limit=0.5,
             proxy="http://proxy:8080",
             render_js="auto",
@@ -40,6 +42,7 @@ class TestScraperConfig:
         assert config.timeout == 10.0
         assert config.max_retries == 5
         assert config.retry_delay == 2.0
+        assert config.retry_jitter is False
         assert config.rate_limit == 0.5
         assert config.proxy == "http://proxy:8080"
         assert config.render_js == "auto"

@@ -31,6 +31,10 @@ class ScraperConfig:
             (the default) doubles each time; ``1.0`` keeps a constant delay.
         backoff_max: Upper bound (seconds) on a single retry delay, so backoff
             can't grow without limit. ``None`` (the default) means no cap.
+        retry_jitter: Whether to randomize each exponential retry delay between
+            zero and its computed, capped value. Enabled by default to prevent
+            concurrent requests from retrying in lockstep; set to ``False`` to
+            preserve the deterministic schedule.
         rate_limit: Minimum seconds between requests to the same domain.
         obey_robots: Whether to respect host robots.txt rules and Crawl-delay.
             ``False`` (the default) does not fetch robots.txt at all.
@@ -95,6 +99,7 @@ class ScraperConfig:
     cache_max_size: int = 512
     cache_dir: str | None = None
     impersonate: str | None = None
+    retry_jitter: bool = True
 
     def pick_proxy(self, exclude: str | None = None) -> str | None:
         """Return a single proxy URL (rotating if a list was configured)."""
