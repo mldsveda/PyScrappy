@@ -297,6 +297,70 @@ class TestScrapeResult:
         with pytest.raises(ImportError, match="PyYAML is required"):
             result.to_yaml()
 
+    # --- to_parquet -------------------------------------------------------- #
+
+    def test_to_parquet(self, tmp_path):
+        pytest.importorskip("pyarrow")
+        pytest.importorskip("pandas")
+        import pandas as pd
+
+        result = ScrapeResult(data=[{"a": 1, "b": "x"}, {"a": 2, "b": "y"}])
+        out_path = tmp_path / "out.parquet"
+        result.to_parquet(str(out_path))
+
+        df = pd.read_parquet(str(out_path))
+        assert len(df) == 2
+        assert list(df.columns) == ["a", "b"]
+        assert df["a"].tolist() == [1, 2]
+        assert df["b"].tolist() == ["x", "y"]
+
+    def test_to_parquet_missing_pyarrow(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "pyarrow":
+                raise ImportError("no pyarrow")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        result = ScrapeResult(data=[{"a": 1}])
+        with pytest.raises(ImportError, match="pyarrow is required"):
+            result.to_parquet("dummy.parquet")
+
+    # --- to_excel ---------------------------------------------------------- #
+
+    def test_to_excel(self, tmp_path):
+        pytest.importorskip("openpyxl")
+        pytest.importorskip("pandas")
+        import pandas as pd
+
+        result = ScrapeResult(data=[{"a": 1, "b": "x"}, {"a": 2, "b": "y"}])
+        out_path = tmp_path / "out.xlsx"
+        result.to_excel(str(out_path))
+
+        df = pd.read_excel(str(out_path))
+        assert len(df) == 2
+        assert list(df.columns) == ["a", "b"]
+        assert df["a"].tolist() == [1, 2]
+        assert df["b"].tolist() == ["x", "y"]
+
+    def test_to_excel_missing_openpyxl(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "openpyxl":
+                raise ImportError("no openpyxl")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        result = ScrapeResult(data=[{"a": 1}])
+        with pytest.raises(ImportError, match="openpyxl is required"):
+            result.to_excel("dummy.xlsx")
+
     # --- save() extensions ------------------------------------------------- #
 
     def test_save_ndjson_and_jsonl(self, tmp_path):
@@ -323,6 +387,34 @@ class TestScrapeResult:
         for path in (yaml_path, yml_path):
             parsed = yaml.safe_load(path.read_text())
             assert parsed["data"] == [{"a": 1}]
+
+    def test_save_parquet(self, tmp_path):
+        pytest.importorskip("pyarrow")
+        pytest.importorskip("pandas")
+        import pandas as pd
+
+        result = ScrapeResult(data=[{"title": "x", "n": 1}])
+        parquet_path = tmp_path / "out.parquet"
+        result.save(str(parquet_path))
+
+        df = pd.read_parquet(str(parquet_path))
+        assert len(df) == 1
+        assert df["title"].iloc[0] == "x"
+        assert df["n"].iloc[0] == 1
+
+    def test_save_excel(self, tmp_path):
+        pytest.importorskip("openpyxl")
+        pytest.importorskip("pandas")
+        import pandas as pd
+
+        result = ScrapeResult(data=[{"title": "x", "n": 1}])
+        excel_path = tmp_path / "out.xlsx"
+        result.save(str(excel_path))
+
+        df = pd.read_excel(str(excel_path))
+        assert len(df) == 1
+        assert df["title"].iloc[0] == "x"
+        assert df["n"].iloc[0] == 1
 
     def test_save_ndjson_empty_data(self, tmp_path):
         result = ScrapeResult(data=[])
