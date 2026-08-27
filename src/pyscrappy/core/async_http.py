@@ -54,6 +54,7 @@ class AsyncHttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.AsyncClient | AsyncStealthClient | None = None
         self._last_request_time: dict[str, float] = {}
+        self._rate_limit_locks: dict[str, asyncio.Lock] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
         # is computed per request from the parser, so the UA-specific value stays
@@ -287,13 +288,26 @@ class AsyncHttpClient:
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc
-        now = time.monotonic()
-        last = self._last_request_time.get(domain, 0.0)
         delay_target = self.config.rate_limit
         if min_delay is not None:
             delay_target = max(delay_target, min_delay)
-        wait = delay_target - (now - last)
-        if wait > 0:
-            logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
-            await asyncio.sleep(wait)
-        self._last_request_time[domain] = time.monotonic()
+
+        # Guard read-compute-write with a per-domain lock, held across the
+        # sleep itself: that alone serializes concurrent callers onto
+        # staggered slots instead of all reading the same stale `last` and
+        # sleeping the same (too-short) amount, so the timestamp only needs
+        # writing once per call, after the sleep completes - not reserved
+        # eagerly before it, which would leave a phantom reservation (and
+        # delay the next real request) if this call is cancelled mid-sleep.
+        if domain not in self._rate_limit_locks:
+            self._rate_limit_locks[domain] = asyncio.Lock()
+        lock = self._rate_limit_locks[domain]
+
+        async with lock:
+            now = time.monotonic()
+            last = self._last_request_time.get(domain, 0.0)
+            wait = delay_target - (now - last)
+            if wait > 0:
+                logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
+                await asyncio.sleep(wait)
+            self._last_request_time[domain] = time.monotonic()
