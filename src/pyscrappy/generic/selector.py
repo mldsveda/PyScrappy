@@ -26,7 +26,7 @@ from typing import Any
 from bs4 import BeautifulSoup, Tag
 from lxml import etree
 
-from pyscrappy.generic.adaptive import _attr_str
+from pyscrappy.generic._attrs import attr_to_str
 
 # CSS with a trailing ``::text`` / ``::attr(name)`` pseudo-element, Scrapy-style.
 _PSEUDO = re.compile(r"^(?P<sel>.*?)::(?P<kind>text|attr\((?P<attr>[^)]+)\))$", re.DOTALL)
@@ -285,7 +285,7 @@ class SelectorList(list):
         if self._pseudo == "text":
             return [s.text() for s in self]
         if self._pseudo == "attr":
-            return [_attr_str(s.attrs[self._attr]) for s in self if self._attr in s.attrs]
+            return [attr_to_str(s.attrs[self._attr]) for s in self if self._attr in s.attrs]
         return [s.html() for s in self]
 
     def get(self, default: str | None = None) -> str | None:
