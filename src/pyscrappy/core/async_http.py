@@ -284,7 +284,9 @@ class AsyncHttpClient:
         if self.config.cache_ttl > 0:
             _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
             if self.config.cache_dir:
-                _disk_cache_for(self.config.cache_dir).put(key, resp)
+                _disk_cache_for(self.config.cache_dir).put(
+                    key, resp, self.config.cache_ttl, self.config.cache_dir_max_size
+                )
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc

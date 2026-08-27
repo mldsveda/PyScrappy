@@ -143,11 +143,21 @@ class _DiskCache:
     read against the caller's ``ttl``; an expired file is deleted lazily. All ops
     are best-effort — a caching layer must never break a scrape, so any OS/JSON
     error just behaves as a miss.
+
+    Bounded like :class:`_ResponseCache`: ``put()`` prunes afterward, sweeping
+    any expired entry (so a key fetched once and never again does not linger
+    forever) and then, if the directory still exceeds ``max_size``, deleting
+    the oldest files by mtime until it does not. Unlike the in-memory LRU, a
+    read does not refresh recency here — mtime is set-on-write, not set-on-hit
+    — so a cold key that keeps getting read but never rewritten ages out under
+    a full cache; that trade is what keeps pruning an O(entries) directory
+    scan instead of a second per-entry access-time write on every hit.
     """
 
-    def __init__(self, cache_dir: str) -> None:
+    def __init__(self, cache_dir: str, max_size: int = _DEFAULT_CACHE_MAX_SIZE) -> None:
         self._dir = Path(cache_dir)
         self._lock = threading.Lock()
+        self._max_size = max_size
 
     def _path(self, key: str) -> Path:
         return self._dir / (hashlib.sha256(key.encode("utf-8")).hexdigest() + ".json")
@@ -181,7 +191,9 @@ class _DiskCache:
         except Exception:  # noqa: BLE001 - a bad cache entry is a miss, not an error
             return None
 
-    def put(self, key: str, resp: httpx.Response) -> None:
+    def put(
+        self, key: str, resp: httpx.Response, ttl: float | None = None, max_size: int | None = None
+    ) -> None:
         tmp = None
         try:
             self._dir.mkdir(parents=True, exist_ok=True)
@@ -219,6 +231,35 @@ class _DiskCache:
                     tmp.unlink(missing_ok=True)
                 except OSError:
                     pass
+        self._prune(ttl, self._max_size if max_size is None else max_size)
+
+    def _prune(self, ttl: float | None, max_size: int) -> None:
+        """Sweep expired entries, then trim to ``max_size`` (oldest mtime first).
+
+        Called after every write so growth stays bounded even for a key that is
+        never re-requested — ``get()``'s lazy expiry only reaps the ones that
+        are. Best-effort like the rest of this class: never raises.
+        """
+        try:
+            with self._lock:
+                now = time.time()
+                live: list[tuple[float, Path]] = []
+                for f in self._dir.glob("*.json"):
+                    try:
+                        if ttl is not None and ttl > 0:
+                            data = json.loads(f.read_text(encoding="utf-8"))
+                            if now - data["ts"] > ttl:
+                                f.unlink(missing_ok=True)
+                                continue
+                        live.append((f.stat().st_mtime, f))
+                    except (OSError, ValueError, KeyError):
+                        continue  # unreadable/malformed entry: not this pass's job
+                if len(live) > max_size:
+                    live.sort(key=lambda entry: entry[0])
+                    for _, f in live[: len(live) - max_size]:
+                        f.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     def clear(self) -> None:
         try:
@@ -529,7 +570,9 @@ class HttpClient:
         if self.config.cache_ttl > 0:
             _SHARED_CACHE.put(key, resp, self.config.cache_max_size)
             if self.config.cache_dir:
-                _disk_cache_for(self.config.cache_dir).put(key, resp)
+                _disk_cache_for(self.config.cache_dir).put(
+                    key, resp, self.config.cache_ttl, self.config.cache_dir_max_size
+                )
 
     @staticmethod
     def clear_cache() -> None:

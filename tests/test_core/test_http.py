@@ -2,6 +2,8 @@
 
 import os
 import random
+import shutil
+import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -727,6 +729,59 @@ class TestHttpClientCaching:
         assert hit is not None
         assert hit.headers.get_list("Set-Cookie") == ["a=1", "b=2"]
         assert hit.headers.get("Content-Type") == "text/html"
+
+    def _disk_resp(self, url):
+        return httpx.Response(200, content=b"x", request=httpx.Request("GET", url))
+
+    def test_disk_cache_evicts_oldest_past_max_size(self, tmp_path):
+        # #166: an unbounded on-disk cache grows one file per distinct URL
+        # forever. put() must cap it, keeping the most recently written entries.
+        import pyscrappy.core.http as http_mod
+
+        dc = http_mod._DiskCache(str(tmp_path / "capped"), max_size=5)
+        for i in range(20):
+            dc.put(f"http://x/{i}", self._disk_resp(f"http://x/{i}"), ttl=100)
+
+        remaining = list((tmp_path / "capped").glob("*.json"))
+        assert len(remaining) == 5
+        # The 5 most recently written keys are the last 5 (0..19 in order).
+        for i in range(15, 20):
+            assert dc.get(f"http://x/{i}", 100) is not None
+        for i in range(0, 15):
+            assert dc.get(f"http://x/{i}", 100) is None
+
+    def test_disk_cache_put_max_size_overrides_the_instance_default(self, tmp_path):
+        import pyscrappy.core.http as http_mod
+
+        dc = http_mod._DiskCache(str(tmp_path / "override"))  # default max_size
+        for i in range(10):
+            dc.put(f"http://x/{i}", self._disk_resp(f"http://x/{i}"), ttl=100, max_size=3)
+        assert len(list((tmp_path / "override").glob("*.json"))) == 3
+
+    def test_disk_cache_sweeps_an_expired_entry_even_if_never_reread(self, tmp_path):
+        # get()'s lazy expiry only catches a key that is re-requested. put()'s
+        # prune must also reap a key that expires and is never asked for again.
+        import pyscrappy.core.http as http_mod
+
+        dc = http_mod._DiskCache(str(tmp_path / "sweep"), max_size=100)
+        dc.put("http://x/expired", self._disk_resp("http://x/expired"), ttl=0.01)
+        time.sleep(0.05)
+        dc.put("http://x/other", self._disk_resp("http://x/other"), ttl=0.01)
+
+        remaining = list((tmp_path / "sweep").glob("*.json"))
+        assert len(remaining) == 1
+        assert dc.get("http://x/other", 0.01) is not None
+
+    def test_disk_cache_prune_failure_does_not_raise(self, tmp_path):
+        # A prune that cannot even list the directory (e.g. removed out from
+        # under the cache) must behave as a no-op, not break the write it follows.
+        import pyscrappy.core.http as http_mod
+
+        cache_dir = tmp_path / "gone"
+        dc = http_mod._DiskCache(str(cache_dir), max_size=1)
+        dc.put("http://x/a", self._disk_resp("http://x/a"), ttl=100)
+        shutil.rmtree(cache_dir)
+        dc.put("http://x/b", self._disk_resp("http://x/b"), ttl=100)  # must not raise
 
 
 class TestObservabilityHooks:

@@ -71,6 +71,11 @@ class ScraperConfig:
             hits survive across process restarts and separate runs — the in-memory
             cache still fronts it for speed. ``None`` (the default) keeps caching
             in memory only.
+        cache_dir_max_size: Maximum number of live entries in the on-disk cache,
+            mirroring ``cache_max_size`` for the in-memory tier. A long-running
+            process (or a large crawl reusing one ``cache_dir``) stays within
+            this cap rather than growing one file per distinct URL forever.
+            Defaults to ``512``. Only takes effect when ``cache_dir`` is set.
         impersonate: Impersonate a real browser's TLS/JA3 fingerprint, to get
             past anti-bot filters that block plain clients (e.g. ``"chrome"``,
             ``"chrome124"``, ``"safari"``, ``"firefox"``). Works on both the sync
@@ -109,6 +114,7 @@ class ScraperConfig:
     cache_ttl: float = 0.0
     cache_max_size: int = 512
     cache_dir: str | None = None
+    cache_dir_max_size: int = 512
     impersonate: str | None = None
     retry_jitter: bool = True
     # Observability hooks (best-effort; a raising callback never breaks a scrape).
