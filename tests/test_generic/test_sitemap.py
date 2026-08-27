@@ -58,6 +58,21 @@ def test_parse_ignores_namespace():
     assert pages == ["https://x.com/a"]
 
 
+def test_parse_excludes_extension_loc():
+    # image:/video: extension namespaces nest their own <loc> (local name "loc")
+    # inside a <url>; only the <url>'s direct-child <loc> is a page URL.
+    ns = 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+    img = 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"'
+    xml = (
+        f"<urlset {ns} {img}>"
+        "<url><loc>https://x.com/page</loc>"
+        "<image:image><image:loc>https://x.com/pic.jpg</image:loc></image:image>"
+        "</url></urlset>"
+    ).encode()
+    pages, _ = parse_sitemap(xml)
+    assert pages == ["https://x.com/page"]  # image URL excluded
+
+
 def test_sitemaps_from_robots():
     txt = "User-agent: *\nSitemap: https://x.com/sitemap.xml\nSitemap: https://x.com/news.xml\n"
     assert sitemaps_from_robots(txt) == ["https://x.com/sitemap.xml", "https://x.com/news.xml"]
@@ -68,28 +83,29 @@ def test_sitemaps_from_robots():
 
 
 def _scraper_with_responses(mapping, robots_txt=None, robots_raises=False):
-    """A GenericScraper whose http.get_raw returns bodies by URL substring."""
+    """A GenericScraper whose http.get returns bodies by URL substring. A missing
+    URL raises (mirroring HttpClient.get's non-2xx behavior), which sitemap_urls
+    treats as 'not there' and skips."""
     gs = GenericScraper()
     http = MagicMock()
 
-    def get_raw(url, **kwargs):
+    def get(url, **kwargs):
         resp = MagicMock()
         if "robots" in url:
             if robots_raises:
                 raise RuntimeError("no robots")
-            resp.text = robots_txt or ""
-            resp.content = (robots_txt or "").encode()
+            body = robots_txt or ""
+            resp.text = body
+            resp.content = body.encode()
             return resp
         for frag, body in mapping.items():
             if frag in url:
                 resp.text = body.decode() if isinstance(body, bytes) else body
                 resp.content = body if isinstance(body, bytes) else body.encode()
                 return resp
-        resp.text = ""
-        resp.content = b""
-        return resp
+        raise RuntimeError(f"404 {url}")  # unknown URL -> get() would raise
 
-    http.get_raw = get_raw
+    http.get = get
     gs._http = http
     return gs
 

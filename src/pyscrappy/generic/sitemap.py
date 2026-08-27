@@ -64,16 +64,20 @@ def parse_sitemap(data: bytes) -> tuple[list[str], list[str]]:
     page_urls: list[str] = []
     child_sitemaps: list[str] = []
 
-    if root_tag == "sitemapindex":
-        for loc in root.iter():
-            if _local(loc.tag) == "loc" and loc.text:
-                child_sitemaps.append(loc.text.strip())
-    else:
-        # Treat anything else as a urlset (leaf). <urlset> is the common case;
-        # being lenient here means a non-standard root still yields its <loc>s.
-        for loc in root.iter():
-            if _local(loc.tag) == "loc" and loc.text:
-                page_urls.append(loc.text.strip())
+    # Take only the <loc> that is a *direct child* of an entry element (<url> in a
+    # urlset, <sitemap> in an index). Extension namespaces nest their own <loc>
+    # deeper (e.g. <url><image:image><image:loc>), whose local name is also "loc";
+    # collecting every descendant <loc> would wrongly return those image/video
+    # URLs as pages. Direct-child scoping excludes them.
+    entry_tag = "sitemap" if root_tag == "sitemapindex" else "url"
+    sink = child_sitemaps if root_tag == "sitemapindex" else page_urls
+    for entry in root:
+        if _local(entry.tag) != entry_tag:
+            continue
+        for child in entry:
+            if _local(child.tag) == "loc" and child.text:
+                sink.append(child.text.strip())
+                break  # one <loc> per entry
 
     return page_urls, child_sitemaps
 

@@ -300,6 +300,7 @@ class GenericScraper(BaseScraper):
             A de-duplicated list of page URLs, in discovery order, capped to
             ``max_urls``.
         """
+        from collections import deque
         from urllib.parse import urljoin
 
         from pyscrappy.core.robots import get_host_and_robots_url
@@ -307,13 +308,21 @@ class GenericScraper(BaseScraper):
 
         _, robots_url = get_host_and_robots_url(url)
 
+        # Fetch robots.txt / sitemaps through the normal client (retry, cache,
+        # proxy, rate-limit) but skip the robots *permission* check for these
+        # files themselves. get() raises on a non-2xx / missing file; we treat any
+        # failure as "this sitemap isn't there" and move on.
+        def _fetch(u: str) -> bytes | None:
+            try:
+                return self.http.get(u, skip_robots_check=True).content
+            except Exception:  # noqa: BLE001 - a missing/broken file is skipped
+                return None
+
         # 1. Discover sitemap URLs: robots.txt Sitemap: lines, else /sitemap.xml.
-        sitemap_queue: list[str] = []
-        try:
-            robots_txt = self.http.get_raw(robots_url).text
-            sitemap_queue = sitemaps_from_robots(robots_txt)
-        except Exception:  # noqa: BLE001 - robots is optional; fall back below
-            sitemap_queue = []
+        robots_body = _fetch(robots_url)
+        sitemap_queue = (
+            sitemaps_from_robots(robots_body.decode(errors="replace")) if robots_body else []
+        )
         if not sitemap_queue:
             sitemap_queue = [urljoin(robots_url, "/sitemap.xml")]
 
@@ -322,17 +331,17 @@ class GenericScraper(BaseScraper):
         seen_pages: set[str] = set()
         seen_sitemaps: set[str] = set()
         # queue holds (sitemap_url, is_child) so an index only recurses one level.
-        queue: list[tuple[str, bool]] = [(s, False) for s in sitemap_queue]
+        # deque so dequeuing is O(1) even with many discovered sitemaps.
+        queue: deque[tuple[str, bool]] = deque((s, False) for s in sitemap_queue)
         while queue:
             if max_urls is not None and len(page_urls) >= max_urls:
                 break
-            sm_url, is_child = queue.pop(0)
+            sm_url, is_child = queue.popleft()
             if sm_url in seen_sitemaps:
                 continue
             seen_sitemaps.add(sm_url)
-            try:
-                data = self.http.get_raw(sm_url).content
-            except Exception:  # noqa: BLE001 - a missing/broken sitemap is skipped
+            data = _fetch(sm_url)
+            if data is None:
                 continue
             pages, children = parse_sitemap(data)
             for p in pages:
