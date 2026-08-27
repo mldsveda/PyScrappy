@@ -25,6 +25,7 @@ from pyscrappy.core.exceptions import NetworkError, RateLimitError
 from pyscrappy.core.http import (
     _SHARED_CACHE,
     _disk_cache_for,
+    _fire,
     backoff_delay,
     parse_retry_after,
 )
@@ -53,6 +54,7 @@ class AsyncHttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.AsyncClient | AsyncStealthClient | None = None
         self._last_request_time: dict[str, float] = {}
+        self._rate_limit_locks: dict[str, asyncio.Lock] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
         # is computed per request from the parser, so the UA-specific value stays
@@ -75,10 +77,15 @@ class AsyncHttpClient:
 
     async def get(self, url: str, skip_robots_check: bool = False, **kwargs: Any) -> httpx.Response:
         """GET with retries, rate-limiting, and optional caching (see HttpClient.get)."""
+        # The logical target URL the caller asked for; hooks report this even
+        # when scraper_api routing rewrites `url` to the provider endpoint below.
+        target_url = url
+
         cache_key = self._cache_key(url, kwargs.get("params"))
         cached = self._cache_get(cache_key)
         if cached is not None:
             logger.debug("Cache hit for %s", url)
+            _fire(self.config.on_cache_hit, target_url)
             return cached
 
         if scraper_api.is_configured(self.config.scraper_api):
@@ -100,6 +107,7 @@ class AsyncHttpClient:
             crawl_delay = await check_robots_async(self, url, user_agent=user_agent)
 
         await self._rate_limit(url, min_delay=crawl_delay)
+        _fire(self.config.on_request, target_url)  # a network fetch is about to happen
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
@@ -114,6 +122,13 @@ class AsyncHttpClient:
                     )
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
+                        _fire(
+                            self.config.on_retry,
+                            target_url,
+                            attempt,
+                            retry_after,
+                            "429 Too Many Requests",
+                        )
                         await asyncio.sleep(retry_after)
                         continue
                     raise RateLimitError(f"Rate-limited by {url} after {attempt} attempts")
@@ -128,6 +143,7 @@ class AsyncHttpClient:
                     delay = backoff_delay(self.config, attempt)
                     if exc.response.status_code == 503 and "Retry-After" in exc.response.headers:
                         delay = parse_retry_after(exc.response.headers.get("Retry-After"), delay)
+                    _fire(self.config.on_retry, target_url, attempt, delay, exc)
                     await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
                     await asyncio.sleep(delay)
                     continue
@@ -136,8 +152,10 @@ class AsyncHttpClient:
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
+                    delay = backoff_delay(self.config, attempt)
+                    _fire(self.config.on_retry, target_url, attempt, delay, exc)
                     await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
-                    await asyncio.sleep(backoff_delay(self.config, attempt))
+                    await asyncio.sleep(delay)
                     continue
 
         raise NetworkError(
@@ -272,13 +290,26 @@ class AsyncHttpClient:
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc
-        now = time.monotonic()
-        last = self._last_request_time.get(domain, 0.0)
         delay_target = self.config.rate_limit
         if min_delay is not None:
             delay_target = max(delay_target, min_delay)
-        wait = delay_target - (now - last)
-        if wait > 0:
-            logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
-            await asyncio.sleep(wait)
-        self._last_request_time[domain] = time.monotonic()
+
+        # Guard read-compute-write with a per-domain lock, held across the
+        # sleep itself: that alone serializes concurrent callers onto
+        # staggered slots instead of all reading the same stale `last` and
+        # sleeping the same (too-short) amount, so the timestamp only needs
+        # writing once per call, after the sleep completes - not reserved
+        # eagerly before it, which would leave a phantom reservation (and
+        # delay the next real request) if this call is cancelled mid-sleep.
+        if domain not in self._rate_limit_locks:
+            self._rate_limit_locks[domain] = asyncio.Lock()
+        lock = self._rate_limit_locks[domain]
+
+        async with lock:
+            now = time.monotonic()
+            last = self._last_request_time.get(domain, 0.0)
+            wait = delay_target - (now - last)
+            if wait > 0:
+                logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
+                await asyncio.sleep(wait)
+            self._last_request_time[domain] = time.monotonic()

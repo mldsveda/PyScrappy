@@ -34,6 +34,8 @@ from typing import Any
 
 from bs4 import Tag
 
+from pyscrappy.generic._attrs import attr_to_list, attr_to_str
+
 # Text that changes between scrapes shouldn't anchor an element. A cell that is
 # mostly digits / currency / date-like is treated as volatile and down-weighted.
 _VOLATILE = re.compile(
@@ -71,14 +73,14 @@ def _text_is_volatile(text: str | None) -> bool:
 
 def fingerprint(el: Tag) -> dict[str, Any]:
     """Capture the identifying features of ``el`` as a JSON-serializable dict."""
-    attrs = {k: _attr_str(v) for k, v in (el.attrs or {}).items()}
+    attrs = {k: attr_to_str(v) for k, v in (el.attrs or {}).items()}
     text = el.get_text(strip=True) or None
     anchor_tag, anchor_id, anchor_depth = _nearest_stable_anchor(el)
     return {
         "tag": el.name,
         "id": attrs.get("id"),
         "stable_attr": _first_stable_attr(attrs),
-        "classes": sorted(_attr_list(el.get("class"))),
+        "classes": sorted(attr_to_list(el.get("class"))),
         "attrs": {k: v for k, v in attrs.items() if k not in ("id", "class")},
         "text": text,
         "text_volatile": _text_is_volatile(text),
@@ -88,16 +90,6 @@ def fingerprint(el: Tag) -> dict[str, Any]:
         "anchor_depth": anchor_depth,
         "siblings": _sibling_tags(el),
     }
-
-
-def _attr_str(v: Any) -> str:
-    return " ".join(v) if isinstance(v, list) else str(v)
-
-
-def _attr_list(v: Any) -> list[str]:
-    if not v:
-        return []
-    return v if isinstance(v, list) else [v]
 
 
 def _first_stable_attr(attrs: dict[str, str]) -> str | None:

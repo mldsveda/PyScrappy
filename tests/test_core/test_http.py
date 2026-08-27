@@ -782,3 +782,109 @@ class TestHttpClientCaching:
         dc.put("http://x/a", self._disk_resp("http://x/a"), ttl=100)
         shutil.rmtree(cache_dir)
         dc.put("http://x/b", self._disk_resp("http://x/b"), ttl=100)  # must not raise
+
+
+class TestObservabilityHooks:
+    @pytest.fixture(autouse=True)
+    def _clear_shared_cache(self):
+        HttpClient.clear_cache()
+        yield
+        HttpClient.clear_cache()
+
+    def _client(self, config):
+        client = HttpClient(config)
+        resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        resp.text = "<html>OK</html>"
+        resp.headers = {}
+        resp.raise_for_status = MagicMock()
+        mock = MagicMock()
+        mock.get.return_value = resp
+        client._client = mock
+        return client, mock
+
+    def test_on_request_fires_once_per_fetch(self):
+        seen = []
+        client, _ = self._client(ScraperConfig(rate_limit=0, on_request=seen.append))
+        client.get("https://example.com")
+        assert seen == ["https://example.com"]
+        client.close()
+
+    def test_on_request_not_fired_on_cache_hit(self):
+        seen = []
+        client, mock = self._client(
+            ScraperConfig(rate_limit=0, cache_ttl=60, on_request=seen.append)
+        )
+        client.get("https://example.com")  # network
+        client.get("https://example.com")  # cache hit
+        assert seen == ["https://example.com"]  # fired once, not on the hit
+        assert mock.get.call_count == 1
+        client.close()
+
+    def test_on_cache_hit_fires_on_hit(self):
+        hits = []
+        client, _ = self._client(
+            ScraperConfig(rate_limit=0, cache_ttl=60, on_cache_hit=hits.append)
+        )
+        client.get("https://example.com")  # network, no hit
+        client.get("https://example.com")  # cache hit
+        assert hits == ["https://example.com"]
+        client.close()
+
+    def test_on_retry_fires_per_retry(self):
+        retries = []
+        config = ScraperConfig(
+            max_retries=3,
+            rate_limit=0,
+            retry_delay=0,
+            retry_jitter=False,
+            on_retry=lambda url, attempt, delay, error: retries.append((attempt, url)),
+        )
+        client = HttpClient(config)
+
+        err = MagicMock(spec=httpx.Response)
+        err.status_code = 500
+
+        def raise_500():
+            raise httpx.HTTPStatusError("500", request=MagicMock(), response=err)
+
+        err.raise_for_status = raise_500
+        ok = MagicMock(spec=httpx.Response)
+        ok.status_code = 200
+        ok.raise_for_status = MagicMock()
+
+        # First two attempts 500, third succeeds.
+        m1 = MagicMock()
+        m1.get.return_value = err
+        m2 = MagicMock()
+        m2.get.return_value = err
+        m3 = MagicMock()
+        m3.get.return_value = ok
+        client._client = m1
+        client._build_client = MagicMock(side_effect=[m2, m3])
+        client.get("https://example.com")
+        assert [a for a, _ in retries] == [1, 2]  # one on_retry per failed attempt
+        client.close()
+
+    def test_raising_hook_does_not_break_request(self):
+        def boom(url):
+            raise RuntimeError("hook exploded")
+
+        client, _ = self._client(ScraperConfig(rate_limit=0, on_request=boom))
+        resp = client.get("https://example.com")  # must not raise
+        assert resp.status_code == 200
+        client.close()
+
+    def test_on_request_reports_target_url_not_scraper_api_endpoint(self):
+        # With scraper_api routing, url is rewritten to the provider endpoint
+        # before the fetch; hooks must still report the logical target URL (#171).
+        seen = []
+        config = ScraperConfig(
+            rate_limit=0,
+            scraper_api={"provider": "scraperapi", "api_key": "KEY"},
+            on_request=seen.append,
+        )
+        client, _ = self._client(config)
+        client.get("https://target.example.com/page")
+        assert seen == ["https://target.example.com/page"]  # not api.scraperapi.com
+        client.close()

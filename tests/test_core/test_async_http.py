@@ -5,6 +5,8 @@ is exercised elsewhere; here we confirm the async path works and mirrors the
 sync behavior (retries, caching, header handling).
 """
 
+import asyncio
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -236,3 +238,117 @@ async def test_async_get_503_honors_retry_after():
         assert mock_sleep.call_count == 1
         assert mock_sleep.call_args[0][0] == 25.0
     await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_async_on_request_hook_fires():
+    seen = []
+    client, _ = _mock_async_client(
+        ScraperConfig(rate_limit=0, on_request=seen.append), [_resp(text="hi")]
+    )
+    await client.get("https://example.com")
+    assert seen == ["https://example.com"]
+    await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_async_raising_hook_does_not_break_request():
+    def boom(url):
+        raise RuntimeError("hook exploded")
+
+    client, _ = _mock_async_client(ScraperConfig(rate_limit=0, on_request=boom), [_resp(text="hi")])
+    resp = await client.get("https://example.com")  # must not raise
+    assert resp.status_code == 200
+    await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_rate_limit_serializes_concurrent_requests_on_shared_client():
+    """Concurrent get()s to the same domain on one shared client must each land
+    on a distinct, spaced-out slot rather than all reading the same stale
+    `_last_request_time` and firing together (issue #169).
+
+    Uses a real (short) rate_limit and real asyncio.sleep rather than mocking
+    time, so the test exercises the actual lock/scheduling path.
+    """
+    delay = 0.05
+    client = AsyncHttpClient(ScraperConfig(rate_limit=delay))
+    mock = MagicMock()
+    mock.get = AsyncMock(return_value=_resp(text="ok"))
+    mock.aclose = AsyncMock()
+    client._client = mock
+
+    async def timed_get():
+        await client.get("https://example.com/")
+        return time.monotonic()
+
+    finish_times = await asyncio.gather(*(timed_get() for _ in range(5)))
+    await client.aclose()
+
+    finish_times.sort()
+    gaps = [b - a for a, b in zip(finish_times, finish_times[1:])]
+    # A broken (unlocked) limiter lets every racer read the same `last` and
+    # sleep the same short amount, so gaps collapse toward 0. Half the
+    # configured delay is well above scheduling jitter but far below what an
+    # unfixed race would produce.
+    assert all(gap >= delay * 0.5 for gap in gaps), gaps
+
+
+@pytest.mark.anyio
+async def test_rate_limit_single_request_is_not_delayed():
+    """A client's first request to a domain must not wait at all."""
+    client = AsyncHttpClient(ScraperConfig(rate_limit=5.0))
+    mock = MagicMock()
+    mock.get = AsyncMock(return_value=_resp(text="ok"))
+    mock.aclose = AsyncMock()
+    client._client = mock
+
+    start = time.monotonic()
+    await client.get("https://example.com/")
+    elapsed = time.monotonic() - start
+    await client.aclose()
+
+    assert elapsed < 1.0
+
+
+@pytest.mark.anyio
+async def test_rate_limit_cancellation_mid_sleep_leaves_no_phantom_reservation():
+    """A cancelled call must not reserve a slot for a request that never went out.
+
+    Writing `_last_request_time` before the rate-limit sleep (rather than after)
+    would leave that reservation in place if the caller is cancelled mid-sleep,
+    delaying the next real request even though this one never actually fired.
+    """
+    delay = 0.3
+    client = AsyncHttpClient(ScraperConfig(rate_limit=delay))
+    primed_at = time.monotonic()
+    client._last_request_time["example.com"] = primed_at  # a real prior request
+
+    task = asyncio.ensure_future(client._rate_limit("https://example.com/"))
+    await asyncio.sleep(0)  # let it start and enter the sleep
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # The cancelled call must not have written a new (phantom) timestamp.
+    assert client._last_request_time["example.com"] == primed_at
+
+    # The lock must be released on cancellation too, so a follow-up call
+    # doesn't deadlock waiting for it (it may still need to wait out the rest
+    # of the original window, but must not hang or wait any longer than that).
+    await asyncio.wait_for(client._rate_limit("https://example.com/"), timeout=delay * 5)
+
+
+@pytest.mark.anyio
+async def test_rate_limit_reuses_the_same_lock_for_a_domain():
+    """The per-domain lock must not be reconstructed on every call.
+
+    dict.setdefault(domain, asyncio.Lock()) evaluates the Lock() argument
+    unconditionally, so it allocated (and discarded) a new lock on every call
+    even when one already existed for the domain.
+    """
+    client = AsyncHttpClient(ScraperConfig(rate_limit=0))
+    await client._rate_limit("https://example.com/")
+    first_lock = client._rate_limit_locks["example.com"]
+    await client._rate_limit("https://example.com/")
+    assert client._rate_limit_locks["example.com"] is first_lock

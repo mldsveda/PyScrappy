@@ -83,7 +83,12 @@ class ScrapeResult:
             if title:
                 parts.append(f"# {title}")
             for heading in text.get("headings", []):
-                level = int(heading.get("level", "h2")[1:])
+                raw_level = str(heading.get("level") or "h2")
+                level = (
+                    max(1, min(int(raw_level[1:]), 6))
+                    if raw_level[:1].lower() == "h" and raw_level[1:].isdigit()
+                    else 2
+                )
                 parts.append(f"{'#' * level} {heading['text']}")
             body = text.get("text")
             if body:
@@ -111,7 +116,13 @@ class ScrapeResult:
                 .replace("\r", "")
             )
 
-        headers = list(rows[0].keys())
+        headers: list[str] = []
+        seen: set[str] = set()
+        for row in rows:
+            for header in row:
+                if header not in seen:
+                    seen.add(header)
+                    headers.append(header)
         lines = [
             "| " + " | ".join(escape_cell(header) for header in headers) + " |",
             "| " + " | ".join("---" for _ in headers) + " |",

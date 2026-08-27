@@ -6,6 +6,24 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-25
+
+### Fixed
+- **`::attr()` normalizes multi-valued attributes.** `css("a::attr(class)")` (and other list-valued attributes like `rel`) now return a space-joined string (`"nav active"`) instead of a Python list repr (`"['nav', 'active']"`); single-valued attributes are unchanged (#167).
+- **`to_markdown()` preserves ragged table cells.** Table columns are now the union of keys across all rows (first-seen order), so surplus cells in ragged tables — which `TableExtractor` keeps under `column_N` keys — are no longer dropped from the rendered Markdown (#168).
+- **`to_markdown()` no longer crashes on a malformed heading level.** A heading whose `level` isn't `h1`-`h6` (e.g. from user-supplied `data`) now falls back to a default and is clamped into range, instead of raising `ValueError` (#176).
+
+### Changed
+- Attribute-normalization helpers moved to a shared `pyscrappy.generic._attrs` module, so the selector no longer imports a private helper out of the adaptive module (internal cleanup; no API change).
+
+## [1.5.9] - 2026-08-25
+
+### Added
+- **Observability hooks.** `ScraperConfig` accepts optional `on_request(url)`, `on_retry(url, attempt, delay, error)`, and `on_cache_hit(url)` callbacks, invoked at the corresponding points in both the sync and async HTTP clients — for progress bars/metrics on long crawls without enabling logging. Best-effort: a callback that raises is logged at debug and never breaks the request (#162).
+
+### Fixed
+- **Async rate limiting now holds under concurrency.** `AsyncHttpClient._rate_limit` guards its read-compute-write with a per-domain `asyncio.Lock` held across the sleep, so concurrent requests to the same domain on one shared client are spaced by the configured `rate_limit` instead of racing on the same stale timestamp and firing together (#169).
+
 ## [1.5.8] - 2026-08-25
 
 ### Added
