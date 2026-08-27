@@ -5,6 +5,8 @@ is exercised elsewhere; here we confirm the async path works and mirrors the
 sync behavior (retries, caching, header handling).
 """
 
+import asyncio
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -236,3 +238,52 @@ async def test_async_get_503_honors_retry_after():
         assert mock_sleep.call_count == 1
         assert mock_sleep.call_args[0][0] == 25.0
     await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_rate_limit_serializes_concurrent_requests_on_shared_client():
+    """Concurrent get()s to the same domain on one shared client must each land
+    on a distinct, spaced-out slot rather than all reading the same stale
+    `_last_request_time` and firing together (issue #169).
+
+    Uses a real (short) rate_limit and real asyncio.sleep rather than mocking
+    time, so the test exercises the actual lock/scheduling path.
+    """
+    delay = 0.05
+    client = AsyncHttpClient(ScraperConfig(rate_limit=delay))
+    mock = MagicMock()
+    mock.get = AsyncMock(return_value=_resp(text="ok"))
+    mock.aclose = AsyncMock()
+    client._client = mock
+
+    async def timed_get():
+        await client.get("https://example.com/")
+        return time.monotonic()
+
+    finish_times = await asyncio.gather(*(timed_get() for _ in range(5)))
+    await client.aclose()
+
+    finish_times.sort()
+    gaps = [b - a for a, b in zip(finish_times, finish_times[1:])]
+    # A broken (unlocked) limiter lets every racer read the same `last` and
+    # sleep the same short amount, so gaps collapse toward 0. Half the
+    # configured delay is well above scheduling jitter but far below what an
+    # unfixed race would produce.
+    assert all(gap >= delay * 0.5 for gap in gaps), gaps
+
+
+@pytest.mark.anyio
+async def test_rate_limit_single_request_is_not_delayed():
+    """A client's first request to a domain must not wait at all."""
+    client = AsyncHttpClient(ScraperConfig(rate_limit=5.0))
+    mock = MagicMock()
+    mock.get = AsyncMock(return_value=_resp(text="ok"))
+    mock.aclose = AsyncMock()
+    client._client = mock
+
+    start = time.monotonic()
+    await client.get("https://example.com/")
+    elapsed = time.monotonic() - start
+    await client.aclose()
+
+    assert elapsed < 1.0

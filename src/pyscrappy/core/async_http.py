@@ -53,6 +53,7 @@ class AsyncHttpClient:
         self.config = config or ScraperConfig()
         self._client: httpx.AsyncClient | AsyncStealthClient | None = None
         self._last_request_time: dict[str, float] = {}
+        self._rate_limit_locks: dict[str, asyncio.Lock] = {}
         self._current_proxy: str | None = None
         # Per-client cache of RobotFileParser keyed by host (per #73). Crawl-delay
         # is computed per request from the parser, so the UA-specific value stays
@@ -270,13 +271,20 @@ class AsyncHttpClient:
 
     async def _rate_limit(self, url: str, min_delay: float | None = None) -> None:
         domain = urlparse(url).netloc
-        now = time.monotonic()
-        last = self._last_request_time.get(domain, 0.0)
         delay_target = self.config.rate_limit
         if min_delay is not None:
             delay_target = max(delay_target, min_delay)
-        wait = delay_target - (now - last)
-        if wait > 0:
-            logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
-            await asyncio.sleep(wait)
-        self._last_request_time[domain] = time.monotonic()
+
+        # Guard read-compute-write with a per-domain lock, held across the
+        # sleep itself, so concurrent callers on one client serialize onto
+        # staggered slots instead of all reading the same stale `last` and
+        # sleeping the same (too-short) amount.
+        lock = self._rate_limit_locks.setdefault(domain, asyncio.Lock())
+        async with lock:
+            now = time.monotonic()
+            last = self._last_request_time.get(domain, 0.0)
+            wait = delay_target - (now - last)
+            self._last_request_time[domain] = now + wait if wait > 0 else now
+            if wait > 0:
+                logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
+                await asyncio.sleep(wait)
