@@ -25,6 +25,7 @@ from pyscrappy.core.exceptions import NetworkError, RateLimitError
 from pyscrappy.core.http import (
     _SHARED_CACHE,
     _disk_cache_for,
+    _fire,
     backoff_delay,
     parse_retry_after,
 )
@@ -79,6 +80,7 @@ class AsyncHttpClient:
         cached = self._cache_get(cache_key)
         if cached is not None:
             logger.debug("Cache hit for %s", url)
+            _fire(self.config.on_cache_hit, url)
             return cached
 
         if scraper_api.is_configured(self.config.scraper_api):
@@ -100,6 +102,7 @@ class AsyncHttpClient:
             crawl_delay = await check_robots_async(self, url, user_agent=user_agent)
 
         await self._rate_limit(url, min_delay=crawl_delay)
+        _fire(self.config.on_request, url)  # a network fetch is about to happen
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
@@ -114,6 +117,9 @@ class AsyncHttpClient:
                     )
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
+                        _fire(
+                            self.config.on_retry, url, attempt, retry_after, "429 Too Many Requests"
+                        )
                         await asyncio.sleep(retry_after)
                         continue
                     raise RateLimitError(f"Rate-limited by {url} after {attempt} attempts")
@@ -128,6 +134,7 @@ class AsyncHttpClient:
                     delay = backoff_delay(self.config, attempt)
                     if exc.response.status_code == 503 and "Retry-After" in exc.response.headers:
                         delay = parse_retry_after(exc.response.headers.get("Retry-After"), delay)
+                    _fire(self.config.on_retry, url, attempt, delay, exc)
                     await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
                     await asyncio.sleep(delay)
                     continue
@@ -136,8 +143,10 @@ class AsyncHttpClient:
             except httpx.RequestError as exc:
                 last_exc = exc
                 if attempt < self.config.max_retries:
+                    delay = backoff_delay(self.config, attempt)
+                    _fire(self.config.on_retry, url, attempt, delay, exc)
                     await self.aclose()  # close the pool; retry rebuilds + re-picks proxy
-                    await asyncio.sleep(backoff_delay(self.config, attempt))
+                    await asyncio.sleep(delay)
                     continue
 
         raise NetworkError(

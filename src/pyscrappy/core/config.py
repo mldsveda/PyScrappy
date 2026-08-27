@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Callable, Literal
 
 _DEFAULT_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -78,6 +78,17 @@ class ScraperConfig:
             Requires the optional ``curl_cffi`` dependency (``pip install
             pyscrappy[stealth]``). ``None`` (the default) uses the normal httpx
             client.
+        on_request: Optional callback ``(url) -> None`` invoked once before a URL
+            is fetched over the network (not on a cache hit). For progress bars /
+            metrics on long crawls.
+        on_retry: Optional callback ``(url, attempt, delay, error) -> None``
+            invoked before each backoff sleep, where ``attempt`` is the attempt
+            that just failed, ``delay`` the seconds about to be slept, and
+            ``error`` the exception (or a short string for a 429).
+        on_cache_hit: Optional callback ``(url) -> None`` invoked when a request
+            is served from the response cache instead of the network.
+            All three hooks are best-effort: a callback that raises is logged at
+            debug and never breaks the request.
     """
 
     timeout: float = 30.0
@@ -100,6 +111,10 @@ class ScraperConfig:
     cache_dir: str | None = None
     impersonate: str | None = None
     retry_jitter: bool = True
+    # Observability hooks (best-effort; a raising callback never breaks a scrape).
+    on_request: Callable[[str], None] | None = None
+    on_retry: Callable[[str, int, float, object], None] | None = None
+    on_cache_hit: Callable[[str], None] | None = None
 
     def pick_proxy(self, exclude: str | None = None) -> str | None:
         """Return a single proxy URL (rotating if a list was configured)."""
