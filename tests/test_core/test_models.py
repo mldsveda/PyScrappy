@@ -145,6 +145,25 @@ class TestScrapeResult:
         assert "| Name | Age |" in md
         assert "| Alice | 30 |" in md
 
+    def test_to_markdown_preserves_late_table_columns(self):
+        result = ScrapeResult(
+            data=[
+                {
+                    "text": {"text": "", "headings": []},
+                    "tables": [
+                        [
+                            {"A": "1", "B": "2"},
+                            {"A": "3", "B": "4", "column_3": "extra"},
+                        ]
+                    ],
+                }
+            ]
+        )
+
+        assert result.to_markdown() == (
+            "| A | B | column_3 |\n| --- | --- | --- |\n| 1 | 2 |  |\n| 3 | 4 | extra |"
+        )
+
     def test_to_markdown_escapes_table_cells(self):
         result = ScrapeResult(
             data=[
