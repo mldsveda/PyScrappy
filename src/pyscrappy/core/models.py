@@ -111,7 +111,13 @@ class ScrapeResult:
                 .replace("\r", "")
             )
 
-        headers = list(rows[0].keys())
+        headers: list[str] = []
+        seen: set[str] = set()
+        for row in rows:
+            for header in row:
+                if header not in seen:
+                    seen.add(header)
+                    headers.append(header)
         lines = [
             "| " + " | ".join(escape_cell(header) for header in headers) + " |",
             "| " + " | ".join("---" for _ in headers) + " |",
