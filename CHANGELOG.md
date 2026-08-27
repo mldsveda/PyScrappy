@@ -6,6 +6,11 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.5.9] - 2026-08-25
+
+### Added
+- **Observability hooks.** `ScraperConfig` accepts optional `on_request(url)`, `on_retry(url, attempt, delay, error)`, and `on_cache_hit(url)` callbacks, invoked at the corresponding points in both the sync and async HTTP clients — for progress bars/metrics on long crawls without enabling logging. Best-effort: a callback that raises is logged at debug and never breaks the request (#162).
+
 ## [1.5.8] - 2026-08-25
 
 ### Added
