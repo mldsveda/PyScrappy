@@ -4,10 +4,13 @@ All notable changes to PyScrappy are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.5.8] - 2026-08-25
+
+### Added
+- **Sitemap crawling.** `GenericScraper.sitemap_urls(url)` enumerates a site's page URLs from its `sitemap.xml` (discovered via `robots.txt` `Sitemap:` directives, else the conventional path), following a `<sitemapindex>` one level into its child sitemaps and handling gzip-compressed sitemaps. `GenericScraper.scrape_sitemap(url, max_urls=...)` fetches and extracts every listed page concurrently (via `scrape_all`) into one `ScrapeResult` (#160).
 
 ### Changed
-- **Retry backoff uses full jitter by default.** Concurrent failures now spread each exponential retry across the interval from zero to its capped delay instead of retrying in lockstep. Set `ScraperConfig(retry_jitter=False)` to preserve the deterministic schedule; explicit server `Retry-After` values remain unchanged.
+- **Retry backoff uses full jitter by default.** Concurrent failures now spread each exponential retry across the interval from zero to its capped delay instead of retrying in lockstep. Set `ScraperConfig(retry_jitter=False)` to preserve the deterministic schedule; explicit server `Retry-After` values remain unchanged (#163).
 
 ## [1.5.7] - 2026-08-23
 

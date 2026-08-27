@@ -28,6 +28,7 @@ PyScrappy is an AI-native web scraping toolkit that turns websites into structur
 - **Chainable `Selector`** — navigate HTML directly with CSS/XPath, `find_all`, `find_by_text`, and `find_similar` (Scrapy/BeautifulSoup-style)
 - **Adaptive (self-healing) selectors** — remember an element and relocate it by similarity when a site changes its markup, so scrapers don't silently break
 - **Concurrent scraping** — `scrape_many` / `scrape_all` run scrapes in parallel
+- **Sitemap crawling** — enumerate and scrape a whole site from its `sitemap.xml` (index + gzip aware)
 - **Proxy & scraping-API support** — route through a proxy or ScraperAPI/ScrapeOps for blocked sites
 - **TLS-fingerprint impersonation** — `impersonate="chrome"` gets past anti-bot filters that block plain clients (optional `curl_cffi` backend)
 - **Command-line extract** — `pyscrappy extract <url> out.md` scrapes a URL straight to a file, no code
@@ -514,6 +515,31 @@ results = scrape_all([
     lambda: NewsScraper().scrape(feed_url="https://rss.nytimes.com/services/xml/rss/nyt/World.xml"),
 ])
 ```
+
+### Sitemap crawling
+
+Pagination follows next-page links; a **sitemap** enumerates a whole site's URLs
+directly. `GenericScraper` can read `/sitemap.xml` (discovered from `robots.txt`
+`Sitemap:` directives, or the conventional path), follow a `<sitemapindex>` into
+its child sitemaps, and scrape every listed page.
+
+```python
+from pyscrappy import GenericScraper
+
+with GenericScraper() as gs:
+    # Just enumerate the URLs:
+    urls = gs.sitemap_urls("https://example.com")            # -> list[str]
+
+    # Or fetch + extract each, concurrently, into one result:
+    result = gs.scrape_sitemap("https://example.com", max_urls=100)
+    print(len(result.data), "pages scraped")
+```
+
+Handles `<urlset>` leaves and `<sitemapindex>` files (recursing one level),
+gzip-compressed sitemaps (`.xml.gz`), and de-duplicates URLs. Fetches go through
+the usual rate-limiting, caching, proxy, and stealth machinery, and the fan-out
+reuses `scrape_all`. `max_urls` caps the crawl (a sitemap can list tens of
+thousands of URLs, so it's required for `scrape_sitemap`).
 
 ### Response caching
 
