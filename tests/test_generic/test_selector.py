@@ -41,6 +41,20 @@ class TestCss:
     def test_css_attr_pseudo(self):
         assert _page().css("a::attr(href)").getall() == ["/a", "/b"]
 
+    def test_css_attr_pseudo_normalizes_class(self):
+        assert Selector('<a class="x y">link</a>').css("a::attr(class)").get() == "x y"
+
+    def test_css_attr_pseudo_normalizes_rel(self):
+        html = '<a rel="nofollow noopener">link</a>'
+        assert Selector(html).css("a::attr(rel)").get() == "nofollow noopener"
+
+    def test_css_attr_pseudo_preserves_scalar_attribute(self):
+        assert Selector('<a href="/p">link</a>').css("a::attr(href)").get() == "/p"
+
+    def test_css_attr_pseudo_getall_normalizes_multi_valued_attributes(self):
+        html = '<a class="x y">one</a><a class="m n">two</a>'
+        assert Selector(html).css("a::attr(class)").getall() == ["x y", "m n"]
+
     def test_css_attr_missing_attribute_uses_default(self):
         assert Selector("<a>x</a>").css("a::attr(href)").get("MISSING") == "MISSING"
 
