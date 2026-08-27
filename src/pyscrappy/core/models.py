@@ -249,7 +249,13 @@ class ScrapeResult:
 
         p = _Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        self.to_dataframe().to_parquet(path, index=False)
+        try:
+            df = self.to_dataframe()
+        except ImportError:
+            raise ImportError(
+                "pandas is required for to_parquet(). Install it with: pip install 'pyscrappy[parquet]'"
+            ) from None
+        df.to_parquet(path, index=False)
 
     def to_excel(self, path: str) -> None:
         """Write ``data`` to an Excel (.xlsx) file at ``path``.
