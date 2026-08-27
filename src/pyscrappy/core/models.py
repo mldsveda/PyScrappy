@@ -33,7 +33,8 @@ class ScrapeResult:
     ``data`` is always a list of dicts — one dict per scraped item.
     Call ``.to_dataframe()`` for a pandas DataFrame, ``.to_json()`` for
     JSON, ``.to_csv()`` for CSV text, ``.to_ndjson()`` for NDJSON,
-    ``.to_yaml()`` for YAML, ``.to_markdown()`` for clean,
+    ``.to_yaml()`` for YAML, ``.to_parquet(path)`` for Parquet,
+    ``.to_excel(path)`` for Excel, ``.to_markdown()`` for clean,
     LLM-ready Markdown, or ``.save(path)`` to write by file extension.
     """
 
@@ -241,18 +242,78 @@ class ScrapeResult:
             envelope, default_flow_style=False, allow_unicode=True, sort_keys=False
         )
 
+    def to_parquet(self, path: str) -> None:
+        """Write ``data`` to a Parquet file at ``path``.
+
+        Raises:
+            ImportError: If pyarrow is not installed.
+        """
+        from pathlib import Path as _Path
+
+        try:
+            import pyarrow  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "pyarrow is required for to_parquet(). "
+                "Install it with: pip install 'pyscrappy[parquet]'"
+            ) from None
+
+        p = _Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            df = self.to_dataframe()
+        except ImportError:
+            raise ImportError(
+                "pandas is required for to_parquet(). Install it with: pip install 'pyscrappy[parquet]'"
+            ) from None
+        df.to_parquet(path, index=False)
+
+    def to_excel(self, path: str) -> None:
+        """Write ``data`` to an Excel (.xlsx) file at ``path``.
+
+        Raises:
+            ImportError: If openpyxl is not installed.
+        """
+        from pathlib import Path as _Path
+
+        try:
+            import openpyxl  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "openpyxl is required for to_excel(). "
+                "Install it with: pip install 'pyscrappy[excel]'"
+            ) from None
+
+        p = _Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            df = self.to_dataframe()
+        except ImportError:
+            raise ImportError(
+                "pandas is required for to_excel(). Install it with: pip install 'pyscrappy[excel]'"
+            ) from None
+        df.to_excel(path, index=False)
+
     def save(self, path: str) -> None:
         """Write the result to ``path``, choosing format from the extension.
 
         Supported extensions: ``.json`` → :meth:`to_json`, ``.csv`` →
         :meth:`to_csv`, ``.md`` → :meth:`to_markdown`, ``.ndjson`` /
         ``.jsonl`` → :meth:`to_ndjson`, ``.yaml`` / ``.yml`` →
-        :meth:`to_yaml`.
+        :meth:`to_yaml`, ``.parquet`` → :meth:`to_parquet`, ``.xlsx`` →
+        :meth:`to_excel`.
         """
         from pathlib import Path as _Path
 
         p = _Path(path)
         suffix = p.suffix.lower()
+        if suffix == ".parquet":
+            self.to_parquet(path)
+            return
+        if suffix == ".xlsx":
+            self.to_excel(path)
+            return
+
         if suffix == ".json":
             content = self.to_json()
         elif suffix == ".csv":
@@ -266,7 +327,7 @@ class ScrapeResult:
         else:
             raise ValueError(
                 f"Unsupported extension {suffix!r} for save(); "
-                "use .json, .csv, .md, .ndjson, .jsonl, .yaml, or .yml"
+                "use .json, .csv, .md, .ndjson, .jsonl, .yaml, .yml, .parquet, or .xlsx"
             )
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
