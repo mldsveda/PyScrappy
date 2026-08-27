@@ -145,6 +145,32 @@ class TestScrapeResult:
         assert "| Name | Age |" in md
         assert "| Alice | 30 |" in md
 
+    @pytest.mark.parametrize(
+        ("raw_level", "expected_prefix"),
+        [
+            ("h1", "#"),
+            ("H6", "######"),
+            ("h0", "#"),
+            ("h9", "######"),
+            ("title", "##"),
+            ("", "##"),
+            (None, "##"),
+        ],
+    )
+    def test_to_markdown_handles_nonstandard_heading_levels(self, raw_level, expected_prefix):
+        result = ScrapeResult(
+            data=[
+                {
+                    "text": {
+                        "text": "body",
+                        "headings": [{"level": raw_level, "text": "Heading"}],
+                    }
+                }
+            ]
+        )
+
+        assert result.to_markdown().splitlines()[0] == f"{expected_prefix} Heading"
+
     def test_to_markdown_preserves_late_table_columns(self):
         result = ScrapeResult(
             data=[
