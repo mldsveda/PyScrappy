@@ -6,6 +6,14 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-08-27
+
+### Added
+- **Parquet and Excel exporters.** `ScrapeResult.to_parquet(path)` (pandas + pyarrow) and `ScrapeResult.to_excel(path)` (pandas + openpyxl) write results to those formats, and `save()` dispatches `.parquet` / `.xlsx` by extension. Installed via the new `pyscrappy[parquet]` / `pyscrappy[excel]` extras; a missing dependency raises a clear `ImportError` naming the extra to install (#161).
+
+### Fixed
+- **On-disk response cache is now bounded.** `_DiskCache.put()` prunes after every write — sweeping expired entries (so a key that is never re-requested no longer lingers, unlike `get()`'s lazy expiry) and then trimming the oldest by mtime past `ScraperConfig.cache_dir_max_size` (default 512, mirroring the in-memory `cache_max_size`). Previously a `cache_dir` grew one file per distinct URL forever (#166).
+
 ## [1.6.0] - 2026-08-25
 
 ### Fixed
