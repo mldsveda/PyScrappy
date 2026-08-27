@@ -276,11 +276,11 @@ class ScrapeResult:
         p = _Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         try:
-             df = self.to_dataframe()
+            df = self.to_dataframe()
         except ImportError:
-             raise ImportError(
-                 "pandas is required for to_excel(). Install it with: pip install 'pyscrappy[excel]'"
-             ) from None
+            raise ImportError(
+                "pandas is required for to_excel(). Install it with: pip install 'pyscrappy[excel]'"
+            ) from None
         df.to_excel(path, index=False)
 
     def save(self, path: str) -> None:
