@@ -58,6 +58,10 @@ pip install 'pyscrappy[mcp]'
 # Stealth (TLS-fingerprint impersonation to bypass anti-bot filters)
 pip install 'pyscrappy[stealth]'
 
+# Parquet / Excel export (ScrapeResult.to_parquet() / .to_excel())
+pip install 'pyscrappy[parquet]'
+pip install 'pyscrappy[excel]'
+
 # Everything
 pip install 'pyscrappy[all]'
 ```
@@ -271,6 +275,10 @@ result = scrape("https://en.wikipedia.org/wiki/Web_scraping")
 
 print(result.to_markdown())   # feed straight to an LLM
 # ...or result.to_json() / result.to_dataframe()
+
+# Write to a file — format inferred from the extension:
+result.save("out.json")       # .json .csv .md .ndjson .yaml .parquet .xlsx
+# (.parquet needs pyscrappy[parquet]; .xlsx needs pyscrappy[excel])
 ```
 
 Prefer raw fields? Every result is a `ScrapeResult` with `.data` (a list of
@@ -425,6 +433,7 @@ config = ScraperConfig(
     render_js="auto",        # auto-detect if JS rendering is needed
     cache_ttl=0,             # response cache TTL in seconds (0 = disabled)
     cache_dir=None,          # also persist the cache to disk (survives restarts)
+    cache_dir_max_size=512,  # max live entries kept on disk before oldest are pruned
     impersonate=None,        # e.g. "chrome" to spoof a browser's TLS fingerprint (see below)
 )
 
@@ -580,6 +589,10 @@ still fronts it for speed; a disk hit is promoted back into memory.
 ```python
 config = ScraperConfig(cache_ttl=3600, cache_dir="~/.cache/pyscrappy")
 ```
+
+The on-disk cache is bounded too: each write prunes expired entries and trims the
+oldest past `cache_dir_max_size` (default `512`), so a `cache_dir` doesn't grow
+one file per distinct URL forever.
 
 `clear_cache()` empties the in-memory cache; the on-disk cache persists by
 design — delete its `cache_dir` to clear it.
