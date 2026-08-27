@@ -276,15 +276,21 @@ class AsyncHttpClient:
             delay_target = max(delay_target, min_delay)
 
         # Guard read-compute-write with a per-domain lock, held across the
-        # sleep itself, so concurrent callers on one client serialize onto
+        # sleep itself: that alone serializes concurrent callers onto
         # staggered slots instead of all reading the same stale `last` and
-        # sleeping the same (too-short) amount.
-        lock = self._rate_limit_locks.setdefault(domain, asyncio.Lock())
+        # sleeping the same (too-short) amount, so the timestamp only needs
+        # writing once per call, after the sleep completes - not reserved
+        # eagerly before it, which would leave a phantom reservation (and
+        # delay the next real request) if this call is cancelled mid-sleep.
+        if domain not in self._rate_limit_locks:
+            self._rate_limit_locks[domain] = asyncio.Lock()
+        lock = self._rate_limit_locks[domain]
+
         async with lock:
             now = time.monotonic()
             last = self._last_request_time.get(domain, 0.0)
             wait = delay_target - (now - last)
-            self._last_request_time[domain] = now + wait if wait > 0 else now
             if wait > 0:
                 logger.debug("Rate-limiting %s: sleeping %.2fs", domain, wait)
                 await asyncio.sleep(wait)
+            self._last_request_time[domain] = time.monotonic()

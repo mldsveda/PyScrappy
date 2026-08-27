@@ -287,3 +287,46 @@ async def test_rate_limit_single_request_is_not_delayed():
     await client.aclose()
 
     assert elapsed < 1.0
+
+
+@pytest.mark.anyio
+async def test_rate_limit_cancellation_mid_sleep_leaves_no_phantom_reservation():
+    """A cancelled call must not reserve a slot for a request that never went out.
+
+    Writing `_last_request_time` before the rate-limit sleep (rather than after)
+    would leave that reservation in place if the caller is cancelled mid-sleep,
+    delaying the next real request even though this one never actually fired.
+    """
+    delay = 0.3
+    client = AsyncHttpClient(ScraperConfig(rate_limit=delay))
+    primed_at = time.monotonic()
+    client._last_request_time["example.com"] = primed_at  # a real prior request
+
+    task = asyncio.ensure_future(client._rate_limit("https://example.com/"))
+    await asyncio.sleep(0)  # let it start and enter the sleep
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # The cancelled call must not have written a new (phantom) timestamp.
+    assert client._last_request_time["example.com"] == primed_at
+
+    # The lock must be released on cancellation too, so a follow-up call
+    # doesn't deadlock waiting for it (it may still need to wait out the rest
+    # of the original window, but must not hang or wait any longer than that).
+    await asyncio.wait_for(client._rate_limit("https://example.com/"), timeout=delay * 5)
+
+
+@pytest.mark.anyio
+async def test_rate_limit_reuses_the_same_lock_for_a_domain():
+    """The per-domain lock must not be reconstructed on every call.
+
+    dict.setdefault(domain, asyncio.Lock()) evaluates the Lock() argument
+    unconditionally, so it allocated (and discarded) a new lock on every call
+    even when one already existed for the domain.
+    """
+    client = AsyncHttpClient(ScraperConfig(rate_limit=0))
+    await client._rate_limit("https://example.com/")
+    first_lock = client._rate_limit_locks["example.com"]
+    await client._rate_limit("https://example.com/")
+    assert client._rate_limit_locks["example.com"] is first_lock
