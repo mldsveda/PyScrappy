@@ -74,6 +74,20 @@ class ScrapeResult:
         return "\n\n---\n\n".join(b for b in blocks if b)
 
     @staticmethod
+    def _heading_level(raw: Any) -> int:
+        """Parse a heading's ``level`` field, defaulting/clamping to 1-6.
+
+        ``TextExtractor`` only ever emits ``h1``-``h6``, but ``ScrapeResult``
+        also accepts user-supplied ``data``, where a malformed level (e.g.
+        ``"title"``, ``""``, ``None``) must degrade to a sane heading rather
+        than crash the whole ``to_markdown()`` call.
+        """
+        text = str(raw) if raw is not None else ""
+        if text[:1].lower() == "h" and text[1:].isdigit():
+            return max(1, min(int(text[1:]), 6))
+        return 2
+
+    @staticmethod
     def _item_to_markdown(item: dict[str, Any]) -> str:
         text = item.get("text")
         # Rich generic-scraper item: text is a dict with paragraphs/headings.
@@ -83,7 +97,7 @@ class ScrapeResult:
             if title:
                 parts.append(f"# {title}")
             for heading in text.get("headings", []):
-                level = int(heading.get("level", "h2")[1:])
+                level = ScrapeResult._heading_level(heading.get("level"))
                 parts.append(f"{'#' * level} {heading['text']}")
             body = text.get("text")
             if body:

@@ -145,6 +145,34 @@ class TestScrapeResult:
         assert "| Name | Age |" in md
         assert "| Alice | 30 |" in md
 
+    @pytest.mark.parametrize("bad_level", ["title", "", None, "h9", "h0"])
+    def test_to_markdown_handles_a_malformed_heading_level(self, bad_level):
+        result = ScrapeResult(
+            data=[
+                {
+                    "text": {
+                        "text": "body",
+                        "headings": [{"level": bad_level, "text": "X"}],
+                    }
+                }
+            ]
+        )
+        md = result.to_markdown()
+        assert "X" in md
+        heading_line = next(line for line in md.splitlines() if line.endswith(" X"))
+        assert 1 <= heading_line.count("#") <= 6
+
+    @pytest.mark.parametrize(
+        ("level", "expected_hashes"),
+        [("h1", 1), ("h6", 6), ("h9", 6), ("h0", 1)],
+    )
+    def test_to_markdown_clamps_out_of_range_heading_levels(self, level, expected_hashes):
+        result = ScrapeResult(
+            data=[{"text": {"text": "", "headings": [{"level": level, "text": "X"}]}}]
+        )
+        md = result.to_markdown()
+        assert md.splitlines()[0] == f"{'#' * expected_hashes} X"
+
     def test_to_markdown_escapes_table_cells(self):
         result = ScrapeResult(
             data=[
