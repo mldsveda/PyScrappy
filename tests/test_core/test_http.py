@@ -819,3 +819,17 @@ class TestObservabilityHooks:
         resp = client.get("https://example.com")  # must not raise
         assert resp.status_code == 200
         client.close()
+
+    def test_on_request_reports_target_url_not_scraper_api_endpoint(self):
+        # With scraper_api routing, url is rewritten to the provider endpoint
+        # before the fetch; hooks must still report the logical target URL (#171).
+        seen = []
+        config = ScraperConfig(
+            rate_limit=0,
+            scraper_api={"provider": "scraperapi", "api_key": "KEY"},
+            on_request=seen.append,
+        )
+        client, _ = self._client(config)
+        client.get("https://target.example.com/page")
+        assert seen == ["https://target.example.com/page"]  # not api.scraperapi.com
+        client.close()

@@ -300,11 +300,16 @@ class HttpClient:
         and returned for repeat requests within the TTL, skipping both the
         network and the rate limiter.
         """
+        # The logical target URL the caller asked for. Observability hooks always
+        # report this, even when scraper_api routing later rewrites `url` to the
+        # provider endpoint — a hook wants to see the site, not the service.
+        target_url = url
+
         cache_key = self._cache_key(url, kwargs.get("params"))
         cached = self._cache_get(cache_key)
         if cached is not None:
             logger.debug("Cache hit for %s", url)
-            _fire(self.config.on_cache_hit, url)
+            _fire(self.config.on_cache_hit, target_url)
             return cached
 
         # Route through a scraping-API service if configured, so blocked sites
@@ -329,7 +334,7 @@ class HttpClient:
             crawl_delay = check_robots_sync(self, url, user_agent=user_agent)
 
         self._rate_limit(url, min_delay=crawl_delay)
-        _fire(self.config.on_request, url)  # a network fetch is about to happen
+        _fire(self.config.on_request, target_url)  # a network fetch is about to happen
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
@@ -368,7 +373,7 @@ class HttpClient:
                         attempt,
                         delay,
                     )
-                    _fire(self.config.on_retry, url, attempt, delay, exc)
+                    _fire(self.config.on_retry, target_url, attempt, delay, exc)
                     self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue
@@ -379,7 +384,7 @@ class HttpClient:
                 if attempt < self.config.max_retries:
                     delay = self._backoff_delay(attempt)
                     logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
-                    _fire(self.config.on_retry, url, attempt, delay, exc)
+                    _fire(self.config.on_retry, target_url, attempt, delay, exc)
                     self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue

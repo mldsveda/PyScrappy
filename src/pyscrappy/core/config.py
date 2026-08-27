@@ -113,7 +113,7 @@ class ScraperConfig:
     retry_jitter: bool = True
     # Observability hooks (best-effort; a raising callback never breaks a scrape).
     on_request: Callable[[str], None] | None = None
-    on_retry: Callable[[str, int, float, object], None] | None = None
+    on_retry: Callable[[str, int, float, Exception | str], None] | None = None
     on_cache_hit: Callable[[str], None] | None = None
 
     def pick_proxy(self, exclude: str | None = None) -> str | None:
