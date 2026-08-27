@@ -30,6 +30,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger("pyscrappy.http")
 
 
+def _fire(callback: Any, *args: Any) -> None:
+    """Invoke an optional observability hook, swallowing any error.
+
+    Hooks (on_request / on_retry / on_cache_hit) are best-effort: a callback that
+    raises must never break a scrape, so it's caught and logged at debug."""
+    if callback is None:
+        return
+    try:
+        callback(*args)
+    except Exception:  # noqa: BLE001 - a user hook must never break the request
+        logger.debug("observability hook raised", exc_info=True)
+
+
 def parse_retry_after(value: str | None, default: float) -> float:
     """Parse a ``Retry-After`` header value, which RFC 7231 allows as either
     delay-seconds (e.g. ``"120"``) or an HTTP-date (e.g. ``"Wed, 21 Oct 2025 07:28:00 GMT"``).
@@ -287,10 +300,16 @@ class HttpClient:
         and returned for repeat requests within the TTL, skipping both the
         network and the rate limiter.
         """
+        # The logical target URL the caller asked for. Observability hooks always
+        # report this, even when scraper_api routing later rewrites `url` to the
+        # provider endpoint — a hook wants to see the site, not the service.
+        target_url = url
+
         cache_key = self._cache_key(url, kwargs.get("params"))
         cached = self._cache_get(cache_key)
         if cached is not None:
             logger.debug("Cache hit for %s", url)
+            _fire(self.config.on_cache_hit, target_url)
             return cached
 
         # Route through a scraping-API service if configured, so blocked sites
@@ -315,6 +334,7 @@ class HttpClient:
             crawl_delay = check_robots_sync(self, url, user_agent=user_agent)
 
         self._rate_limit(url, min_delay=crawl_delay)
+        _fire(self.config.on_request, target_url)  # a network fetch is about to happen
 
         last_exc: Exception | None = None
         for attempt in range(1, self.config.max_retries + 1):
@@ -329,6 +349,9 @@ class HttpClient:
                     )
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
+                        _fire(
+                            self.config.on_retry, url, attempt, retry_after, "429 Too Many Requests"
+                        )
                         time.sleep(retry_after)
                         continue
                     raise RateLimitError(f"Rate-limited by {url} after {attempt} attempts")
@@ -350,6 +373,7 @@ class HttpClient:
                         attempt,
                         delay,
                     )
+                    _fire(self.config.on_retry, target_url, attempt, delay, exc)
                     self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue
@@ -360,6 +384,7 @@ class HttpClient:
                 if attempt < self.config.max_retries:
                     delay = self._backoff_delay(attempt)
                     logger.warning("Request error on %s, retry %d in %.1fs", url, attempt, delay)
+                    _fire(self.config.on_retry, target_url, attempt, delay, exc)
                     self.close()  # close the pool; retry rebuilds + re-picks proxy
                     time.sleep(delay)
                     continue

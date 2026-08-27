@@ -584,6 +584,26 @@ config = ScraperConfig(cache_ttl=3600, cache_dir="~/.cache/pyscrappy")
 `clear_cache()` empties the in-memory cache; the on-disk cache persists by
 design — delete its `cache_dir` to clear it.
 
+### Observability hooks
+
+For long crawls, pass lightweight callbacks to watch requests live (progress
+bars, metrics) without turning on logging:
+
+```python
+config = ScraperConfig(
+    on_request=lambda url: print("GET", url),               # before a network fetch
+    on_retry=lambda url, attempt, delay, err: print("retry", attempt, url),
+    on_cache_hit=lambda url: print("cached", url),          # served from cache
+)
+```
+
+- `on_request(url)` fires once before a URL is fetched (not on a cache hit).
+- `on_retry(url, attempt, delay, error)` fires before each backoff sleep.
+- `on_cache_hit(url)` fires when a request is served from cache.
+
+All three are best-effort: a callback that raises is logged at debug and never
+breaks the scrape. They fire on both the sync and async paths.
+
 ## Dependencies
 
 **Required:** `httpx`, `beautifulsoup4`, `lxml`

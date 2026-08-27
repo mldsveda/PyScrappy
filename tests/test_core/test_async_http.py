@@ -241,6 +241,28 @@ async def test_async_get_503_honors_retry_after():
 
 
 @pytest.mark.anyio
+async def test_async_on_request_hook_fires():
+    seen = []
+    client, _ = _mock_async_client(
+        ScraperConfig(rate_limit=0, on_request=seen.append), [_resp(text="hi")]
+    )
+    await client.get("https://example.com")
+    assert seen == ["https://example.com"]
+    await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_async_raising_hook_does_not_break_request():
+    def boom(url):
+        raise RuntimeError("hook exploded")
+
+    client, _ = _mock_async_client(ScraperConfig(rate_limit=0, on_request=boom), [_resp(text="hi")])
+    resp = await client.get("https://example.com")  # must not raise
+    assert resp.status_code == 200
+    await client.aclose()
+
+
+@pytest.mark.anyio
 async def test_rate_limit_serializes_concurrent_requests_on_shared_client():
     """Concurrent get()s to the same domain on one shared client must each land
     on a distinct, spaced-out slot rather than all reading the same stale

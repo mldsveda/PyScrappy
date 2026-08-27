@@ -6,6 +6,14 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.5.9] - 2026-08-25
+
+### Added
+- **Observability hooks.** `ScraperConfig` accepts optional `on_request(url)`, `on_retry(url, attempt, delay, error)`, and `on_cache_hit(url)` callbacks, invoked at the corresponding points in both the sync and async HTTP clients — for progress bars/metrics on long crawls without enabling logging. Best-effort: a callback that raises is logged at debug and never breaks the request (#162).
+
+### Fixed
+- **Async rate limiting now holds under concurrency.** `AsyncHttpClient._rate_limit` guards its read-compute-write with a per-domain `asyncio.Lock` held across the sleep, so concurrent requests to the same domain on one shared client are spaced by the configured `rate_limit` instead of racing on the same stale timestamp and firing together (#169).
+
 ## [1.5.8] - 2026-08-25
 
 ### Added
