@@ -279,3 +279,130 @@ class GenericScraper(BaseScraper):
             items.append(row)
 
         return items
+
+    # -- sitemap crawling --
+
+    def sitemap_urls(self, url: str, max_urls: int | None = None) -> list[str]:
+        """Enumerate a site's page URLs from its sitemap(s).
+
+        Discovers sitemaps from the site's ``robots.txt`` ``Sitemap:`` directives,
+        falling back to the conventional ``/sitemap.xml``. Fetches each, parses
+        ``<urlset>`` leaves for page URLs and recurses one level into any
+        ``<sitemapindex>`` children. gzip-compressed sitemaps are handled. Fetches
+        go through the normal HTTP client (rate-limit, cache, proxy, stealth);
+        robots checking is skipped for the sitemap/robots files themselves.
+
+        Args:
+            url: Any URL on the target site (its host is used to locate sitemaps).
+            max_urls: Cap on the number of page URLs returned (None = no cap).
+
+        Returns:
+            A de-duplicated list of page URLs, in discovery order, capped to
+            ``max_urls``.
+        """
+        from urllib.parse import urljoin
+
+        from pyscrappy.core.robots import get_host_and_robots_url
+        from pyscrappy.generic.sitemap import parse_sitemap, sitemaps_from_robots
+
+        _, robots_url = get_host_and_robots_url(url)
+
+        # 1. Discover sitemap URLs: robots.txt Sitemap: lines, else /sitemap.xml.
+        sitemap_queue: list[str] = []
+        try:
+            robots_txt = self.http.get_raw(robots_url).text
+            sitemap_queue = sitemaps_from_robots(robots_txt)
+        except Exception:  # noqa: BLE001 - robots is optional; fall back below
+            sitemap_queue = []
+        if not sitemap_queue:
+            sitemap_queue = [urljoin(robots_url, "/sitemap.xml")]
+
+        # 2. Fetch + parse. Recurse one level for sitemap-index children.
+        page_urls: list[str] = []
+        seen_pages: set[str] = set()
+        seen_sitemaps: set[str] = set()
+        # queue holds (sitemap_url, is_child) so an index only recurses one level.
+        queue: list[tuple[str, bool]] = [(s, False) for s in sitemap_queue]
+        while queue:
+            if max_urls is not None and len(page_urls) >= max_urls:
+                break
+            sm_url, is_child = queue.pop(0)
+            if sm_url in seen_sitemaps:
+                continue
+            seen_sitemaps.add(sm_url)
+            try:
+                data = self.http.get_raw(sm_url).content
+            except Exception:  # noqa: BLE001 - a missing/broken sitemap is skipped
+                continue
+            pages, children = parse_sitemap(data)
+            for p in pages:
+                if p not in seen_pages:
+                    seen_pages.add(p)
+                    page_urls.append(p)
+                    if max_urls is not None and len(page_urls) >= max_urls:
+                        break
+            if not is_child:  # only descend one level into an index
+                queue.extend((c, True) for c in children)
+
+        return page_urls[:max_urls] if max_urls is not None else page_urls
+
+    def scrape_sitemap(
+        self,
+        url: str,
+        max_urls: int = 100,
+        selectors: dict[str, str] | None = None,
+        render_js: bool | None = None,
+        max_workers: int = 8,
+    ) -> ScrapeResult:
+        """Scrape every page listed in a site's sitemap, concurrently.
+
+        Enumerates URLs via :meth:`sitemap_urls` (capped at ``max_urls``), scrapes
+        each with the normal extraction pipeline, and merges everything into one
+        :class:`ScrapeResult` (data concatenated, per-URL errors preserved).
+
+        Args:
+            url: Any URL on the target site.
+            max_urls: Maximum number of pages to scrape (default 100). A sitemap
+                can list tens of thousands of URLs, so this is a required guard.
+            selectors: Optional CSS selectors, passed through to :meth:`scrape`.
+            render_js: JS-render override, passed through to :meth:`scrape`.
+            max_workers: Concurrency for the fan-out.
+
+        Returns:
+            A single ScrapeResult over all scraped pages.
+        """
+        from pyscrappy.concurrent import scrape_all
+
+        urls = self.sitemap_urls(url, max_urls=max_urls)
+        if not urls:
+            return ScrapeResult(
+                data=[],
+                metadata=ScrapeMetadata(source_urls=[url], scraper="generic:sitemap"),
+                errors=[ScrapeError(url=url, message="no sitemap URLs found")],
+            )
+
+        # Each page is scraped by its own scraper instance so the concurrent
+        # fetches don't share one client's mutable per-request state.
+        def _one(page_url: str):
+            def _run() -> ScrapeResult:
+                with GenericScraper(self.config) as gs:
+                    return gs.scrape(page_url, selectors=selectors, render_js=render_js)
+
+            return _run
+
+        results = scrape_all([_one(u) for u in urls], max_workers=max_workers)
+
+        data: list[dict[str, Any]] = []
+        errors: list[ScrapeError] = []
+        for r in results:
+            data.extend(r.data)
+            errors.extend(r.errors)
+        return ScrapeResult(
+            data=data,
+            metadata=ScrapeMetadata(
+                source_urls=urls,
+                total_pages=len(urls),
+                scraper="generic:sitemap",
+            ),
+            errors=errors,
+        )
