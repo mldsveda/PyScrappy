@@ -391,7 +391,11 @@ class HttpClient:
                     if attempt < self.config.max_retries:
                         logger.warning("Rate-limited on %s, retrying in %.1fs", url, retry_after)
                         _fire(
-                            self.config.on_retry, url, attempt, retry_after, "429 Too Many Requests"
+                            self.config.on_retry,
+                            target_url,
+                            attempt,
+                            retry_after,
+                            "429 Too Many Requests",
                         )
                         time.sleep(retry_after)
                         continue
