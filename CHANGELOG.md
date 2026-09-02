@@ -6,6 +6,11 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-09-01
+
+### Fixed
+- **`on_retry` reports the target URL on a 429 under `scraper_api`.** The sync client's rate-limit (429) retry branch passed the rewritten provider endpoint (e.g. `api.scraperapi.com`) to the `on_retry` hook instead of the logical target URL, unlike every other hook call and unlike the async client. Retry callbacks/metrics now attribute a rate-limited retry to the site being scraped, consistent with #171.
+
 ## [1.6.1] - 2026-08-27
 
 ### Added

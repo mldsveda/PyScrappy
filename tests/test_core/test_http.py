@@ -888,3 +888,32 @@ class TestObservabilityHooks:
         client.get("https://target.example.com/page")
         assert seen == ["https://target.example.com/page"]  # not api.scraperapi.com
         client.close()
+
+    def test_on_retry_429_reports_target_url_not_scraper_api_endpoint(self):
+        # A 429 retry under scraper_api routing must report the logical target
+        # URL, like every other hook (#171) — the async path already does, the
+        # sync 429 branch previously leaked the provider endpoint.
+        seen = []
+        config = ScraperConfig(
+            rate_limit=0,
+            retry_delay=0,
+            max_retries=3,
+            scraper_api={"provider": "scraperapi", "api_key": "KEY"},
+            on_retry=lambda url, attempt, delay, error: seen.append(url),
+        )
+        client = HttpClient(config)
+
+        rl = MagicMock(spec=httpx.Response)
+        rl.status_code = 429
+        rl.headers = {}
+        ok = MagicMock(spec=httpx.Response)
+        ok.status_code = 200
+        ok.headers = {}
+        ok.raise_for_status = MagicMock()
+        mock = MagicMock()
+        mock.get.side_effect = [rl, ok]  # 429 then success
+        client._client = mock
+
+        client.get("https://target.example.com/page")
+        assert seen == ["https://target.example.com/page"]  # not api.scraperapi.com
+        client.close()
