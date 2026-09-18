@@ -6,7 +6,7 @@ from pyscrappy.core.scraper_api import build_request, is_configured
 
 
 def test_proxlane_uses_scraperapi_param_names() -> None:
-    endpoint, params = build_request(
+    _endpoint, params = build_request(
         "https://example.com",
         {"provider": "proxlane", "api_key": "KEY", "render_js": True},
     )
