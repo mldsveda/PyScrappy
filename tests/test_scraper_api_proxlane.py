@@ -32,7 +32,7 @@ def test_proxlane_missing_endpoint_falls_back_to_default() -> None:
         "https://example.com",
         {"provider": "proxlane", "api_key": "KEY"},
     )
-    assert endpoint == "http://localhost:8000/"
+    assert endpoint == "http://localhost:8787/v1"
 
 
 def test_proxlane_is_configured_with_key() -> None:
