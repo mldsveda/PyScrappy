@@ -10,6 +10,8 @@ Supported providers (all have free tiers):
 * ``scraperapi``  - https://www.scraperapi.com
 * ``scrapeops``   - https://scrapeops.io
 * ``scrapingbee`` - https://www.scrapingbee.com
+* ``proxlane``    - https://github.com/proxlane/proxlane (self-hosted;
+  set ``endpoint`` in the config to your instance URL)
 
 Config shape::
 
@@ -40,6 +42,14 @@ _PROVIDERS: dict[str, dict[str, str]] = {
         "url_param": "url",
         "key_param": "api_key",
         "render_param": "render_js",
+    },
+    "proxlane": {
+        # Proxlane speaks ScraperAPI's parameter names, but it is self-hosted,
+        # so ``build_request`` honours an ``endpoint`` override in the config.
+        "endpoint": "http://localhost:8000/",
+        "url_param": "url",
+        "key_param": "api_key",
+        "render_param": "render",
     },
 }
 
@@ -80,4 +90,5 @@ def build_request(target_url: str, scraper_api: dict[str, Any]) -> tuple[str, di
     if scraper_api.get("render_js"):
         params[spec["render_param"]] = "true"
 
-    return spec["endpoint"], params
+    endpoint = scraper_api.get("endpoint") or spec["endpoint"]
+    return endpoint, params
