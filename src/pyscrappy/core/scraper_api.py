@@ -5,7 +5,7 @@ requests and can only be reached reliably through a scraping-API service that
 handles proxies and anti-bot challenges. This module maps a target URL into a
 request to such a service, given a ``scraper_api`` config.
 
-Supported providers (all have free tiers):
+Supported providers (the hosted services have free tiers):
 
 * ``scraperapi``  - https://www.scraperapi.com
 * ``scrapeops``   - https://scrapeops.io
