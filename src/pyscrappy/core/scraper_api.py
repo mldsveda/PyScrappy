@@ -46,7 +46,7 @@ _PROVIDERS: dict[str, dict[str, str]] = {
     "proxlane": {
         # Proxlane speaks ScraperAPI's parameter names, but it is self-hosted,
         # so ``build_request`` honours an ``endpoint`` override in the config.
-        "endpoint": "http://localhost:8000/",
+        "endpoint": "http://localhost:8787/v1",
         "url_param": "url",
         "key_param": "api_key",
         "render_param": "render",
