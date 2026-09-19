@@ -69,10 +69,9 @@ def test_extract_html_render_js_uses_browser_path(tmp_path):
     fake_gs.__enter__.return_value = fake_gs
     fake_gs.__exit__.return_value = False
     fake_gs.fetch_html.return_value = "<html><body>rendered</body></html>"
-    with patch("pyscrappy.GenericScraper", return_value=fake_gs), patch(
-        "pyscrappy.scrape"
-    ) as scrape:
-        run_extract("http://x", str(out), render_js=True)
+    with patch("pyscrappy.GenericScraper", return_value=fake_gs):
+        with patch("pyscrappy.scrape") as scrape:
+            run_extract("http://x", str(out), render_js=True)
     assert out.read_text() == "<html><body>rendered</body></html>"
     fake_gs.fetch_html.assert_called_once_with("http://x", render_js=True)
     fake_gs.http.get_html.assert_not_called()
