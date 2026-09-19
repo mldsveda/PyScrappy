@@ -56,7 +56,38 @@ def test_extract_html_fetches_raw_markup(tmp_path):
     fake_gs.__exit__.return_value = False
     fake_gs.http.get_html.return_value = "<html><body>raw</body></html>"
     with patch("pyscrappy.GenericScraper", return_value=fake_gs):
-        run_extract("http://x", str(out))
+        run_extract("http://x", str(out), render_js=False)
+    assert out.read_text() == "<html><body>raw</body></html>"
+    fake_gs.http.get_html.assert_called_once_with("http://x")
+    fake_gs.fetch_html.assert_not_called()
+
+
+def test_extract_html_render_js_uses_browser_path(tmp_path):
+    """``.html`` + ``render_js=True`` must use fetch_html, not plain HTTP."""
+    out = tmp_path / "out.html"
+    fake_gs = MagicMock()
+    fake_gs.__enter__.return_value = fake_gs
+    fake_gs.__exit__.return_value = False
+    fake_gs.fetch_html.return_value = "<html><body>rendered</body></html>"
+    with patch("pyscrappy.GenericScraper", return_value=fake_gs), patch(
+        "pyscrappy.scrape"
+    ) as scrape:
+        run_extract("http://x", str(out), render_js=True)
+    assert out.read_text() == "<html><body>rendered</body></html>"
+    fake_gs.fetch_html.assert_called_once_with("http://x", render_js=True)
+    fake_gs.http.get_html.assert_not_called()
+    scrape.assert_not_called()
+
+
+def test_extract_html_css_selector_warns(tmp_path):
+    out = tmp_path / "out.html"
+    fake_gs = MagicMock()
+    fake_gs.__enter__.return_value = fake_gs
+    fake_gs.__exit__.return_value = False
+    fake_gs.http.get_html.return_value = "<html><body>raw</body></html>"
+    with patch("pyscrappy.GenericScraper", return_value=fake_gs):
+        with pytest.warns(UserWarning, match="css-selector"):
+            run_extract("http://x", str(out), css_selector=".product")
     assert out.read_text() == "<html><body>raw</body></html>"
     fake_gs.http.get_html.assert_called_once_with("http://x")
 
