@@ -8,6 +8,7 @@ every supported Python version. The ``chat`` command needs the MCP/agent stack
 from __future__ import annotations
 
 import argparse
+import warnings
 
 
 def run_extract(
@@ -22,10 +23,11 @@ def run_extract(
     - ``.md``   -> Markdown (``ScrapeResult.to_markdown``)
     - ``.json`` -> JSON (``ScrapeResult.to_json``)
     - ``.txt``  -> extracted page text
-    - ``.html`` -> raw page HTML
+    - ``.html`` -> page HTML (honors ``--render-js``)
 
     With ``--css-selector`` the matched elements' text is extracted instead of the
-    whole page. Returns a short status line for the CLI to print.
+    whole page (not applied to ``.html``; a warning is emitted). Returns a short
+    status line for the CLI to print.
     """
     from pyscrappy import GenericScraper, scrape
 
@@ -35,9 +37,19 @@ def run_extract(
 
     if ext == "html":
         # Raw HTML: the structured scrape result doesn't retain the source markup,
-        # so fetch the page's HTML directly.
+        # so fetch the page's HTML directly. Honor --render-js via the scraper's
+        # browser-aware fetch; keep the plain HTTP client when the flag is off.
+        if css_selector:
+            warnings.warn(
+                "--css-selector does not apply to .html output; writing the full page markup.",
+                UserWarning,
+                stacklevel=2,
+            )
         with GenericScraper() as gs:
-            content = gs.http.get_html(url)
+            if render_js:
+                content = gs.fetch_html(url, render_js=True)
+            else:
+                content = gs.http.get_html(url)
     else:
         selectors = {"match": css_selector} if css_selector else None
         result = scrape(url, selectors=selectors, render_js=render_js)
