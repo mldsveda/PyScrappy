@@ -99,6 +99,33 @@ class TestFindNextPageUrl:
         result = find_next_page_url(soup, "https://example.com/p/1")
         assert result == "https://example.com/p/2"
 
+    # -- #187: page 1 is usually the bare URL, with no page token to step from --
+
+    def test_numbered_pagination_from_bare_first_page(self):
+        """Page 1 carries no ?page= token, so there is nothing to step from. The
+        lowest forward link (2) is the next page; previously this returned None
+        and the crawl silently stopped after one page."""
+        soup = _soup('<html><body><a href="?page=2">2</a><a href="?page=3">3</a></body></html>')
+        result = find_next_page_url(soup, "https://example.com/list")
+        assert result == "https://example.com/list?page=2"
+
+    def test_bare_first_page_offset_style_uses_lowest_link(self):
+        """An offset-style site's page 1 is also bare, and its step (20) cannot be
+        inferred from a URL with no offset in it, so the lowest forward link wins."""
+        soup = _soup('<html><body><a href="?start=20">2</a><a href="?start=40">3</a></body></html>')
+        result = find_next_page_url(soup, "https://example.com/list")
+        assert result == "https://example.com/list?start=20"
+
+    def test_bare_first_page_picks_lowest_when_links_unordered(self):
+        soup = _soup('<html><body><a href="?page=3">3</a><a href="?page=2">2</a></body></html>')
+        result = find_next_page_url(soup, "https://example.com/list")
+        assert result == "https://example.com/list?page=2"
+
+    def test_bare_first_page_with_only_page_one_link_returns_none(self):
+        """Nothing to advance to: must not loop back onto page 1."""
+        soup = _soup('<html><body><a href="?page=1">1</a></body></html>')
+        assert find_next_page_url(soup, "https://example.com/list") is None
+
 
 class TestExtractPageNumber:
     def test_page_param(self):
