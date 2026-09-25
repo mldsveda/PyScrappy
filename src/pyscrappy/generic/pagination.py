@@ -55,14 +55,28 @@ def find_next_page_url(soup: BeautifulSoup, current_url: str) -> str | None:
     page_links = _find_page_number_links(soup, current_url)
     if page_links:
         current_num = _extract_page_number(current_url)
-        if current_num is not None:
-            step = _page_step(current_url, page_links)
-            if step is None:
+        if current_num is None:
+            # Page 1 is usually the bare URL (/products), with only pages 2+
+            # carrying a ?page= token, so there is no number to step from. The
+            # links themselves already say where to go next: take the lowest one
+            # above the implicit first page. Stepping from an assumed 0/1 would
+            # instead need _page_step, which can't infer an offset-style page
+            # size from a URL that has no offset in it (#187).
+            forward = [num for num, _ in page_links if num > 1]
+            if not forward:
                 return None
-            target = current_num + step
+            target = min(forward)
             for num, url in page_links:
                 if num == target:
                     return url
+            return None
+        step = _page_step(current_url, page_links)
+        if step is None:
+            return None
+        target = current_num + step
+        for num, url in page_links:
+            if num == target:
+                return url
 
     return None
 

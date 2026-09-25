@@ -6,6 +6,14 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-09-25
+
+### Fixed
+- **Numbered pagination now advances from a bare page-1 URL.** On the common layout where page 1 is the plain URL (`/products`) and only later pages carry a `?page=` token, `find_next_page_url` discarded the numbered links entirely and returned `None`, so `scrape_url(url, max_pages=N)` silently scraped one page and reported success. It now follows the lowest forward link (page 2), which also handles offset-style sites whose page size can't be inferred from a URL with no offset in it. Pages that only link to themselves still return `None` rather than looping (#187).
+
+### Changed
+- `server.json` now advertises 24 MCP tools (was a stale 22).
+
 ## [1.6.3] - 2026-09-01
 
 ### Fixed

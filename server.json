@@ -1,19 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.mldsveda/pyscrappy",
-  "description": "Web-scraping toolkit with 22 tools for structured web data as JSON for AI agents.",
+  "description": "Web-scraping toolkit with 24 tools for structured web data as JSON for AI agents.",
   "title": "PyScrappy",
   "repository": {
     "url": "https://github.com/mldsveda/PyScrappy",
     "source": "github"
   },
-  "version": "1.6.3",
+  "version": "1.6.4",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "pyscrappy",
-      "version": "1.6.3",
+      "version": "1.6.4",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
