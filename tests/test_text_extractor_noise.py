@@ -39,7 +39,13 @@ def test_noise_class_names_are_still_removed():
 
     assert len(result["paragraphs"]) == 1
     assert "Control paragraph" in result["text"]
-    for word in ("Navigation noise", "Sidebar noise", "Footer noise", "Comment noise", "Social noise"):
+    for word in (
+        "Navigation noise",
+        "Sidebar noise",
+        "Footer noise",
+        "Comment noise",
+        "Social noise",
+    ):
         assert word not in result["text"]
 
 
