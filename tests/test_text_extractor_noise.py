@@ -144,3 +144,48 @@ def test_noise_ids_are_still_removed_without_anchored_false_negatives():
 
     assert len(result["paragraphs"]) == 1
     assert "Main content paragraph" in result["text"]
+
+
+def test_cookie_content_labels_are_not_treated_as_noise():
+    """A bare "cookie" word is content; only the cookie interface block is noise."""
+    html = (
+        "<html><body>"
+        '<div class="post tag-cookies"><p>Cookie recipe paragraph that must survive extraction.</p></div>'
+        '<div class="cookie-recipe"><p>Second recipe paragraph that must survive extraction.</p></div>'
+        "</body></html>"
+    )
+    result = _extract(html)
+
+    assert len(result["paragraphs"]) == 2
+    assert "Cookie recipe paragraph" in result["text"]
+    assert "Second recipe paragraph" in result["text"]
+
+
+def test_explicit_cookie_interface_names_are_still_removed():
+    html = (
+        "<html><body>"
+        '<div class="cookie-consent"><p>Consent paragraph that must never be extracted here.</p></div>'
+        '<div class="content cookie-banner"><p>Banner paragraph that must never be extracted now.</p></div>'
+        '<div class="content"><p>Surviving paragraph that must always be part of the result.</p></div>'
+        "</body></html>"
+    )
+    result = _extract(html)
+
+    assert len(result["paragraphs"]) == 1
+    assert "Surviving paragraph" in result["text"]
+
+
+def test_breadcrumb_blocks_are_removed():
+    assert TextExtractor._is_noise("breadcrumb")
+    assert TextExtractor._is_noise("content breadcrumb")
+    html = (
+        "<html><body>"
+        '<div class="breadcrumb"><p>Breadcrumb trail paragraph that must never be extracted.</p></div>'
+        '<div class="content"><p>Control paragraph that must always survive extraction.</p></div>'
+        "</body></html>"
+    )
+    result = _extract(html)
+
+    assert len(result["paragraphs"]) == 1
+    assert "Control paragraph" in result["text"]
+    assert "Breadcrumb trail paragraph" not in result["text"]

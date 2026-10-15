@@ -70,7 +70,13 @@ class TextExtractor:
     # The set is limited to names that are boilerplate on their own.  Neutral
     # layout/content labels ("profile", "gallery", "review", "accordion",
     # "search", ...) are deliberately absent: they routinely wrap the article
-    # itself, and one such word deletes a whole subtree of real text.
+    # itself, and one such word deletes a whole subtree of real text.  The
+    # bare word "cookie" is out for the same reason -- "post tag-cookies" and
+    # "cookie-recipe" are content, whereas the interface block is named
+    # "cookie-banner" / "cookie-consent" -- so only those explicit names are
+    # listed.  Listed compound names match as a whole token only: a wrapper
+    # such as "cookie-banner-wrapper" stays untouched, prefix matching being
+    # exactly what used to delete real text.
     _NOISE_WORDS = frozenset(
         {
             "nav",
@@ -95,9 +101,10 @@ class TextExtractor:
             "widget",
             "popup",
             "modal",
-            "cookie",
-            "cookies",
+            "cookie-banner",
+            "cookie-consent",
             "newsletter",
+            "breadcrumb",
             "pagination",
             "subscribe",
             "subscription",
