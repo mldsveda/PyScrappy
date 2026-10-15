@@ -66,6 +66,11 @@ class TextExtractor:
     # "headline" can never be mistaken for the noise names "ad" / "header",
     # while "ad-banner", "nav menu", "content ad-banner" or "author-bio" are
     # still recognised as noise.
+    #
+    # The set is limited to names that are boilerplate on their own.  Neutral
+    # layout/content labels ("profile", "gallery", "review", "accordion",
+    # "search", ...) are deliberately absent: they routinely wrap the article
+    # itself, and one such word deletes a whole subtree of real text.
     _NOISE_WORDS = frozenset(
         {
             "nav",
@@ -84,47 +89,19 @@ class TextExtractor:
             "advertising",
             "advertisement",
             "adsense",
-            "banner",
-            "sponsor",
-            "sponsored",
-            "promo",
-            "promotion",
             "social",
             "share",
             "related",
-            "recommend",
-            "recommendations",
-            "trending",
             "widget",
             "popup",
             "modal",
             "cookie",
             "cookies",
             "newsletter",
-            "breadcrumb",
             "pagination",
-            "tag",
-            "tags",
-            "meta",
             "subscribe",
             "subscription",
             "signup",
-            "login",
-            "search",
-            "toolbar",
-            "dropdown",
-            "accordion",
-            "carousel",
-            "slider",
-            "gallery",
-            "thumbnail",
-            "avatar",
-            "profile",
-            "rating",
-            "review",
-            "poll",
-            "quiz",
-            "survey",
             "author-bio",
         }
     )
@@ -135,13 +112,14 @@ class TextExtractor:
 
         Matching happens per word so compound names such as "ad-banner" or
         "sidebar-widget" are still removed, while look-alike names such as
-        "gradient", "download-guide" or "headline" are left untouched.
+        "gradient", "download-guide" or "headline" are left untouched.  Both
+        separators behave the same way: "_" is normalised to "-" *before* the
+        exact lookup, so "author_bio" and "author-bio" are both noise.
         """
-        for token in str(value).split():
-            token = token.lower()
+        for token in str(value).lower().replace("_", "-").split():
             if token in cls._NOISE_WORDS:
                 return True
-            for part in token.replace("_", "-").split("-"):
+            for part in token.split("-"):
                 if part in cls._NOISE_WORDS:
                     return True
         return False

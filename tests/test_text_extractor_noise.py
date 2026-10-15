@@ -24,6 +24,30 @@ def test_ordinary_class_names_are_not_treated_as_noise():
     assert "headline block" in result["text"]
 
 
+def test_neutral_layout_labels_are_not_treated_as_noise():
+    """Labels naming layout or content blocks must not delete their subtree."""
+    html = (
+        "<html><body>"
+        '<div class="book-review"><p>Real review text long enough to be extracted here.</p></div>'
+        '<div class="profile"><p>Profile block paragraph that must survive extraction.</p></div>'
+        '<div class="gallery"><p>Gallery caption paragraph that must survive extraction.</p></div>'
+        '<div class="accordion-content"><p>Accordion body paragraph that must survive.</p></div>'
+        '<div class="search-results"><p>Search hit paragraph that must survive extraction.</p></div>'
+        "</body></html>"
+    )
+    result = _extract(html)
+
+    assert len(result["paragraphs"]) == 5
+    for marker in (
+        "Real review text",
+        "Profile block",
+        "Gallery caption",
+        "Accordion body",
+        "Search hit",
+    ):
+        assert marker in result["text"]
+
+
 def test_noise_class_names_are_still_removed():
     html = (
         "<html><body>"
@@ -83,8 +107,7 @@ def test_longer_noise_names_are_still_removed():
         '<div class="navigation"><p>Navigation block paragraph that must never be extracted.</p></div>'
         '<div class="advert"><p>Advertising block paragraph that must never be extracted.</p></div>'
         '<div class="newsletter"><p>Newsletter block paragraph that must never be extracted.</p></div>'
-        '<div class="breadcrumb"><p>Breadcrumb block paragraph that must never be extracted.</p></div>'
-        '<div class="cookie-banner"><p>Cookie banner paragraph that must never be extracted.</p></div>'
+        '<div class="cookie-banner"><p>Cookie notice paragraph that must never be extracted.</p></div>'
         '<div class="author-bio"><p>Author biography paragraph that must never be extracted.</p></div>'
         '<div class="content"><p>Surviving paragraph that must always be part of the result.</p></div>'
         "</body></html>"
@@ -93,6 +116,21 @@ def test_longer_noise_names_are_still_removed():
 
     assert len(result["paragraphs"]) == 1
     assert "Surviving paragraph" in result["text"]
+
+
+def test_underscore_and_hyphen_separators_behave_the_same():
+    html = (
+        "<html><body>"
+        '<div class="author_bio"><p>Author biography underscore paragraph that must go.</p></div>'
+        '<div class="social_share"><p>Share widget underscore paragraph that must go.</p></div>'
+        '<div id="sidebar_widget"><p>Sidebar underscore paragraph that must go.</p></div>'
+        '<div class="content"><p>Underscore control paragraph that must always survive.</p></div>'
+        "</body></html>"
+    )
+    result = _extract(html)
+
+    assert len(result["paragraphs"]) == 1
+    assert "Underscore control paragraph" in result["text"]
 
 
 def test_noise_ids_are_still_removed_without_anchored_false_negatives():
