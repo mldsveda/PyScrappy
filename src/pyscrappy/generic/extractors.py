@@ -60,10 +60,76 @@ class TextExtractor:
 
     _BLOCK_TAGS = {"p", "div", "article", "section", "main", "blockquote", "li", "td", "pre"}
     _NOISE_TAGS = {"script", "style", "nav", "footer", "header", "aside", "noscript", "iframe"}
-    _NOISE_CLASSES = re.compile(
-        r"(nav|menu|sidebar|footer|header|comment|ad|social|share|related|widget|popup|modal)",
-        re.IGNORECASE,
+    # Noise names are matched as whole words, never as substrings: a class/id
+    # value is split on whitespace and then on "-" / "_", and only complete
+    # words are compared against this set.  So "gradient", "download-guide" or
+    # "headline" can never be mistaken for the noise names "ad" / "header",
+    # while "ad-banner", "nav menu", "content ad-banner" or "author-bio" are
+    # still recognised as noise.
+    #
+    # The set is limited to names that are boilerplate on their own.  Neutral
+    # layout/content labels ("profile", "gallery", "review", "accordion",
+    # "search", ...) are deliberately absent: they routinely wrap the article
+    # itself, and one such word deletes a whole subtree of real text.  The
+    # bare word "cookie" is out for the same reason -- "post tag-cookies" and
+    # "cookie-recipe" are content, whereas the interface block is named
+    # "cookie-banner" / "cookie-consent" -- so only those explicit names are
+    # listed.  Listed compound names match as a whole token only: a wrapper
+    # such as "cookie-banner-wrapper" stays untouched, prefix matching being
+    # exactly what used to delete real text.
+    _NOISE_WORDS = frozenset(
+        {
+            "nav",
+            "navigation",
+            "navbar",
+            "menu",
+            "menubar",
+            "sidebar",
+            "footer",
+            "header",
+            "comment",
+            "comments",
+            "ad",
+            "ads",
+            "advert",
+            "advertising",
+            "advertisement",
+            "adsense",
+            "social",
+            "share",
+            "related",
+            "widget",
+            "popup",
+            "modal",
+            "cookie-banner",
+            "cookie-consent",
+            "newsletter",
+            "breadcrumb",
+            "pagination",
+            "subscribe",
+            "subscription",
+            "signup",
+            "author-bio",
+        }
     )
+
+    @classmethod
+    def _is_noise(cls, value: str) -> bool:
+        """Return True when *value* (a class or id attribute) is noise.
+
+        Matching happens per word so compound names such as "ad-banner" or
+        "sidebar-widget" are still removed, while look-alike names such as
+        "gradient", "download-guide" or "headline" are left untouched.  Both
+        separators behave the same way: "_" is normalised to "-" *before* the
+        exact lookup, so "author_bio" and "author-bio" are both noise.
+        """
+        for token in str(value).lower().replace("_", "-").split():
+            if token in cls._NOISE_WORDS:
+                return True
+            for part in token.split("-"):
+                if part in cls._NOISE_WORDS:
+                    return True
+        return False
 
     def extract(self, soup: BeautifulSoup) -> dict[str, Any]:
         # Remove noise elements
@@ -91,11 +157,23 @@ class TextExtractor:
 
         clean = BeautifulSoup(str(soup), "lxml")
         for tag in clean.find_all(self._NOISE_TAGS):
-            tag.decompose()
-        for tag in clean.find_all(attrs={"class": self._NOISE_CLASSES}):
-            tag.decompose()
-        for tag in clean.find_all(attrs={"id": self._NOISE_CLASSES}):
-            tag.decompose()
+            if not getattr(tag, "_decomposed", False):
+                tag.decompose()
+        # Match noise class/id values per word instead of as substrings of the
+        # whole attribute value, so one noisy class on a multi-class element is
+        # enough to drop it while innocent class names are kept.
+        for tag in clean.find_all(True):
+            if getattr(tag, "_decomposed", False):
+                continue
+            classes = tag.get("class")
+            if isinstance(classes, str):
+                classes = classes.split()
+            if classes and any(self._is_noise(c) for c in classes):
+                tag.decompose()
+                continue
+            tag_id = tag.get("id")
+            if tag_id and self._is_noise(tag_id):
+                tag.decompose()
         return clean
 
     def _get_paragraphs(self, element: Tag | BeautifulSoup) -> list[str]:
