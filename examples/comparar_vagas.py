@@ -401,9 +401,8 @@ def render_report(payload: dict[str, Any], mode: str) -> str:
                 "podem variar entre execuções."
             ),
             (
-                "- Alguns anúncios do Arbeitnow trazem `description` com HTML escapado "
-                "no próprio payload; a amostra preserva o texto retornado e os demais "
-                "campos seguem normalizados."
+                "- As descrições HTML do Arbeitnow, inclusive quando vêm escapadas pelo "
+                "payload, são convertidas para texto simples pelo scraper."
             ),
             (
                 "- A atribuição ao Arbeitnow (`https://www.arbeitnow.com`) e o uso "

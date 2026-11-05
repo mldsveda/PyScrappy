@@ -1,8 +1,8 @@
 # Comparativo de busca de vagas: antes e depois do Arbeitnow
 
-- **Gerado em:** 2026-11-05T14:54:48+00:00
+- **Gerado em:** 2026-11-05T15:06:45+00:00
 - **Modo:** `live`
-- **Commit:** `2ab144b`
+- **Commit:** `e9b4642`
 - **Versão do PyScrappy:** `1.6.4`
 - **Python:** `3.14.8`
 
@@ -28,19 +28,19 @@ Este comparativo cobre apenas a API Python. A integração no registro do pacote
 
 | Fonte | Vagas brutas | URLs únicas | Execuções | Execuções com erro | Tempo total (s) |
 |---|---:|---:|---:|---:|---:|
-| LinkedIn | 180 | 180 | 3 | 0 | 4.90 |
-| Arbeitnow | 25 | 25 | 3 | 0 | 3.61 |
+| LinkedIn | 180 | 180 | 3 | 0 | 6.81 |
+| Arbeitnow | 25 | 25 | 3 | 0 | 16.25 |
 
 ## Resultados por consulta
 
 | Fonte | Consulta | Local | Vagas | Únicas | Páginas | Tempo (s) | Erros |
 |---|---|---|---:|---:|---:|---:|---|
-| LinkedIn | software engineer | (vazio) | 60 | 60 | 1 | 2.12 | - |
-| Arbeitnow | software engineer | (vazio) | 17 | 17 | 1 | 1.04 | - |
-| LinkedIn | backend | (vazio) | 60 | 60 | 1 | 1.25 | - |
-| Arbeitnow | backend | (vazio) | 3 | 3 | 1 | 1.19 | - |
-| LinkedIn | engineer | Berlin | 60 | 60 | 1 | 1.53 | - |
-| Arbeitnow | engineer | Berlin | 5 | 5 | 1 | 1.38 | - |
+| LinkedIn | software engineer | (vazio) | 60 | 60 | 1 | 3.32 | - |
+| Arbeitnow | software engineer | (vazio) | 17 | 17 | 1 | 7.27 | - |
+| LinkedIn | backend | (vazio) | 60 | 60 | 1 | 1.81 | - |
+| Arbeitnow | backend | (vazio) | 3 | 3 | 1 | 4.69 | - |
+| LinkedIn | engineer | Berlin | 60 | 60 | 1 | 1.68 | - |
+| Arbeitnow | engineer | Berlin | 5 | 5 | 1 | 4.29 | - |
 
 ## Campos observados
 
@@ -112,7 +112,7 @@ Este comparativo cobre apenas a API Python. A integração no registro do pacote
     "job_types": [],
     "remote": false,
     "created_at": "2026-11-05T12:55:17+00:00",
-    "description": "<div class=\"content-intro\"><p>Muck Rack is trusted by thousands of organizations around the world to understand how their brands show up across news, social media and AI-generated answers.</p> <p>Our AI-powered platform connects the enti..."
+    "description": "Muck Rack is trusted by thousands of organizations around the world to understand how their brands show up across news, social media and AI-generated answers. Our AI-powered platform connects the entire PR workflow in one place, helping ..."
   },
   {
     "title": "Staff Software Engineer",
@@ -126,7 +126,7 @@ Este comparativo cobre apenas a API Python. A integração no registro do pacote
     "job_types": [],
     "remote": false,
     "created_at": "2026-11-05T09:55:14+00:00",
-    "description": "<div class=\"content-intro\"><h4><strong>Join Axon and be a Force for Good.</strong></h4> <p>At Axon, we’re on a mission to Protect Life. We’re explorers, pursuing society’s most critical safety and justice issues with our ecosystem of dev..."
+    "description": "Join Axon and be a Force for Good. At Axon, we’re on a mission to Protect Life. We’re explorers, pursuing society’s most critical safety and justice issues with our ecosystem of devices and cloud software. Like our products, we work bett..."
   }
 ]
 ```
@@ -137,7 +137,7 @@ Este comparativo cobre apenas a API Python. A integração no registro do pacote
 - O LinkedIn retornou 60 cards por requisição nesta execução, acima das ~25 por página documentadas no docstring. A coluna **URLs únicas** confirma que não houve duplicação de URLs nesta coleta.
 - O Arbeitnow é o representante do **depois**. A API não exige chave e devolve vagas normalizadas com filtros locais de `query`, `location`, `remote` e `job_type`. O `query` é uma busca por substring em título e tags, não uma busca full-text; por isso as consultas foram ajustadas para termos presentes no índice no momento da coleta.
 - O Arbeitnow deduplica por `slug`/URL. O resultado é uma fotografia do momento da execução: as fontes mudam com o tempo, então os números podem variar entre execuções.
-- Alguns anúncios do Arbeitnow trazem `description` com HTML escapado no próprio payload; a amostra preserva o texto retornado e os demais campos seguem normalizados.
+- As descrições HTML do Arbeitnow, inclusive quando vêm escapadas pelo payload, são convertidas para texto simples pelo scraper.
 - A atribuição ao Arbeitnow (`https://www.arbeitnow.com`) e o uso moderado estão documentados no docstring do scraper.
 
 ### Erros observados

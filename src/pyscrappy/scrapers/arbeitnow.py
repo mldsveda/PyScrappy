@@ -11,6 +11,7 @@ default).
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import unicodedata
@@ -358,7 +359,8 @@ class ArbeitnowScraper(BaseScraper):
     def _html_to_text(value: Any) -> str | None:
         if not isinstance(value, str) or not value.strip():
             return None
-        text = BeautifulSoup(value, "lxml").get_text(" ", strip=True)
+        text = html.unescape(value)
+        text = BeautifulSoup(text, "lxml").get_text(" ", strip=True)
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"\s+([,.;:!?])", r"\1", text)
         return text.strip() or None

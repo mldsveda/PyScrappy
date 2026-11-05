@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
 
+from pyscrappy.scrapers.arbeitnow import ArbeitnowScraper
 from pyscrappy.scrapers.github import GitHubScraper
 from pyscrappy.scrapers.hackernews import HackerNewsScraper
 from pyscrappy.scrapers.openlibrary import OpenLibraryScraper
@@ -14,6 +15,48 @@ def _with(scraper, *responses):
     scraper._http = MagicMock()
     scraper._http.get_html.side_effect = responses
     return scraper
+
+
+class TestArbeitnow:
+    def _payload(self, description):
+        return json.dumps(
+            {
+                "data": [
+                    {
+                        "title": "Backend Engineer",
+                        "company_name": "Example",
+                        "location": "Berlin",
+                        "url": "/jobs/backend-engineer",
+                        "tags": ["Software Development"],
+                        "job_types": ["Full Time"],
+                        "remote": False,
+                        "created_at": 1767225600,
+                        "description": description,
+                    }
+                ],
+                "links": {"next": None},
+            }
+        )
+
+    def test_parse_escaped_html_description(self):
+        escaped = (
+            "&lt;div class=&quot;content-intro&quot;&gt;"
+            "&lt;p&gt;Build &amp;amp; ship&lt;/p&gt;"
+            "&lt;/div&gt;"
+        )
+        s = _with(ArbeitnowScraper(), self._payload(escaped))
+        r = s.scrape(max_results=5)
+        assert len(r.data) == 1
+        description = r.data[0]["description"]
+        assert description == "Build & ship"
+        assert "<" not in description
+        assert "&lt;" not in description
+
+    def test_parse_plain_html_description(self):
+        plain = "<div class=\"content-intro\"><p>Build <strong>and</strong> ship</p></div>"
+        s = _with(ArbeitnowScraper(), self._payload(plain))
+        r = s.scrape(max_results=5)
+        assert r.data[0]["description"] == "Build and ship"
 
 
 class TestGitHub:
