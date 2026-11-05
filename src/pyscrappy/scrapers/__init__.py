@@ -1,4 +1,5 @@
 from pyscrappy.scrapers.amazon import AmazonScraper
+from pyscrappy.scrapers.arbeitnow import ArbeitnowScraper
 from pyscrappy.scrapers.crypto import CryptoScraper
 from pyscrappy.scrapers.currency import CurrencyScraper
 from pyscrappy.scrapers.dictionary import DictionaryScraper
@@ -24,6 +25,7 @@ from pyscrappy.scrapers.zomato import ZomatoScraper
 
 __all__ = [
     "AmazonScraper",
+    "ArbeitnowScraper",
     "CryptoScraper",
     "CurrencyScraper",
     "DictionaryScraper",

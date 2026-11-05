@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from pyscrappy import (
     AmazonScraper,
+    ArbeitnowScraper,
     CryptoScraper,
     CurrencyScraper,
     DictionaryScraper,
@@ -293,6 +294,44 @@ async def search_youtube(query: str, max_results: int = 20) -> ScrapeToolResult:
     """
     with YouTubeScraper(_config()) as yts:
         return await _run(yts.scrape, query=query, max_results=max_results)
+
+
+@mcp.tool()
+async def search_arbeitnow_jobs(
+    query: str = "",
+    location: str = "",
+    remote: bool | None = None,
+    job_type: str | None = None,
+    max_pages: int = 1,
+    max_results: int = 20,
+) -> ScrapeToolResult:
+    """Search Arbeitnow for job postings and return structured job records.
+
+    Each result can include title, company, location, url, tags, job_type,
+    job_types, remote, created_at, and a plain-text description. Results come
+    from Arbeitnow's public API and reflect its current listings.
+
+    Args:
+        query: Text matched against job titles and tags. Example: "python".
+        location: Text matched against the job location. Example: "Berlin".
+        remote: Filter for remote (True) or non-remote (False) jobs; None keeps both.
+        job_type: Filter by job type, such as "Full Time".
+        max_pages: Maximum number of API pages to fetch. Default: 1.
+        max_results: Maximum number of matching jobs to return. Default: 20.
+
+    Use this tool to find jobs from Arbeitnow. Keep page and result limits modest;
+    cite Arbeitnow (https://www.arbeitnow.com) when presenting its listings.
+    """
+    with ArbeitnowScraper(_config()) as arbeitnow:
+        return await _run(
+            arbeitnow.scrape,
+            query=query,
+            location=location,
+            remote=remote,
+            job_type=job_type,
+            max_pages=max_pages,
+            max_results=max_results,
+        )
 
 
 @mcp.tool()
