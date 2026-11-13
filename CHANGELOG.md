@@ -6,6 +6,12 @@ All notable changes to PyScrappy are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **Arbeitnow job scraper and MCP tool.** `ArbeitnowScraper` and
+  `search_arbeitnow_jobs` query Arbeitnow's public job-board API with filters for
+  `query`, `location`, `remote`, and `job_type`, plus `max_pages` and `max_results`
+  controls. Results include normalized job fields and plain-text descriptions.
+
 ## [1.6.4] - 2026-09-25
 
 ### Fixed

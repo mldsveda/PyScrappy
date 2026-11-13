@@ -99,7 +99,7 @@ pip install 'pyscrappy[mcp]'                 # needs Python 3.10+
 pyscrappy chat --model qwen2.5 "what's the current AAPL quote?"
 ```
 
-It exposes the same 22 tools as the MCP server. The only requirement is a model
+It exposes the same 25 tools as the MCP server. The only requirement is a model
 that supports **tool calling** (Llama 3.1, Qwen 2.5, Mistral, …); how well it
 *picks* the right tool is up to the model. Point it at a remote Ollama with
 `--host`, and pass `-v` to see each tool call.
@@ -159,11 +159,12 @@ Add to your `claude_desktop_config.json` and restart the app:
 
 ### Available tools
 
-The server exposes **20+ tools**. The most common ones are **`scrape_url`** (any
+The server exposes **25 tools**. The most common ones are **`scrape_url`** (any
 URL → text, links, images, tables, metadata), **`scrape_wikipedia`**,
 **`scrape_stock`**, **`scrape_news`**, and **`search_github`** — plus many more
-covering image/YouTube/LinkedIn/Hacker News/book search, weather, crypto,
-currency, dictionary, Amazon/Newegg/IKEA/SoundCloud, IMDB, and Zomato/Uber Eats.
+covering Arbeitnow job search, image/YouTube/LinkedIn/Hacker News/book search,
+weather, crypto, currency, dictionary, Amazon/Newegg/IKEA/SoundCloud, IMDB, and
+Zomato/Uber Eats.
 
 To see the full, live list, ask the agent to call the **`list_available_scrapers`**
 tool, or from a shell:
@@ -191,13 +192,13 @@ latest headlines from bbc.co.uk and the AAPL stock quote."*
 
 ## Built-in scrapers
 
-PyScrappy ships **24 built-in scrapers**, and every one that works without a
+PyScrappy ships **25 built-in scrapers**, and every one that works without a
 proxy is also exposed as an [MCP tool](#mcp-server-use-pyscrappy-from-an-ai-agent).
 
 A few of them:
 
 - **`GenericScraper`** — scrape any URL with auto-extraction (text, links, images, tables, metadata)
-- **Data / research** — **`WikipediaScraper`**, **`StockScraper`** (Yahoo Finance), **`NewsScraper`** (RSS/Atom), **`GitHubScraper`**, **`HackerNewsScraper`**, plus weather, crypto, currency, dictionary, image, LinkedIn-jobs, and book search
+- **Data / research** — **`WikipediaScraper`**, **`StockScraper`** (Yahoo Finance), **`NewsScraper`** (RSS/Atom), **`GitHubScraper`**, **`HackerNewsScraper`**, **`ArbeitnowScraper`**, plus weather, crypto, currency, dictionary, image, LinkedIn-jobs, and book search
 - **E-commerce** — **`AmazonScraper`**, `NeweggScraper`, `IKEAScraper`
 - **Social / media / food** — **`YouTubeScraper`**, SoundCloud, Zomato, Uber Eats (Instagram / Twitter / Spotify also ship, but are blocked and need a proxy)
 
@@ -397,9 +398,45 @@ with WikipediaScraper() as ws:
 ```
 
 Each scraper has its own arguments (Wikipedia, stocks, IMDB, news, YouTube,
-Amazon/Newegg/IKEA, Uber Eats, and more — see the [full list](#built-in-scrapers)).
+Arbeitnow, Amazon/Newegg/IKEA, Uber Eats, and more — see the [full list](#built-in-scrapers)).
 For per-scraper arguments and examples, see the
 [documentation](https://pyscrappy.vercel.app/docs/scrapers/).
+
+#### Search Arbeitnow jobs
+
+`ArbeitnowScraper` uses Arbeitnow's public job-board API and returns structured
+job listings. Filtering is applied locally to the API response:
+
+```python
+from pyscrappy import ArbeitnowScraper
+
+with ArbeitnowScraper() as scraper:
+    result = scraper.scrape(
+        query="python",
+        location="Berlin",
+        remote=True,
+        job_type="Full Time",
+        max_pages=2,
+        max_results=10,
+    )
+
+for job in result.data:
+    print(job["title"], "-", job["company"], "-", job["url"])
+```
+
+Parameters:
+
+- `query` — case-insensitive text matched against job titles and tags. Default: `""`.
+- `location` — case-insensitive text matched against the job location. Default: `""`.
+- `remote` — `True` for remote jobs, `False` for non-remote jobs, or `None` for both. Default: `None`.
+- `job_type` — case-insensitive job type filter, such as `"Full Time"`. Default: `None`.
+- `max_pages` — maximum number of API pages to fetch. Default: `1`.
+- `max_results` — maximum number of matching jobs to return. Default: `20`.
+
+The MCP equivalent is `search_arbeitnow_jobs` with the same parameters. Results
+include `title`, `company`, `location`, `url`, `tags`, `job_type`, `job_types`,
+`remote`, `created_at`, and a plain-text `description`. Cite Arbeitnow
+([arbeitnow.com](https://www.arbeitnow.com)) when presenting its listings.
 
 ### From the command line
 
