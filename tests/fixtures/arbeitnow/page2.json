@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "slug": "backend-engineer-berlin",
+      "title": "Backend Engineer",
+      "company_name": "Example Labs",
+      "location": "Berlin",
+      "url": "/jobs/backend-engineer-berlin",
+      "tags": ["Python", "Backend"],
+      "job_types": ["Full Time"],
+      "remote": false,
+      "created_at": 1767225600,
+      "description": "<p>Duplicate listing from the next page.</p>"
+    },
+    {
+      "slug": "frontend-engineer-munich",
+      "title": "Frontend Engineer",
+      "company_name": "Interface GmbH",
+      "location": "Munich",
+      "url": "/jobs/frontend-engineer-munich",
+      "tags": ["JavaScript", "Frontend"],
+      "job_types": ["Full Time"],
+      "remote": false,
+      "created_at": 1767398400,
+      "description": "<p>Build accessible interfaces.</p>"
+    }
+  ],
+  "links": {
+    "next": null
+  }
+}

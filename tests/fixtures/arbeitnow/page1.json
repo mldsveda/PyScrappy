@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "slug": "backend-engineer-berlin",
+      "title": "Backend Engineer",
+      "company_name": "Example Labs",
+      "location": "Berlin",
+      "url": "/jobs/backend-engineer-berlin",
+      "tags": ["Python", "Backend"],
+      "job_types": ["Full Time"],
+      "remote": false,
+      "created_at": 1767225600,
+      "description": "<p>Build <strong>reliable</strong> services.</p>"
+    },
+    {
+      "slug": "python-remote-engineer",
+      "title": "Python Remote Engineer",
+      "company_name": "Remote Systems",
+      "location": "Remote",
+      "url": "https://jobs.example.test/python-remote-engineer",
+      "tags": ["Python", "API"],
+      "job_types": ["Contract", "Full Time"],
+      "remote": true,
+      "created_at": "2026-01-03T12:00:00Z",
+      "description": "&lt;p&gt;Design APIs for distributed teams.&lt;/p&gt;"
+    }
+  ],
+  "links": {
+    "next": "https://www.arbeitnow.com/api/job-board-api?page=2"
+  }
+}
